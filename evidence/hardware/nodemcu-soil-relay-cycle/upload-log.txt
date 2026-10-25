@@ -1,0 +1,46 @@
+=== COMPILACIÓN ARDUINO CLI (ETAPA 2 — CICLO SENSOR → DECISIÓN → ACTUADOR) ===
+Comando: arduino-cli compile --fqbn esp8266:esp8266:nodemcuv2 evidence/hardware/nodemcu-soil-relay-cycle
+
+El Sketch usa 268224 bytes (25%) del espacio de almacenamiento de programa. El máximo es 1044464 bytes.
+Las variables Globales usan 28752 bytes (35%) de la memoria dinámica, dejando 53168 bytes para las variables locales. El máximo es 81920 bytes.
+
+Used platform   Version Path
+esp8266:esp8266 3.1.2   <ARDUINO_PACKAGES>/esp8266/hardware/esp8266/3.1.2
+Exit code: 0
+
+=== UPLOAD POR USB (COM15) ===
+Comando: arduino-cli upload -p COM15 --fqbn esp8266:esp8266:nodemcuv2 evidence/hardware/nodemcu-soil-relay-cycle -v
+
+esptool.py v3.0
+Serial port COM15
+Connecting....
+Chip is ESP8266EX
+Features: WiFi
+Crystal is 26MHz
+MAC: [REDACTED]
+Uploading stub...
+Running stub...
+Stub running...
+Configuring flash size...
+Auto-detected Flash size: 4MB
+Compressed 272384 bytes to 200323...
+Writing at 0x00000000... (7 %)
+Writing at 0x00004000... (15 %)
+Writing at 0x00008000... (23 %)
+Writing at 0x0000c000... (30 %)
+Writing at 0x00010000... (38 %)
+Writing at 0x00014000... (46 %)
+Writing at 0x00018000... (53 %)
+Writing at 0x0001c000... (61 %)
+Writing at 0x00020000... (69 %)
+Writing at 0x00024000... (76 %)
+Writing at 0x00028000... (84 %)
+Writing at 0x0002c000... (92 %)
+Writing at 0x00030000... (100 %)
+Wrote 272384 bytes (200323 compressed) at 0x00000000 in 17.8 seconds (effective 122.5 kbit/s)...
+Hash of data verified.
+
+Leaving...
+Hard resetting via RTS pin...
+New upload port: COM15 (serial)
+Exit code: 0

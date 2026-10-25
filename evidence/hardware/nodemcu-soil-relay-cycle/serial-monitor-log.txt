@@ -1,0 +1,57 @@
+=== MONITOR SERIE (COM15 @ 115200 baud) ===
+
+--- PRIMERA ETAPA: CALIBRACIÓN EXPERIMENTAL DE A0 (VALORES BRUTOS 0–1023) ---
+
+[Condición 1: Sonda en humedad]
+Humedad suelo (A0 bruto): 645
+Humedad suelo (A0 bruto): 646
+Humedad suelo (A0 bruto): 646
+Humedad suelo (A0 bruto): 644
+Humedad suelo (A0 bruto): 645
+Humedad suelo (A0 bruto): 644
+Humedad suelo (A0 bruto): 644
+
+[Condición 2: Sonda seca]
+Humedad suelo (A0 bruto): 1024
+Humedad suelo (A0 bruto): 1024
+Humedad suelo (A0 bruto): 1024
+Humedad suelo (A0 bruto): 1024
+Humedad suelo (A0 bruto): 1024
+Humedad suelo (A0 bruto): 1024
+Humedad suelo (A0 bruto): 1024
+
+-> Umbral experimental seleccionado: 800
+   - Suelo seco:   suelo > 800  -> Relay ON
+   - Suelo húmedo: suelo <= 800 -> Relay OFF
+
+--- SEGUNDA ETAPA: CICLO SENSOR (A0) → DECISIÓN (BLOCkLY) → ACTUADOR (D1/GPIO5) ---
+
+[Estado 1: Sonda seca (suelo > 800 -> Relay ON)]
+Humedad suelo (A0 bruto): 1024
+Relay ON
+Humedad suelo (A0 bruto): 1024
+Relay ON
+Humedad suelo (A0 bruto): 1024
+Relay ON
+Humedad suelo (A0 bruto): 1024
+Relay ON
+Humedad suelo (A0 bruto): 1024
+Relay ON
+Humedad suelo (A0 bruto): 1024
+Relay ON
+
+[Estado 2: Sonda en humedad (suelo <= 800 -> Relay OFF, conmutación física confirmada)]
+Humedad suelo (A0 bruto): 586
+Relay OFF
+Humedad suelo (A0 bruto): 588
+Relay OFF
+Humedad suelo (A0 bruto): 586
+Relay OFF
+Humedad suelo (A0 bruto): 588
+Relay OFF
+Humedad suelo (A0 bruto): 590
+Relay OFF
+Humedad suelo (A0 bruto): 585
+Relay OFF
+Humedad suelo (A0 bruto): 588
+Relay OFF

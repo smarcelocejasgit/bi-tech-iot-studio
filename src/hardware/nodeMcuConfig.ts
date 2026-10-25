@@ -160,13 +160,13 @@ export const NODEMCU_ESP8266_CONFIG: NodeMcuHardwareConfig = {
     analogA0: {
       symbolicName: 'ANALOG_A0_PIN',
       boardLabel: 'A0',
-      verifiedGpio: null,
+      verifiedGpio: 'A0',
       candidateBoardLabel: 'A0',
       candidateGpio: 'A0',
       mode: 'ADC',
       component: 'Única Entrada Analógica (A0 · escala bruta 0 a 1023)',
       verificationNote:
-        'Canal analógico único A0 del ESP8266. Rango de tensión de entrada: unverified (SP-10).',
+        'Canal analógico único A0 verificado físicamente en V0.2D con sonda de humedad de suelo (seco ~1024, húmedo ~585–646, umbral experimental 800). Rango de tensión de entrada: unverified (SP-10).',
     },
     digitalInput: {
       symbolicName: 'ENTRADA_DIG_PIN',

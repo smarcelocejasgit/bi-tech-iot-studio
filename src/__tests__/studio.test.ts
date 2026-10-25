@@ -23,7 +23,8 @@ describe('Bi-Tech IoT Studio V0.1.1 — Capacidades de Hardware y Perfiles', () 
     expect(GARDEN_NODE_CONFIG.pins.soilMoisture.verifiedGpio).toBeNull();
     expect(NODEMCU_ESP8266_CONFIG.pins.dht11.boardLabel).toBe('D5');
     expect(NODEMCU_ESP8266_CONFIG.pins.dht11.verifiedGpio).toBe(14);
-    expect(NODEMCU_ESP8266_CONFIG.pins.analogA0.verifiedGpio).toBeNull();
+    expect(NODEMCU_ESP8266_CONFIG.pins.analogA0.boardLabel).toBe('A0');
+    expect(NODEMCU_ESP8266_CONFIG.pins.analogA0.verifiedGpio).toBe('A0');
     expect(NODEMCU_ESP8266_CONFIG.pins.relay.boardLabel).toBe('D1');
     expect(NODEMCU_ESP8266_CONFIG.pins.relay.verifiedGpio).toBe(5);
     expect(NODEMCU_ESP8266_CONFIG.relayConfig.polarity).toBe('PENDING_VERIFICATION');

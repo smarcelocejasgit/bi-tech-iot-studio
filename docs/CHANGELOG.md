@@ -4,6 +4,16 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 
 ---
 
+## [0.2.0-alpha.4 (V0.2D)] — 2026-10-25
+### Hito: Primer ciclo físico Sensor → Decisión → Actuador (`mundo físico → sensor → dato → algoritmo → decisión → actuador físico`)
+- **Validación física en dos etapas (`sensor de humedad de suelo → A0 → NodeMCU → condición creada en Blockly → D1/GPIO5 → relay`):**
+  - **Etapa 1 — Calibración experimental de `A0` (`ANALOG_A0_PIN`):** Lectura bruta por Monitor Serie (`115200` baudios) sin conversión automática a porcentaje, registrando **`585–646`** con la sonda en condición húmeda y **`1024`** con la sonda seca.
+  - **Etapa 2 — Condición por umbral experimental (`800`) y actuación sobre relay (`D1 / GPIO5`):** Programa originado en Bi-Tech IoT Studio (`si suelo > 800 → relayOn(); si no → relayOff()`) compilado y cargado en **`COM15`**.
+  - Comprobación en tiempo real de que modificar físicamente la humedad detectada por la sonda cambia el dato leído (`1024` seco → `585–590` húmedo) y conmuta físicamente el módulo relay (`Relay ON` → `Relay OFF`).
+  - Registro de `pins.analogA0.verifiedGpio = 'A0'` en [`nodeMcuConfig.ts`](file:///j:/Bi-Tech-IoT-Studio/src/hardware/nodeMcuConfig.ts) y evidencia sanitizada en [`evidence/hardware/nodemcu-soil-relay-cycle/`](file:///j:/Bi-Tech-IoT-Studio/evidence/hardware/nodemcu-soil-relay-cycle/README.md).
+
+---
+
 ## [0.2.0-alpha.3 (V0.2C)] — 2026-10-25
 ### Hito: Primera entrada física con sensor DHT11 en NodeMCU ESP8266 (`D5 → GPIO14`)
 - **Validación física del flujo `DHT11 (D5 / GPIO14) → NodeMCU ESP8266 → Arduino C/C++ generado desde Bi-Tech IoT Studio → lectura real por Monitor Serie`:**

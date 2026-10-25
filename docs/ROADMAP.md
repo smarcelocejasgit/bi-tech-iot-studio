@@ -53,8 +53,16 @@ flowchart LR
 
 ---
 
-## 🟡 V0.2D — Siguientes Ensayos de Hardware Físico (Próxima Etapa)
-- Ensayos progresivos de entradas analógicas (`A0`), segundo canal de relay / iluminación y reglas de control sensor → actuador sobre hardware físico.
+## ✅ V0.2D — Primer Ciclo Físico Sensor → Decisión → Actuador (Completado)
+- **Hito alcanzado:** `mundo físico → sensor → dato → algoritmo → decisión → actuador físico`.
+- Validación física completa del lazo cerrado: **`sensor de humedad de suelo → A0 → NodeMCU → condición creada en Blockly → D1/GPIO5 → relay`**.
+- Calibración experimental del canal **`A0`** (`ANALOG_A0_PIN`) en escala bruta (`585–646` húmedo, `1024` seco), definición de umbral experimental (`800`) y conmutación física real del relay (`Relay ON` en seco / `Relay OFF` en húmedo).
+- Evidencia sanitizada registrada en [`evidence/hardware/nodemcu-soil-relay-cycle/`](file:///j:/Bi-Tech-IoT-Studio/evidence/hardware/nodemcu-soil-relay-cycle/README.md).
+
+---
+
+## 🟡 V0.2E — Siguientes Ensayos de Hardware Físico (Próxima Etapa)
+- Ensayos progresivos con LDR, segundo canal de relay / iluminación y conexión posterior de carga física (bomba).
 
 ---
 
