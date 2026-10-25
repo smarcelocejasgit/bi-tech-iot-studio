@@ -76,3 +76,21 @@ Bi-Tech-IoT-Studio/
 
 - No se almacenan en el repositorio contraseñas Wi-Fi, claves API, tokens ni datos personales de estudiantes.
 - Los pines GPIO definitivos y URLs de streaming reales se mantienen desacoplados en archivos de configuración hasta su verificación en laboratorio.
+
+---
+
+## 🚀 Ejecución Local (V0.1)
+
+```bash
+# 1. Instalar dependencias
+npm install
+
+# 2. Iniciar servidor de desarrollo (http://localhost:5173)
+npm run dev
+
+# 3. Ejecutar pruebas unitarias (Vitest)
+npm test
+
+# 4. Compilar versión de producción
+npm run build
+```
