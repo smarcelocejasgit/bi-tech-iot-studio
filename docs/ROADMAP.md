@@ -39,9 +39,16 @@ flowchart LR
 
 ---
 
-## 🟡 V0.2B — Integración de Sensores/Actuadores Físicos y Flasheo desde Entorno (Próxima Etapa)
-- Relevamiento físico final de la placa **NodeMCU ESP8266** (divisor de tensión en `A0`, polaridad de relay y pines definitivos).
-- Integración de transferencia y monitor serie educativo para NodeMCU ESP8266 y ESP32.
+## ✅ V0.2B — Primera Salida Física con Relay en NodeMCU ESP8266 (Completado)
+- **Hito alcanzado:** `Bi-Tech IoT Studio → Blockly → Arduino C/C++ → compilación → USB → NodeMCU → GPIO5 → relay físico`.
+- Pin verificado para el primer canal de relay: **`D1 → GPIO5`** (`RELAY_PIN`), con conmutación física cada 2 segundos y telemetría serie (`Relay ON` / `Relay OFF`).
+- Evidencia sanitizada registrada en [`evidence/hardware/nodemcu-relay-first-control/`](file:///j:/Bi-Tech-IoT-Studio/evidence/hardware/nodemcu-relay-first-control/README.md).
+
+---
+
+## 🟡 V0.2C — Segundo Canal de Relay / Iluminación y Validación Progresiva de Hardware (Próxima Etapa)
+- Ensayo físico del segundo canal del módulo relay / iluminación antes de conectar la bomba.
+- Relevamiento de polaridad con carga conectada y pruebas de sensores (`A0` / `DHT11`).
 
 ---
 

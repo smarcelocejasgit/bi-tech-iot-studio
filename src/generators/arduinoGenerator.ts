@@ -251,8 +251,10 @@ function buildNodeMcuCompilableSketch(
     (st) => st.kind === 'data_log'
   );
 
-  const { pins, capabilities } = NODEMCU_ESP8266_CONFIG;
+  const { pins, capabilities, relayConfig } = NODEMCU_ESP8266_CONFIG;
   const relayGpio = pins.relay.verifiedGpio ?? pins.relay.candidateGpio ?? 5;
+  const relayOnLevel = relayConfig.polarity === 'ACTIVE_LOW' ? 'LOW' : 'HIGH';
+  const relayOffLevel = relayConfig.polarity === 'ACTIVE_LOW' ? 'HIGH' : 'LOW';
   const lightGpio =
     pins.lighting.verifiedGpio ?? pins.lighting.candidateGpio ?? 4;
   const doutGpio =
@@ -284,11 +286,14 @@ function buildNodeMcuCompilableSketch(
     '}',
     '',
     'void relayOn() {',
-    '  digitalWrite(RELAY_PIN, HIGH);',
+    `  // Polaridad configurada en perfil: ${relayConfig.polarity}`,
+    `  digitalWrite(RELAY_PIN, ${relayOnLevel});`,
+    '  Serial.println("Relay ON");',
     '}',
     '',
     'void relayOff() {',
-    '  digitalWrite(RELAY_PIN, LOW);',
+    `  digitalWrite(RELAY_PIN, ${relayOffLevel});`,
+    '  Serial.println("Relay OFF");',
     '}',
     '',
     'void luzOn() {',

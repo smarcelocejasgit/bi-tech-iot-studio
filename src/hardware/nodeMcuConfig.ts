@@ -192,14 +192,14 @@ export const NODEMCU_ESP8266_CONFIG: NodeMcuHardwareConfig = {
     },
     relay: {
       symbolicName: 'RELAY_PIN',
-      boardLabel: null,
-      verifiedGpio: null,
+      boardLabel: 'D1',
+      verifiedGpio: 5,
       candidateBoardLabel: 'D1',
       candidateGpio: 5,
       mode: 'OUTPUT',
       component: 'Módulo Relay (1 canal)',
       verificationNote:
-        'Cableado y polaridad definitivos pendientes. Candidato seguro para compilación: D1 → GPIO5 (SP-13).',
+        'Pin verificado físicamente en V0.2B: D1 → GPIO5. Polaridad absoluta ACTIVE_LOW / ACTIVE_HIGH pendiente de cierre con carga conectada (SP-13).',
     },
     lighting: {
       symbolicName: 'LUZ_PIN',

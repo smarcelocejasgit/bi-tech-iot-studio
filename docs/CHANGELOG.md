@@ -4,6 +4,17 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 
 ---
 
+## [0.2.0-alpha.2 (V0.2B)] — 2026-10-25
+### Hito: Primera salida física con relay controlada desde NodeMCU ESP8266 (`D1 → GPIO5`)
+- **Validación física del flujo `Bi-Tech IoT Studio → Blockly → Arduino C/C++ → compilación → USB → NodeMCU → GPIO5 → relay físico`:**
+  - Registro del pin verificado en [`nodeMcuConfig.ts`](file:///j:/Bi-Tech-IoT-Studio/src/hardware/nodeMcuConfig.ts): `RELAY_PIN` asignado a **`D1` (`GPIO5`)**.
+  - Generación, compilación (`esp8266:esp8266:nodemcuv2`) y carga por **`COM15`** del programa de prueba ([`nodemcu-relay-first-control.ino`](file:///j:/Bi-Tech-IoT-Studio/evidence/hardware/nodemcu-relay-first-control/nodemcu-relay-first-control.ino)): estado inicial `relayOff()` y ciclo continuo `relayOn() -> delay(2000) -> relayOff() -> delay(2000)`.
+  - Verificación en tiempo real por Monitor Serie (`Relay OFF` / `Relay ON`) y confirmación física de la conmutación del módulo relay cada 2 segundos.
+  - Mantenimiento de `relayConfig.polarity: 'PENDING_VERIFICATION'` hasta contrastar el cierre del contacto con una carga física.
+  - Evidencia documentada y sanitizada en [`evidence/hardware/nodemcu-relay-first-control/`](file:///j:/Bi-Tech-IoT-Studio/evidence/hardware/nodemcu-relay-first-control/README.md).
+
+---
+
 ## [0.2.0-alpha.1 (V0.2A)] — 2026-10-25
 ### Hito: Primera transferencia real de un programa originado en Bi-Tech IoT Studio hacia hardware físico NodeMCU ESP8266
 - **Validación física extremo a extremo (`Blockly → Arduino C/C++ → Compilación → USB → NodeMCU ESP8266 → Ejecución física`):**

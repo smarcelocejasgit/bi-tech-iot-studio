@@ -23,7 +23,9 @@ describe('Bi-Tech IoT Studio V0.1.1 — Capacidades de Hardware y Perfiles', () 
     expect(GARDEN_NODE_CONFIG.pins.soilMoisture.verifiedGpio).toBeNull();
     expect(NODEMCU_ESP8266_CONFIG.pins.dht11.verifiedGpio).toBeNull();
     expect(NODEMCU_ESP8266_CONFIG.pins.analogA0.verifiedGpio).toBeNull();
-    expect(NODEMCU_ESP8266_CONFIG.pins.relay.verifiedGpio).toBeNull();
+    expect(NODEMCU_ESP8266_CONFIG.pins.relay.boardLabel).toBe('D1');
+    expect(NODEMCU_ESP8266_CONFIG.pins.relay.verifiedGpio).toBe(5);
+    expect(NODEMCU_ESP8266_CONFIG.relayConfig.polarity).toBe('PENDING_VERIFICATION');
     expect(NODEMCU_ESP8266_CONFIG.relayConfig.safeInitialState).toEqual({
       relay: 'OFF',
       lighting: 'OFF',
@@ -273,7 +275,7 @@ describe('Bi-Tech IoT Studio V0.1.2 — Hardware Readiness y Sketch Compilable (
     expect(NODEMCU_ESP8266_CONFIG.verifiedFqbn).toBe('esp8266:esp8266:nodemcuv2');
     expect(NODEMCU_ESP8266_CONFIG.pins.relay.candidateBoardLabel).toBe('D1');
     expect(NODEMCU_ESP8266_CONFIG.pins.relay.candidateGpio).toBe(5);
-    expect(NODEMCU_ESP8266_CONFIG.pins.relay.verifiedGpio).toBeNull();
+    expect(NODEMCU_ESP8266_CONFIG.pins.relay.verifiedGpio).toBe(5);
     expect(NODEMCU_ESP8266_CONFIG.pinReferenceTable.length).toBeGreaterThanOrEqual(10);
   });
 

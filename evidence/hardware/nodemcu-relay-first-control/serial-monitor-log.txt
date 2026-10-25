@@ -1,0 +1,9 @@
+Bi-Tech IoT Studio
+NodeMCU conectada
+Relay OFF
+Relay ON
+Relay OFF
+Relay ON
+Relay OFF
+Relay ON
+Relay OFF
