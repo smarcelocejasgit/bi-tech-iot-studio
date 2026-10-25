@@ -220,6 +220,7 @@ export const App: React.FC = () => {
         workMode={workMode}
         onSelectWorkMode={setWorkMode}
         onOpenHardwareModal={() => setIsHardwareModalOpen(true)}
+        hasValidationIssues={generatedCode.validationIssues.length > 0}
       />
 
       {/* Contenedor principal de las 3 filas */}
@@ -227,10 +228,12 @@ export const App: React.FC = () => {
         {/* Fila Central: BLOQUES | ÁREA DE PROGRAMACIÓN | CÓDIGO ARDUINO */}
         <div
           className={`grid grid-cols-1 lg:grid-cols-12 gap-2.5 transition-all ${
-            workMode === 'simulate' ? 'min-h-[340px]' : 'min-h-[410px]'
+            workMode === 'simulate'
+              ? 'min-h-[340px] lg:h-[360px]'
+              : 'min-h-[410px] lg:h-[440px]'
           }`}
         >
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 h-full overflow-hidden">
             <BlockCategoriesPanel
               activeDevice={activeDevice}
               selectedCategory={selectedCategory}
@@ -239,7 +242,7 @@ export const App: React.FC = () => {
             />
           </div>
 
-          <div className="lg:col-span-6">
+          <div className="lg:col-span-6 h-full overflow-hidden">
             <BlocklyWorkspacePanel
               activeDevice={activeDevice}
               workspaceXml={workspaceXml}
@@ -250,7 +253,7 @@ export const App: React.FC = () => {
             />
           </div>
 
-          <div className="lg:col-span-4">
+          <div className="lg:col-span-4 h-full overflow-hidden">
             <ArduinoCodePanel
               generatedCode={generatedCode}
               selectedBlockId={selectedBlockId}

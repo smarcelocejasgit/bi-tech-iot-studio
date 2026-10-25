@@ -1,0 +1,41 @@
+================================================================================
+BI-TECH IoT STUDIO — V0.1.2 HARDWARE READINESS
+REPORTE DE COMPILACIÓN REAL CON ARDUINO CLI (NodeMCU ESP8266)
+================================================================================
+
+Fecha de verificación: 2026-10-25
+Herramienta: arduino-cli 1.5.1 (Commit: 724a0312)
+Core detectado: esp8266:esp8266@3.1.2
+Placa seleccionada: NodeMCU 1.0 (ESP-12E Module)
+FQBN verificado: esp8266:esp8266:nodemcuv2
+Sketch compilado: evidence/hardware/nodemcu_validation_v012/nodemcu_validation_v012.ino
+
+Programa mínimo de validación en bloques:
+  al iniciar
+      apagar relay
+  repetir siempre
+      si entrada analógica A0 < 400
+          encender relay
+      si no
+          apagar relay
+
+Comando ejecutado:
+  arduino-cli compile --fqbn esp8266:esp8266:nodemcuv2 "j:\Bi-Tech-IoT-Studio\evidence\hardware\nodemcu_validation_v012"
+
+Código de salida: 0 (COMPILACIÓN EXITOSA SIN ERRORES)
+
+Salida resumida de uso de memoria:
+--------------------------------------------------------------------------------
+. Variables and constants in RAM (global, static), used 28144 / 80192 bytes (35%)
+║   SEGMENT  BYTES    DESCRIPTION
+╠══ DATA     1496     initialized variables
+╠══ RODATA   920      constants       
+╚══ BSS      25728    zeroed variables
+. Instruction RAM (IRAM_ATTR, ICACHE_RAM_ATTR), used 60331 / 65536 bytes (92%)
+║   SEGMENT  BYTES    DESCRIPTION
+╠══ ICACHE   32768    reserved space for flash instruction cache
+╚══ IRAM     27563    code in IRAM    
+. Code in flash (default, ICACHE_FLASH_ATTR), used 235780 / 1048576 bytes (22%)
+║   SEGMENT  BYTES    DESCRIPTION
+╚══ IROM     235780   code in flash   
+--------------------------------------------------------------------------------

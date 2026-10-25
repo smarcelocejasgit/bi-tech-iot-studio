@@ -164,15 +164,16 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewLabel: '📈 entrada analógica A0',
     previewColor: '#0284c7',
     description:
-      'Lee el valor del único canal conversor analógico-digital (pin A0) disponible en la placa NodeMCU ESP8266, entregando un número entre 0 y 1023.',
+      'Lee el valor en escala bruta (0 a 1023) del único canal conversor analógico-digital (pin A0) disponible en la placa NodeMCU ESP8266.',
     physicalComponent: 'Pin analógico único A0 (ADC de 10 bits en ESP8266)',
-    dataUsed: 'Tensión analógica convertida a escala entera de 0 a 1023',
+    dataUsed:
+      'Lectura cruda entera de 0 a 1023 (adcInputVoltageRange: unverified hasta verificar divisor resistivo de la placa física)',
     dataType: 'Numérico entero (int)',
     behavior:
-      'Permite conectar un sensor analógico (por ejemplo, un LDR de luz o una sonda de humedad de suelo) y leer su magnitud.',
+      'Permite conectar un sensor analógico (por ejemplo, un LDR de luz o una sonda de humedad de suelo) y comparar su lectura cruda (0–1023).',
     arduinoCode: 'leerEntradaAnalogicaA0()',
     technicalNotes:
-      'NodeMCU dispone de recursos diferentes a ESP32: solo cuenta con 1 entrada analógica (A0). La selección del hardware condiciona qué sensores pueden utilizarse simultáneamente.',
+      'NodeMCU dispone de solo 1 entrada analógica (A0, escala 0–1023). Distintas placas ESP8266/NodeMCU incorporan divisores resistivos diferentes (0–1.0V en el chip nativo vs ~0–3.2V/3.3V en devkits), por lo que no se asume una tensión máxima universal sin verificar la placa física.',
   },
 
   bitech_sensor_digital_in: {

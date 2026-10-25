@@ -2,11 +2,6 @@ import { CameraNodeHardwareConfig } from '../types/hardware';
 
 /**
  * Configuración centralizada para el dispositivo Camera Node Bi-Tech (ESP32-CAM).
- *
- * IMPORTANTE:
- * - Programación vía USB; comunicación y streaming vía Wi-Fi.
- * - No se asume streaming por USB.
- * - Las URLs de streaming y captura no se inventan: quedan configurables hasta verificar el firmware real.
  */
 export const CAMERA_NODE_CONFIG: CameraNodeHardwareConfig = {
   id: 'camera-node',
@@ -14,6 +9,7 @@ export const CAMERA_NODE_CONFIG: CameraNodeHardwareConfig = {
   shortBadge: 'Camera Node Bi-Tech — ESP32-CAM',
   mcu: 'ESP32-CAM',
   simulatorKind: 'camera-system',
+  verifiedFqbn: null,
   sensor: 'OV2640',
   programmingChannel: 'USB',
   streamingChannel: 'Wi-Fi',
@@ -24,9 +20,10 @@ export const CAMERA_NODE_CONFIG: CameraNodeHardwareConfig = {
   capabilities: {
     digitalInputs: 1,
     digitalOutputs: 1,
-    analogInputs: 0, // Pines ocupados por cámara OV2640 y Wi-Fi
+    analogInputs: 0,
     analogResolutionBits: 12,
     analogMaxValue: 4095,
+    adcInputVoltageRange: 'unverified',
     pwmChannels: 1,
     wifi: true,
     camera: true,
@@ -35,5 +32,27 @@ export const CAMERA_NODE_CONFIG: CameraNodeHardwareConfig = {
     compatibleActuators: ['camera_ov2640'],
     pedagogicalResourceNote:
       'La ESP32-CAM dedica casi todos sus pines físicos al bus paralelo de la cámara OV2640. Se programa por USB y transmite video/capturas por Wi-Fi.',
+    physicalCapabilities: {
+      mcuModel: 'ESP32-S (AI-Thinker ESP32-CAM + OV2640)',
+      operatingVoltage: '3.3V',
+      totalUsableGpios: 2,
+      analogInputs: 0,
+      analogResolutionBits: 12,
+      analogMaxRawValue: 4095,
+      adcInputVoltageRange: 'unverified',
+      adcVoltageNote: 'Los pines ADC2 quedan deshabilitados cuando se utiliza Wi-Fi para streaming.',
+      pwmCapablePins: 1,
+      wifi: true,
+      cameraInterface: true,
+      physicalNotes: 'El bus paralelo de la cámara OV2640 y la PSRAM ocupan la mayoría de los GPIOs.',
+    },
+    educationalAllocation: {
+      digitalInputsExposed: 0,
+      digitalOutputsExposed: 1,
+      analogInputsExposed: 0,
+      relayChannelsExposed: 0,
+      simplificationExplanation:
+        'El perfil educativo se enfoca en el control de la cámara OV2640 y la transmisión de streaming vía Wi-Fi.',
+    },
   },
 };

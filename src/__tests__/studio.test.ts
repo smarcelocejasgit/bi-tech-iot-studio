@@ -256,3 +256,66 @@ describe('Bi-Tech IoT Studio V0.1.1 — Manual Contextual Adaptativo', () => {
     expect(entryOnNodeMcu.technicalNotes).toContain('NodeMCU');
   });
 });
+
+describe('Bi-Tech IoT Studio V0.1.2 — Hardware Readiness y Sketch Compilable (.ino)', () => {
+  it('distingue explícitamente capacidades físicas (9 GPIO D0-D8) vs asignación educativa en NodeMCU', () => {
+    const caps = getDeviceCapabilities('nodemcu-esp8266');
+    expect(caps.physicalCapabilities.totalUsableGpios).toBe(9);
+    expect(caps.physicalCapabilities.analogInputs).toBe(1);
+    expect(caps.physicalCapabilities.analogMaxRawValue).toBe(1023);
+    expect(caps.educationalAllocation.digitalInputsExposed).toBe(1);
+    expect(caps.educationalAllocation.digitalOutputsExposed).toBe(3);
+    expect(caps.educationalAllocation.simplificationExplanation).toContain('boot-strapping');
+  });
+
+  it('registra adcInputVoltageRange como unverified y mantiene el mapeo Etiqueta de Placa (Dx) -> GPIO real', () => {
+    expect(NODEMCU_ESP8266_CONFIG.capabilities.adcInputVoltageRange).toBe('unverified');
+    expect(NODEMCU_ESP8266_CONFIG.verifiedFqbn).toBe('esp8266:esp8266:nodemcuv2');
+    expect(NODEMCU_ESP8266_CONFIG.pins.relay.candidateBoardLabel).toBe('D1');
+    expect(NODEMCU_ESP8266_CONFIG.pins.relay.candidateGpio).toBe(5);
+    expect(NODEMCU_ESP8266_CONFIG.pins.relay.verifiedGpio).toBeNull();
+    expect(NODEMCU_ESP8266_CONFIG.pinReferenceTable.length).toBeGreaterThanOrEqual(10);
+  });
+
+  it('genera de forma separada la Vista educativa y el Sketch compilable (.ino) para el programa mínimo de validación', () => {
+    const minValidationProgram: ParsedProgram = {
+      device: 'nodemcu-esp8266',
+      setupStatements: [{ kind: 'relay_off' }],
+      loopStatements: [
+        {
+          kind: 'if',
+          condition: {
+            kind: 'comparison',
+            leftSensor: 'entradaAnalogicaA0',
+            leftExpr: { kind: 'sensor_read', sensor: 'entradaAnalogicaA0' },
+            operator: '<',
+            rightNumber: 400,
+          },
+          thenBranch: [{ kind: 'relay_on' }],
+          elseBranch: [{ kind: 'relay_off' }],
+        },
+      ],
+    };
+
+    const output = generateArduinoCode(minValidationProgram);
+    expect(output.validationIssues).toHaveLength(0);
+
+    // 1. Vista educativa limpia y enfocada en setup() + loop()
+    expect(output.compactCode).toContain('void setup()');
+    expect(output.compactCode).toContain('relayOff();');
+    expect(output.compactCode).toContain('if (valorA0 < 400) {');
+    expect(output.compactCode).toContain('relayOn();');
+    expect(output.compactCode).toContain('} else {');
+    expect(output.compactCode).not.toContain('#include <Arduino.h>');
+
+    // 2. Sketch compilable completo (.ino) sin librerías externas innecesarias
+    expect(output.compilableSketch).toContain('#include <Arduino.h>');
+    expect(output.compilableSketch).not.toContain('#include <ESP8266WiFi.h>');
+    expect(output.compilableSketch).toContain('#define RELAY_PIN       5   // D1 -> GPIO5');
+    expect(output.compilableSketch).toContain('#define ANALOG_A0_PIN   A0  // A0 -> A0');
+    expect(output.compilableSketch).toContain('adcInputVoltageRange: unverified');
+    expect(output.compilableSketch).toContain('int leerEntradaAnalogicaA0() {');
+    expect(output.compilableSketch).toContain('void relayOn() {');
+    expect(output.compilableSketch).toContain('void relayOff() {');
+  });
+});

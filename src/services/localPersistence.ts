@@ -7,11 +7,11 @@ import { DeviceProfileId } from '../types/hardware';
 import { GardenSensorState, NodeMcuSensorState } from '../types/studio';
 
 const STORAGE_KEYS = {
-  projectName: 'bitech_studio_v011_project_name',
-  activeDevice: 'bitech_studio_v011_active_device',
-  gardenXml: 'bitech_studio_v011_garden_xml',
-  cameraXml: 'bitech_studio_v011_camera_xml',
-  nodemcuXml: 'bitech_studio_v011_nodemcu_xml',
+  projectName: 'bitech_studio_v012_project_name',
+  activeDevice: 'bitech_studio_v012_active_device',
+  gardenXml: 'bitech_studio_v012_garden_xml',
+  cameraXml: 'bitech_studio_v012_camera_xml',
+  nodemcuXml: 'bitech_studio_v012_nodemcu_xml',
 };
 
 export const INITIAL_GARDEN_SENSORS: GardenSensorState = {

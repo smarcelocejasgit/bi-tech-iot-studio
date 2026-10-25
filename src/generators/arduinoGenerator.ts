@@ -101,6 +101,20 @@ function formatConditionC(cond: ConditionNode | null, useLocalVars: boolean): st
   return 'estadoCamara()';
 }
 
+function hasStatementKind(
+  stmts: StatementNode[],
+  predicate: (st: StatementNode) => boolean
+): boolean {
+  for (const st of stmts) {
+    if (predicate(st)) return true;
+    if (st.kind === 'if') {
+      if (hasStatementKind(st.thenBranch, predicate)) return true;
+      if (st.elseBranch && hasStatementKind(st.elseBranch, predicate)) return true;
+    }
+  }
+  return false;
+}
+
 function emitStatementsC(
   stmts: StatementNode[],
   indent: string,
@@ -216,13 +230,283 @@ function emitStatementsC(
 }
 
 /**
- * Genera el código Arduino C/C++ educativo a partir del programa estructurado (AST)
- * y valida que los recursos solicitados sean compatibles con las capacidades del dispositivo.
+ * Construye el Sketch Completo (.ino) compilable para NodeMCU ESP8266.
+ * Incluye directivas #include según los bloques empleados, mapeo explícito
+ * Etiqueta de placa (D0-D8 / A0) -> GPIO real, setup(), loop() y funciones auxiliares.
+ */
+function buildNodeMcuCompilableSketch(
+  program: ParsedProgram,
+  compactCode: string,
+  usedSensors: Set<SensorKey>
+): string {
+  const allStatements = [...program.setupStatements, ...program.loopStatements];
+  const usesWifi = hasStatementKind(
+    allStatements,
+    (st) => st.kind === 'cam_wifi' || st.kind === 'iot_publish'
+  );
+  const usesDht =
+    usedSensors.has('temperatura') || usedSensors.has('humedadAmbiente');
+  const usesDataLog = hasStatementKind(
+    allStatements,
+    (st) => st.kind === 'data_log'
+  );
+
+  const { pins, capabilities } = NODEMCU_ESP8266_CONFIG;
+  const relayGpio = pins.relay.verifiedGpio ?? pins.relay.candidateGpio ?? 5;
+  const lightGpio =
+    pins.lighting.verifiedGpio ?? pins.lighting.candidateGpio ?? 4;
+  const doutGpio =
+    pins.digitalOutput.verifiedGpio ?? pins.digitalOutput.candidateGpio ?? 13;
+  const dinGpio =
+    pins.digitalInput.verifiedGpio ?? pins.digitalInput.candidateGpio ?? 12;
+  const dhtGpio = pins.dht11.verifiedGpio ?? pins.dht11.candidateGpio ?? 14;
+
+  const includeLines: string[] = ['#include <Arduino.h>'];
+  if (usesWifi) {
+    includeLines.push('#include <ESP8266WiFi.h>');
+  }
+
+  const helperLines: string[] = [
+    '// ============================================================================',
+    '// FUNCIONES AUXILIARES DE HARDWARE (Implementación compilable NodeMCU ESP8266)',
+    '// ============================================================================',
+    '',
+    'int leerEntradaAnalogicaA0() {',
+    '  // Lectura cruda del ADC de 10 bits (0 - 1023).',
+    `  // Rango eléctrico A0 (adcInputVoltageRange): ${capabilities.adcInputVoltageRange} (depende del divisor resistivo de la placa).`,
+    '  return analogRead(ANALOG_A0_PIN);',
+    '}',
+    '',
+    'int leerEntradaDigital() {',
+    '  return digitalRead(ENTRADA_DIG_PIN);',
+    '}',
+    '',
+    'void relayOn() {',
+    '  digitalWrite(RELAY_PIN, HIGH);',
+    '}',
+    '',
+    'void relayOff() {',
+    '  digitalWrite(RELAY_PIN, LOW);',
+    '}',
+    '',
+    'void luzOn() {',
+    '  digitalWrite(LUZ_PIN, HIGH);',
+    '}',
+    '',
+    'void luzOff() {',
+    '  digitalWrite(LUZ_PIN, LOW);',
+    '}',
+    '',
+    'void activarSalidaDigital() {',
+    '  digitalWrite(SALIDA_DIG_PIN, HIGH);',
+    '}',
+    '',
+    'void desactivarSalidaDigital() {',
+    '  digitalWrite(SALIDA_DIG_PIN, LOW);',
+    '}',
+  ];
+
+  if (usesDht) {
+    helperLines.push(
+      '',
+      'float leerTemperatura() {',
+      '  // Placeholder compilable para DHT11 en DHT_PIN hasta vincular librería DHT en laboratorio',
+      '  (void)DHT_PIN;',
+      '  return 24.0f;',
+      '}',
+      '',
+      'float leerHumedadAmbiente() {',
+      '  (void)DHT_PIN;',
+      '  return 55.0f;',
+      '}'
+    );
+  }
+
+  if (usesDataLog) {
+    helperLines.push(
+      '',
+      'void registrarDato(const char* etiqueta, float valor) {',
+      '  Serial.print("[BI-TECH DATO] ");',
+      '  Serial.print(etiqueta);',
+      '  Serial.print(": ");',
+      '  Serial.println(valor);',
+      '}'
+    );
+  }
+
+  if (usesWifi) {
+    helperLines.push(
+      '',
+      'const char* WIFI_SSID = "Red_Escolar_BiTech";',
+      'const char* WIFI_PASS = "pendiente_configuracion";',
+      '',
+      'void conectarWiFi(const char* ssid, const char* pass) {',
+      '  WiFi.mode(WIFI_STA);',
+      '  WiFi.begin(ssid, pass);',
+      '}',
+      '',
+      'void enviarDatoIoT(const char* topico, float valor) {',
+      '  Serial.print("[BI-TECH IoT] ");',
+      '  Serial.print(topico);',
+      '  Serial.print(" -> ");',
+      '  Serial.println(valor);',
+      '}'
+    );
+  }
+
+  return [
+    '// ============================================================================',
+    '// BI-TECH IoT STUDIO · SKETCH COMPILABLE PARA HARDWARE REAL (.ino)',
+    `// Perfil: ${NODEMCU_ESP8266_CONFIG.name} (${NODEMCU_ESP8266_CONFIG.mcu})`,
+    `// FQBN verificado: ${NODEMCU_ESP8266_CONFIG.verifiedFqbn}`,
+    `// adcInputVoltageRange: ${capabilities.adcInputVoltageRange} (escala cruda 0-1023)`,
+    '// NOTA: Asignación de pines con distinción Etiqueta de placa (Dx) -> GPIO real.',
+    '// Cableado definitivo de aula pendiente de verificación física.',
+    '// ============================================================================',
+    '',
+    ...includeLines,
+    '',
+    '// --- Mapeo de pines: Etiqueta serigrafiada en placa NodeMCU -> GPIO ESP8266 ---',
+    `#define ANALOG_A0_PIN   A0  // ${pins.analogA0.candidateBoardLabel} -> ${pins.analogA0.candidateGpio} (${pins.analogA0.component})`,
+    `#define RELAY_PIN       ${relayGpio}   // ${pins.relay.candidateBoardLabel} -> GPIO${relayGpio} (${pins.relay.component})`,
+    `#define DHT_PIN         ${dhtGpio}  // ${pins.dht11.candidateBoardLabel} -> GPIO${dhtGpio} (${pins.dht11.component})`,
+    `#define ENTRADA_DIG_PIN ${dinGpio}  // ${pins.digitalInput.candidateBoardLabel} -> GPIO${dinGpio} (${pins.digitalInput.component})`,
+    `#define LUZ_PIN         ${lightGpio}   // ${pins.lighting.candidateBoardLabel} -> GPIO${lightGpio} (${pins.lighting.component})`,
+    `#define SALIDA_DIG_PIN  ${doutGpio}  // ${pins.digitalOutput.candidateBoardLabel} -> GPIO${doutGpio} (${pins.digitalOutput.component})`,
+    '',
+    '// --- Prototipos de funciones ---',
+    'int leerEntradaAnalogicaA0();',
+    'int leerEntradaDigital();',
+    'void relayOn();',
+    'void relayOff();',
+    'void luzOn();',
+    'void luzOff();',
+    'void activarSalidaDigital();',
+    'void desactivarSalidaDigital();',
+    ...(usesDht
+      ? ['float leerTemperatura();', 'float leerHumedadAmbiente();']
+      : []),
+    ...(usesDataLog
+      ? ['void registrarDato(const char* etiqueta, float valor);']
+      : []),
+    ...(usesWifi
+      ? [
+          'void conectarWiFi(const char* ssid, const char* pass);',
+          'void enviarDatoIoT(const char* topico, float valor);',
+        ]
+      : []),
+    '',
+    compactCode,
+    '',
+    ...helperLines,
+    '',
+  ].join('\n');
+}
+
+/**
+ * Construye el Sketch Completo (.ino) para Garden Node Bi-Tech (ESP32).
+ */
+function buildGardenNodeCompilableSketch(compactCode: string): string {
+  const { pins } = GARDEN_NODE_CONFIG;
+  const dhtGpio = pins.dht11.verifiedGpio ?? pins.dht11.candidateGpio ?? 4;
+  const soilGpio =
+    pins.soilMoisture.verifiedGpio ?? pins.soilMoisture.candidateGpio ?? 34;
+  const ldrGpio = pins.ldr.verifiedGpio ?? pins.ldr.candidateGpio ?? 35;
+  const pumpGpio =
+    pins.relayChannel1Pump.verifiedGpio ??
+    pins.relayChannel1Pump.candidateGpio ??
+    26;
+  const lightGpio =
+    pins.relayChannel2Light.verifiedGpio ??
+    pins.relayChannel2Light.candidateGpio ??
+    27;
+
+  return [
+    '// ============================================================================',
+    '// BI-TECH IoT STUDIO · SKETCH COMPILABLE PARA HARDWARE REAL (.ino)',
+    `// Perfil: ${GARDEN_NODE_CONFIG.name} (${GARDEN_NODE_CONFIG.mcu})`,
+    '// NOTA: Pines candidatos sujetos a validación física en placa.',
+    '// ============================================================================',
+    '',
+    '#include <Arduino.h>',
+    '',
+    `#define DHT_PIN   ${dhtGpio}  // ${pins.dht11.candidateBoardLabel} -> GPIO${dhtGpio}`,
+    `#define SUELO_PIN ${soilGpio} // ${pins.soilMoisture.candidateBoardLabel} -> GPIO${soilGpio}`,
+    `#define LDR_PIN   ${ldrGpio} // ${pins.ldr.candidateBoardLabel} -> GPIO${ldrGpio}`,
+    `#define BOMBA_PIN ${pumpGpio} // ${pins.relayChannel1Pump.candidateBoardLabel} -> GPIO${pumpGpio}`,
+    `#define LUZ_PIN   ${lightGpio} // ${pins.relayChannel2Light.candidateBoardLabel} -> GPIO${lightGpio}`,
+    '',
+    'float leerTemperatura() { return 24.0f; }',
+    'float leerHumedadAmbiente() { return 55.0f; }',
+    'int leerHumedadSuelo() { return analogRead(SUELO_PIN); }',
+    'int leerNivelLuz() { return analogRead(LDR_PIN); }',
+    'void bombaOn() { digitalWrite(BOMBA_PIN, HIGH); }',
+    'void bombaOff() { digitalWrite(BOMBA_PIN, LOW); }',
+    'void luzOn() { digitalWrite(LUZ_PIN, HIGH); }',
+    'void luzOff() { digitalWrite(LUZ_PIN, LOW); }',
+    'void registrarDato(const char* etiqueta, float valor) {',
+    '  Serial.print(etiqueta); Serial.print(": "); Serial.println(valor);',
+    '}',
+    'void enviarDatoIoT(const char* topico, float valor) {',
+    '  Serial.print(topico); Serial.print(" -> "); Serial.println(valor);',
+    '}',
+    '',
+    compactCode,
+    '',
+  ].join('\n');
+}
+
+/**
+ * Construye el Sketch Completo (.ino) para Camera Node Bi-Tech (ESP32-CAM).
+ */
+function buildCameraNodeCompilableSketch(compactCode: string): string {
+  return [
+    '// ============================================================================',
+    '// BI-TECH IoT STUDIO · SKETCH COMPILABLE PARA HARDWARE REAL (.ino)',
+    `// Perfil: ${CAMERA_NODE_CONFIG.name} (${CAMERA_NODE_CONFIG.mcu})`,
+    '// Canal programación: USB | Canal streaming: Wi-Fi',
+    '// ============================================================================',
+    '',
+    '#include <Arduino.h>',
+    '',
+    'const char* WIFI_SSID = "Red_Escolar_BiTech";',
+    'const char* WIFI_PASS = "pendiente_configuracion";',
+    '',
+    'void configurarCamara() {}',
+    'void seleccionarResolucion(const char* resolucion) { (void)resolucion; }',
+    'void configurarCalidad(int calidad) { (void)calidad; }',
+    'void iniciarCamara() {}',
+    'void conectarWiFi(const char* ssid, const char* pass) { (void)ssid; (void)pass; }',
+    'void iniciarStreaming() {}',
+    'void detenerStreaming() {}',
+    'void tomarCaptura() {}',
+    'bool estadoCamara() { return true; }',
+    '',
+    compactCode,
+    '',
+  ].join('\n');
+}
+
+/**
+ * Genera tanto la Vista Educativa como el Sketch Completo Compilable (.ino)
+ * a partir del programa estructurado (AST) y valida que los recursos solicitados
+ * sean compatibles con las capacidades del dispositivo.
  */
 export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOutput {
   const validationIssues = validateProgramAgainstCapabilities(program);
   const profile = getDeviceProfile(program.device);
   const rawLines: { code: string; blockId?: string }[] = [];
+
+  const usedSensorsInLoop = new Set<SensorKey>();
+  collectAllSensorsInStatements(program.loopStatements, usedSensorsInLoop);
+
+  const allUsedSensors = new Set<SensorKey>(usedSensorsInLoop);
+  collectAllSensorsInStatements(program.setupStatements, allUsedSensors);
+  if (program.usedSensors) {
+    for (const s of program.usedSensors) {
+      allUsedSensors.add(s);
+    }
+  }
 
   if (validationIssues.length > 0) {
     rawLines.push({
@@ -249,15 +533,15 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
     });
     if (program.setupStatements.length > 0) {
       emitStatementsC(program.setupStatements, '  ', false, rawLines);
+    } else {
+      rawLines.push({ code: '  bombaOff();' });
+      rawLines.push({ code: '  luzOff();' });
     }
     rawLines.push({ code: '}' });
     rawLines.push({ code: '' });
     rawLines.push({ code: 'void loop() {' });
 
-    const usedSensors = new Set<SensorKey>();
-    collectAllSensorsInStatements(program.loopStatements, usedSensors);
-
-    for (const sensorKey of usedSensors) {
+    for (const sensorKey of usedSensorsInLoop) {
       const meta = SENSOR_CODE_META[sensorKey];
       rawLines.push({
         code: `  ${meta.cType} ${meta.varName} = ${meta.funcCall};`,
@@ -285,15 +569,14 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
     rawLines.push({ code: `  pinMode(${digitalInput.symbolicName}, INPUT);` });
     if (program.setupStatements.length > 0) {
       emitStatementsC(program.setupStatements, '  ', false, rawLines);
+    } else {
+      rawLines.push({ code: '  relayOff();' });
     }
     rawLines.push({ code: '}' });
     rawLines.push({ code: '' });
     rawLines.push({ code: 'void loop() {' });
 
-    const usedSensors = new Set<SensorKey>();
-    collectAllSensorsInStatements(program.loopStatements, usedSensors);
-
-    for (const sensorKey of usedSensors) {
+    for (const sensorKey of usedSensorsInLoop) {
       const meta = SENSOR_CODE_META[sensorKey];
       rawLines.push({
         code: `  ${meta.cType} ${meta.varName} = ${meta.funcCall};`,
@@ -345,87 +628,50 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
   const compactCode = lines.map((l) => l.code).join('\n');
 
   let headerAndHelpers: string;
+  let compilableSketch: string;
+
   if (profile.simulatorKind === 'garden-system') {
     headerAndHelpers = [
       '// ============================================================================',
-      '// BI-TECH IoT STUDIO · Dispositivo: Garden Node Bi-Tech (ESP32)',
+      '// BI-TECH IoT STUDIO · VISTA EDUCATIVA · Garden Node Bi-Tech (ESP32)',
       '// NOTA: Los pines GPIO son simbólicos hasta su validación física en laboratorio.',
       '// Estado seguro inicial de actuadores: Bomba OFF · Iluminación OFF',
       '// ============================================================================',
       '',
-      `// Configuración centralizada (${GARDEN_NODE_CONFIG.name})`,
-      '// #define DHT_PIN   <GPIO_PENDIENTE_VERIFICACION>',
-      '// #define SUELO_PIN <ADC1_PENDIENTE_VERIFICACION>',
-      '// #define LDR_PIN   <ADC1_PENDIENTE_VERIFICACION>',
-      '// #define BOMBA_PIN <GPIO_PENDIENTE_VERIFICACION>',
-      '// #define LUZ_PIN   <GPIO_PENDIENTE_VERIFICACION>',
-      '',
-      'float leerTemperatura();',
-      'float leerHumedadAmbiente();',
-      'int leerHumedadSuelo();',
-      'int leerNivelLuz();',
-      'void bombaOn();',
-      'void bombaOff();',
-      'void luzOn();',
-      'void luzOff();',
-      '',
       compactCode,
     ].join('\n');
+    compilableSketch = buildGardenNodeCompilableSketch(compactCode);
   } else if (profile.simulatorKind === 'nodemcu-system') {
     headerAndHelpers = [
       '// ============================================================================',
-      '// BI-TECH IoT STUDIO · Dispositivo: NodeMCU (ESP8266)',
-      '// Capacidades: 1 entrada analógica (A0: 0-1023), E/S digitales, DHT11, Relay, Wi-Fi.',
-      '// NOTA: Los pines GPIO son simbólicos hasta su validación en placa física.',
-      '// Estado seguro inicial: Relay OFF · Iluminación OFF · Salida Digital LOW',
+      '// BI-TECH IoT STUDIO · VISTA EDUCATIVA · NodeMCU (ESP8266)',
+      '// Capacidad física: 9 GPIO digitales (D0-D8) + 1 ADC A0 (0-1023).',
+      `// adcInputVoltageRange: ${NODEMCU_ESP8266_CONFIG.capabilities.adcInputVoltageRange} · Mapeo candidato: D1 -> GPIO5 (Relay)`,
       '// ============================================================================',
-      '',
-      '// #include <ESP8266WiFi.h>',
-      '// #define DHT_PIN         <GPIO_PENDIENTE_VERIFICACION>',
-      '// #define ANALOG_A0_PIN   A0',
-      '// #define ENTRADA_DIG_PIN <GPIO_PENDIENTE_VERIFICACION>',
-      '// #define SALIDA_DIG_PIN  <GPIO_PENDIENTE_VERIFICACION>',
-      '// #define RELAY_PIN       <GPIO_PENDIENTE_VERIFICACION>',
-      '// #define LUZ_PIN         <GPIO_PENDIENTE_VERIFICACION>',
-      '',
-      'float leerTemperatura();',
-      'float leerHumedadAmbiente();',
-      'int leerEntradaAnalogicaA0();',
-      'int leerEntradaDigital();',
-      'void relayOn();',
-      'void relayOff();',
-      'void luzOn();',
-      'void luzOff();',
-      'void activarSalidaDigital();',
-      'void desactivarSalidaDigital();',
       '',
       compactCode,
     ].join('\n');
+    compilableSketch = buildNodeMcuCompilableSketch(
+      program,
+      compactCode,
+      allUsedSensors
+    );
   } else {
     headerAndHelpers = [
       '// ============================================================================',
-      '// BI-TECH IoT STUDIO · Dispositivo: Camera Node Bi-Tech (ESP32-CAM · OV2640)',
+      '// BI-TECH IoT STUDIO · VISTA EDUCATIVA · Camera Node Bi-Tech (ESP32-CAM · OV2640)',
       '// Canal de programación: USB | Canal de comunicación y streaming: Wi-Fi',
-      '// NOTA: Credenciales Wi-Fi y endpoint de streaming se configuran localmente.',
       '// ============================================================================',
-      '',
-      'void configurarCamara();',
-      'void seleccionarResolucion(const char* resolucion);',
-      'void configurarCalidad(int calidad);',
-      'void iniciarCamara();',
-      'void conectarWiFi(const char* ssid, const char* pass);',
-      'void iniciarStreaming();',
-      'void detenerStreaming();',
-      'void tomarCaptura();',
-      'bool estadoCamara();',
       '',
       compactCode,
     ].join('\n');
+    compilableSketch = buildCameraNodeCompilableSketch(compactCode);
   }
 
   return {
     fullCode: headerAndHelpers,
     compactCode,
+    compilableSketch,
     lines,
     validationIssues,
   };

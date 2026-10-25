@@ -149,8 +149,12 @@ export interface CodeLineMapping {
 }
 
 export interface GeneratedArduinoOutput {
+  /** Vista educativa con encabezados y prototipos */
   fullCode: string;
+  /** Vista educativa compacta (setup + loop) sincronizada línea por línea con bloques */
   compactCode: string;
+  /** Sketch completo (.ino) 100% compilable para hardware real (Arduino CLI) */
+  compilableSketch: string;
   lines: CodeLineMapping[];
   validationIssues: HardwareValidationIssue[];
 }

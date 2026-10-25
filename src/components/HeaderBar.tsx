@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import {
   Camera,
   Check,
+  CheckCircle2,
+  Clock,
   Code2,
   Cpu,
   GraduationCap,
-  Info,
   Pencil,
   Play,
   Settings,
@@ -16,6 +17,7 @@ import {
   ALL_DEVICE_PROFILES,
   getDeviceProfile,
 } from '../hardware/hardwareCapabilities';
+import { NODEMCU_ESP8266_CONFIG } from '../hardware/nodeMcuConfig';
 import { DeviceProfileId, WorkMode } from '../types/hardware';
 
 interface HeaderBarProps {
@@ -26,6 +28,7 @@ interface HeaderBarProps {
   workMode: WorkMode;
   onSelectWorkMode: (mode: WorkMode) => void;
   onOpenHardwareModal: () => void;
+  hasValidationIssues?: boolean;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -36,6 +39,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   workMode,
   onSelectWorkMode,
   onOpenHardwareModal,
+  hasValidationIssues = false,
 }) => {
   const [editingTitle, setEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(projectName);
@@ -79,9 +83,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
           <button
             type="button"
+            data-testid="open-hardware-modal-btn"
             onClick={onOpenHardwareModal}
             className="p-2 rounded-full bg-white/70 hover:bg-white text-slate-700 border border-emerald-300/60 transition cursor-pointer"
-            title="Capacidades de hardware y configuración de pines"
+            title="Capacidades físicas vs. perfil educativo y mapeo de pines"
             aria-label="Configuración de hardware"
           >
             <Settings className="w-4 h-4" />
@@ -150,14 +155,17 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   </>
                 )}
 
-                {/* Resumen de capacidades físicas del dispositivo activo */}
+                {/* Resumen que distingue capacidades físicas vs asignación educativa */}
                 <span
                   data-testid="device-capabilities-pill"
                   className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200"
+                  title={`Capacidad física total: ${capabilities.physicalCapabilities.totalUsableGpios} GPIO digitales (${capabilities.physicalCapabilities.mcuModel}) · Asignación del perfil educativo: ${capabilities.educationalAllocation.digitalInputsExposed} entradas / ${capabilities.educationalAllocation.digitalOutputsExposed} salidas digitales expuestas`}
                 >
-                  MCU: {profile.mcu} · ADC: {capabilities.analogInputs} · E/S Dig:{' '}
-                  {capabilities.digitalInputs}/{capabilities.digitalOutputs} · Relay:{' '}
-                  {capabilities.relayChannels}
+                  MCU: {profile.mcu} · GPIO Físicos:{' '}
+                  {capabilities.physicalCapabilities.totalUsableGpios} (Perfil:{' '}
+                  {capabilities.educationalAllocation.digitalInputsExposed}E/
+                  {capabilities.educationalAllocation.digitalOutputsExposed}S) · ADC:{' '}
+                  {capabilities.analogInputs}
                 </span>
               </div>
 
@@ -251,33 +259,97 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 type="button"
                 data-testid="mode-board"
                 onClick={() => setShowBoardNotice((prev) => !prev)}
-                className="px-3.5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 transition cursor-pointer"
-                title="Disponible en V0.2 (Compilación y carga sobre placa física)"
+                className="px-3.5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition cursor-pointer"
+                title="Estado de preparación para hardware real (Hardware Readiness V0.1.2)"
               >
-                <Cpu className="w-4 h-4 text-slate-500" />
+                <Cpu className="w-4 h-4 text-indigo-600" />
                 <span>Placa real</span>
-                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold border border-amber-200">
-                  Próximamente
+                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-900 font-bold border border-indigo-200">
+                  Readiness V0.1.2
                 </span>
               </button>
 
               {showBoardNotice && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-amber-200 p-3.5 z-50 text-xs text-slate-700">
-                  <div className="flex items-start gap-2">
-                    <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold text-slate-900">
-                        Modo Placa Real — Planificado para V0.2
-                      </p>
-                      <p className="mt-1 leading-relaxed">
-                        En <strong>V0.1.1</strong> consolidamos los perfiles{' '}
-                        <strong>ESP32</strong>, <strong>ESP32-CAM</strong> y{' '}
-                        <strong>NodeMCU ESP8266</strong>. La primera validación de
-                        carga física por USB se realizará en <strong>V0.2</strong>{' '}
-                        iniciando con la placa física NodeMCU ESP8266 disponible.
-                      </p>
-                    </div>
+                <div
+                  data-testid="board-readiness-popover"
+                  className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-xl border border-slate-200 p-4 z-50 text-xs text-slate-700"
+                >
+                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-100">
+                    <span className="font-extrabold text-slate-900 uppercase tracking-wider text-[11px]">
+                      Estado de preparación — Placa real (V0.1.2)
+                    </span>
+                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      {NODEMCU_ESP8266_CONFIG.verifiedFqbn}
+                    </span>
                   </div>
+
+                  <ol className="space-y-2">
+                    <li className="flex items-center justify-between gap-2 p-2 rounded-lg bg-emerald-50/80 border border-emerald-200">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="font-semibold text-slate-900">
+                          1. Programa validado
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-800">
+                        {hasValidationIssues ? 'Revisar advertencia' : 'Listo'}
+                      </span>
+                    </li>
+
+                    <li className="flex items-center justify-between gap-2 p-2 rounded-lg bg-emerald-50/80 border border-emerald-200">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="font-semibold text-slate-900">
+                          2. Sketch generado (.ino)
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-800">
+                        Listo
+                      </span>
+                    </li>
+
+                    <li className="flex items-center justify-between gap-2 p-2 rounded-lg bg-emerald-50/80 border border-emerald-200">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="font-semibold text-slate-900">
+                          3. Compilación correcta
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-800">
+                        Arduino CLI OK
+                      </span>
+                    </li>
+
+                    <li className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-500">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span className="font-medium">
+                          4. Conectar placa — próxima etapa
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                        V0.2 USB
+                      </span>
+                    </li>
+
+                    <li className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-500">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span className="font-medium">
+                          5. Cargar firmware — próxima etapa
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                        V0.2 Flash
+                      </span>
+                    </li>
+                  </ol>
+
+                  <p className="mt-2.5 text-[11px] text-slate-500 leading-snug">
+                    No se simula una carga falsa al hardware: el sketch{' '}
+                    <code>.ino</code> completo ya es compilable con{' '}
+                    <code>arduino-cli</code> y se transferirá por USB en V0.2.
+                  </p>
                 </div>
               )}
             </div>

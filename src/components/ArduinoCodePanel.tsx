@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import {
   AlertTriangle,
+  BookOpen,
   Check,
   Code2,
   Copy,
+  Download,
   FileCode2,
 } from 'lucide-react';
 import { GeneratedArduinoOutput } from '../types/studio';
@@ -13,8 +15,10 @@ interface ArduinoCodePanelProps {
   selectedBlockId?: string;
 }
 
+type CodeViewMode = 'educational' | 'compilable';
+
 /**
- * Resaltador sintáctico ligero y seguro para código Arduino C/C++ educativo.
+ * Resaltador sintáctico ligero y seguro para código Arduino C/C++ (Vista educativa y Sketch .ino).
  */
 function renderHighlightedLine(line: string): React.ReactNode {
   if (line.trim().startsWith('// ⚠️')) {
@@ -27,9 +31,12 @@ function renderHighlightedLine(line: string): React.ReactNode {
   if (line.trim().startsWith('//')) {
     return <span className="text-emerald-700/80 italic">{line}</span>;
   }
+  if (line.trim().startsWith('#include') || line.trim().startsWith('#define')) {
+    return <span className="text-teal-800 font-semibold">{line}</span>;
+  }
 
   const tokenRegex =
-    /(".*?"|\b(?:void|int|float|bool|const|char|if|else|true|false)\b|\b(?:setup|loop|pinMode|Serial|begin|delay|leerTemperatura|leerHumedadAmbiente|leerHumedadSuelo|leerNivelLuz|leerEntradaAnalogicaA0|leerEntradaDigital|bombaOn|bombaOff|luzOn|luzOff|relayOn|relayOff|activarSalidaDigital|desactivarSalidaDigital|configurarCamara|seleccionarResolucion|configurarCalidad|iniciarCamara|conectarWiFi|iniciarStreaming|detenerStreaming|tomarCaptura|estadoCamara|registrarDato|enviarDatoIoT)\b|\b(?:OUTPUT|INPUT|BOMBA_PIN|LUZ_PIN|DHT_PIN|SUELO_PIN|LDR_PIN|RELAY_PIN|ANALOG_A0_PIN|ENTRADA_DIG_PIN|SALIDA_DIG_PIN|WIFI_SSID|WIFI_PASS)\b|\b\d+\b)/g;
+    /(".*?"|\b(?:void|int|float|bool|const|char|if|else|return|true|false)\b|\b(?:setup|loop|pinMode|digitalWrite|digitalRead|analogRead|Serial|begin|print|println|delay|WiFi|mode|leerTemperatura|leerHumedadAmbiente|leerHumedadSuelo|leerNivelLuz|leerEntradaAnalogicaA0|leerEntradaDigital|bombaOn|bombaOff|luzOn|luzOff|relayOn|relayOff|activarSalidaDigital|desactivarSalidaDigital|configurarCamara|seleccionarResolucion|configurarCalidad|iniciarCamara|conectarWiFi|iniciarStreaming|detenerStreaming|tomarCaptura|estadoCamara|registrarDato|enviarDatoIoT)\b|\b(?:OUTPUT|INPUT|HIGH|LOW|A0|WIFI_STA|BOMBA_PIN|LUZ_PIN|DHT_PIN|SUELO_PIN|LDR_PIN|RELAY_PIN|ANALOG_A0_PIN|ENTRADA_DIG_PIN|SALIDA_DIG_PIN|WIFI_SSID|WIFI_PASS)\b|\b\d+\b)/g;
 
   const parts = line.split(tokenRegex);
 
@@ -42,7 +49,9 @@ function renderHighlightedLine(line: string): React.ReactNode {
         </span>
       );
     }
-    if (/^(void|int|float|bool|const|char|if|else|true|false)$/.test(part)) {
+    if (
+      /^(void|int|float|bool|const|char|if|else|return|true|false)$/.test(part)
+    ) {
       return (
         <span key={idx} className="text-purple-700 font-semibold">
           {part}
@@ -57,7 +66,7 @@ function renderHighlightedLine(line: string): React.ReactNode {
       );
     }
     if (
-      /^(OUTPUT|INPUT|BOMBA_PIN|LUZ_PIN|DHT_PIN|SUELO_PIN|LDR_PIN|RELAY_PIN|ANALOG_A0_PIN|ENTRADA_DIG_PIN|SALIDA_DIG_PIN|WIFI_SSID|WIFI_PASS)$/.test(
+      /^(OUTPUT|INPUT|HIGH|LOW|A0|WIFI_STA|BOMBA_PIN|LUZ_PIN|DHT_PIN|SUELO_PIN|LDR_PIN|RELAY_PIN|ANALOG_A0_PIN|ENTRADA_DIG_PIN|SALIDA_DIG_PIN|WIFI_SSID|WIFI_PASS)$/.test(
         part
       )
     ) {
@@ -68,7 +77,7 @@ function renderHighlightedLine(line: string): React.ReactNode {
       );
     }
     if (
-      /^(setup|loop|pinMode|Serial|begin|delay|leerTemperatura|leerHumedadAmbiente|leerHumedadSuelo|leerNivelLuz|leerEntradaAnalogicaA0|leerEntradaDigital|bombaOn|bombaOff|luzOn|luzOff|relayOn|relayOff|activarSalidaDigital|desactivarSalidaDigital|configurarCamara|seleccionarResolucion|configurarCalidad|iniciarCamara|conectarWiFi|iniciarStreaming|detenerStreaming|tomarCaptura|estadoCamara|registrarDato|enviarDatoIoT)$/.test(
+      /^(setup|loop|pinMode|digitalWrite|digitalRead|analogRead|Serial|begin|print|println|delay|WiFi|mode|leerTemperatura|leerHumedadAmbiente|leerHumedadSuelo|leerNivelLuz|leerEntradaAnalogicaA0|leerEntradaDigital|bombaOn|bombaOff|luzOn|luzOff|relayOn|relayOff|activarSalidaDigital|desactivarSalidaDigital|configurarCamara|seleccionarResolucion|configurarCalidad|iniciarCamara|conectarWiFi|iniciarStreaming|detenerStreaming|tomarCaptura|estadoCamara|registrarDato|enviarDatoIoT)$/.test(
         part
       )
     ) {
@@ -87,13 +96,16 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
   selectedBlockId,
 }) => {
   const [copied, setCopied] = useState(false);
-  const [showFullSketch, setShowFullSketch] = useState(false);
+  const [viewMode, setViewMode] = useState<CodeViewMode>('educational');
+
+  const activeText =
+    viewMode === 'compilable'
+      ? generatedCode.compilableSketch
+      : generatedCode.compactCode;
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(
-        showFullSketch ? generatedCode.fullCode : generatedCode.compactCode
-      );
+      await navigator.clipboard.writeText(activeText);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
@@ -101,13 +113,27 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
     }
   };
 
-  const fullLines = generatedCode.fullCode.split('\n');
+  const handleDownloadIno = () => {
+    const blob = new Blob([generatedCode.compilableSketch], {
+      type: 'text/plain;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'bitech_hardware_sketch.ino';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const compilableLines = generatedCode.compilableSketch.split('\n');
   const hasIssues = generatedCode.validationIssues.length > 0;
 
   return (
     <section className="bg-white rounded-2xl border border-slate-200/90 shadow-xs flex flex-col h-full overflow-hidden">
-      {/* Cabecera de Código Arduino */}
-      <div className="px-3.5 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+      {/* Cabecera de Código Arduino con pestañas separadas: Vista educativa vs Sketch compilable */}
+      <div className="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <Code2 className="w-4 h-4 text-slate-700" />
           <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
@@ -130,6 +156,74 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
         </div>
       </div>
 
+      {/* Selector explícito entre Vista educativa y Sketch compilable (.ino) */}
+      <div className="px-3 py-1.5 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+        <div
+          className="inline-flex rounded-lg bg-slate-200/80 p-0.5 gap-0.5"
+          role="tablist"
+          aria-label="Tipo de salida de código Arduino"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === 'educational'}
+            data-testid="tab-educational-view"
+            onClick={() => setViewMode('educational')}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer ${
+              viewMode === 'educational'
+                ? 'bg-white text-emerald-800 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Vista educativa</span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === 'compilable'}
+            data-testid="tab-compilable-sketch"
+            onClick={() => setViewMode('compilable')}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer ${
+              viewMode === 'compilable'
+                ? 'bg-white text-indigo-800 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <FileCode2 className="w-3.5 h-3.5" />
+            <span>Sketch compilable (.ino)</span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            data-testid="download-ino-btn"
+            onClick={handleDownloadIno}
+            className="px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold flex items-center gap-1 shadow-2xs transition cursor-pointer"
+            title="Descargar sketch completo (.ino) listo para Arduino CLI / IDE"
+          >
+            <Download className="w-3.5 h-3.5 text-indigo-700" />
+            <span>.ino</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="p-1 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 shadow-2xs transition cursor-pointer"
+            title="Copiar código visible"
+            aria-label="Copiar código"
+          >
+            {copied ? (
+              <Check className="w-3.5 h-3.5 text-emerald-600" />
+            ) : (
+              <Copy className="w-3.5 h-3.5" />
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* Advertencia pedagógica visible cuando el programa excede capacidades del dispositivo */}
       {hasIssues && (
         <div
@@ -138,7 +232,9 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
         >
           <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <p className="font-bold">{generatedCode.validationIssues[0].message}</p>
+            <p className="font-bold">
+              {generatedCode.validationIssues[0].message}
+            </p>
             <p className="text-[11px] text-amber-900 mt-0.5 leading-snug">
               {generatedCode.validationIssues[0].pedagogicalExplanation}
             </p>
@@ -146,45 +242,19 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
         </div>
       )}
 
-      {/* Área de código con numeración de líneas y botón de copiar */}
+      {/* Área de código con numeración de líneas */}
       <div className="relative flex-1 bg-[#f9fbfd] overflow-auto p-3 font-mono text-[13px] leading-6">
-        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
-          <button
-            type="button"
-            onClick={() => setShowFullSketch((prev) => !prev)}
-            className="px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 text-[11px] font-sans font-medium flex items-center gap-1 shadow-2xs transition cursor-pointer"
-            title="Alternar entre vista educativa resumida y sketch completo con declaraciones"
-          >
-            <FileCode2 className="w-3.5 h-3.5 text-emerald-700" />
-            <span>{showFullSketch ? 'Vista resumida' : 'Ver declaraciones'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="p-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 shadow-2xs transition cursor-pointer"
-            title="Copiar código Arduino C/C++"
-            aria-label="Copiar código"
-          >
-            {copied ? (
-              <Check className="w-4 h-4 text-emerald-600" />
-            ) : (
-              <Copy className="w-4 h-4" />
-            )}
-          </button>
-        </div>
-
         <pre
           data-testid="arduino-code-display"
-          className="text-slate-800 select-text pt-1"
+          className="text-slate-800 select-text"
         >
-          {showFullSketch
-            ? fullLines.map((lineText, idx) => (
+          {viewMode === 'compilable'
+            ? compilableLines.map((lineText, idx) => (
                 <div
                   key={idx}
                   className="flex items-baseline px-1.5 rounded hover:bg-slate-100/80"
                 >
-                  <span className="w-7 shrink-0 text-right pr-3 text-xs text-slate-400 select-none">
+                  <span className="w-8 shrink-0 text-right pr-3 text-xs text-slate-400 select-none">
                     {idx + 1}
                   </span>
                   <code className="whitespace-pre">
@@ -205,7 +275,7 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
                         : 'hover:bg-slate-100/80'
                     }`}
                   >
-                    <span className="w-7 shrink-0 text-right pr-3 text-xs text-slate-400 select-none">
+                    <span className="w-8 shrink-0 text-right pr-3 text-xs text-slate-400 select-none">
                       {lineObj.lineNumber}
                     </span>
                     <code className="whitespace-pre">

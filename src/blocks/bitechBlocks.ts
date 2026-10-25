@@ -833,47 +833,39 @@ export const DEFAULT_CAMERA_WORKSPACE_XML = `
 `.trim();
 
 /**
- * XML inicial para NodeMCU — ESP8266.
- * Lee el canal analógico único A0 y la entrada digital para controlar el relay, la iluminación y la salida digital.
+ * XML inicial para NodeMCU — ESP8266 (V0.1.2 Hardware Readiness).
+ * Programa mínimo de validación:
+ *   al iniciar -> apagar relay
+ *   repetir siempre -> si entrada analógica A0 < 400 -> encender relay / si no -> apagar relay
  */
 export const DEFAULT_NODEMCU_WORKSPACE_XML = `
 <xml xmlns="https://developers.google.com/blockly/xml">
   <block type="bitech_on_start" id="nodemcu_block_start" x="36" y="20">
     <next>
-      <block type="bitech_forever" id="nodemcu_block_loop">
-        <statement name="LOOP_DO">
-          <block type="bitech_if_sensor_compare" id="nodemcu_if_a0">
-            <field name="SENSOR">entradaAnalogicaA0</field>
-            <field name="OP">&lt;</field>
-            <field name="THRESHOLD">400</field>
-            <statement name="DO">
-              <block type="bitech_actuator_relay_on" id="nodemcu_relay_on">
-                <next>
-                  <block type="bitech_actuator_light_on" id="nodemcu_light_on">
-                    <next>
-                      <block type="bitech_wait" id="nodemcu_wait_3">
-                        <field name="SECONDS">3</field>
-                        <next>
-                          <block type="bitech_actuator_relay_off" id="nodemcu_relay_off"></block>
-                        </next>
-                      </block>
-                    </next>
+      <block type="bitech_actuator_relay_off" id="nodemcu_setup_relay_off">
+        <next>
+          <block type="bitech_forever" id="nodemcu_block_loop">
+            <statement name="LOOP_DO">
+              <block type="bitech_if_else" id="nodemcu_if_else_a0">
+                <value name="CONDITION">
+                  <block type="bitech_compare" id="nodemcu_cmp_a0">
+                    <field name="OP">&lt;</field>
+                    <field name="RIGHT_NUM">400</field>
+                    <value name="LEFT">
+                      <block type="bitech_sensor_analog_a0" id="nodemcu_sensor_a0"></block>
+                    </value>
                   </block>
-                </next>
-              </block>
-            </statement>
-            <next>
-              <block type="bitech_if_sensor_compare" id="nodemcu_if_din">
-                <field name="SENSOR">entradaDigital</field>
-                <field name="OP">==</field>
-                <field name="THRESHOLD">1</field>
+                </value>
                 <statement name="DO">
-                  <block type="bitech_actuator_digital_out_on" id="nodemcu_dout_on"></block>
+                  <block type="bitech_actuator_relay_on" id="nodemcu_relay_on"></block>
+                </statement>
+                <statement name="ELSE">
+                  <block type="bitech_actuator_relay_off" id="nodemcu_relay_off"></block>
                 </statement>
               </block>
-            </next>
+            </statement>
           </block>
-        </statement>
+        </next>
       </block>
     </next>
   </block>
