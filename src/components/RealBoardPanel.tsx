@@ -32,6 +32,7 @@ import {
   CompileResult,
   defaultHardwareBridge,
   HardwareBridge,
+  isHostedWebEnvironment,
   SerialMonitorSession,
   SerialPortInfo,
   UploadPhase,
@@ -194,7 +195,10 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
   };
 
   useEffect(() => {
-    if (activeDevice === 'nodemcu-esp8266' || activeDevice === 'camera-node') {
+    if (
+      !isHostedWebEnvironment() &&
+      (activeDevice === 'nodemcu-esp8266' || activeDevice === 'camera-node')
+    ) {
       void handleScanPorts();
     }
   }, [activeDevice]);
@@ -364,6 +368,101 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
   };
 
   const sketchLinesCount = sketchCode.split('\n').length;
+
+  // ============================================================================
+  // VERSIÓN WEB ALOJADA (FIREBASE HOSTING): SIN ACCESO A ARDUINO CLI DEL SERVIDOR
+  // ============================================================================
+  if (isHostedWebEnvironment()) {
+    return (
+      <section
+        data-testid="real-board-panel-web-hosted"
+        className="bg-white rounded-2xl border-2 border-indigo-400/80 shadow-sm p-5 space-y-4"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-slate-200">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <Cpu className="w-5 h-5" />
+            </div>
+            <div>
+              <span
+                data-testid="web-hosted-board-banner"
+                className="inline-block text-sm sm:text-base font-extrabold text-indigo-950"
+              >
+                Conexión con placa física — próximamente disponible desde el
+                navegador
+              </span>
+              <p className="text-xs text-slate-600 mt-1 max-w-3xl">
+                Estás utilizando la versión web online de{' '}
+                <strong>Bi-Tech IoT Studio</strong>. Podés programar con
+                bloques, simular en tiempo real y descargar el sketch{' '}
+                <code>.ino</code> completo listo para cargar en tu placa física.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            data-testid="web-hosted-download-ino-btn"
+            onClick={handleDownloadIno}
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-xs shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            <span>Descargar sketch compilable (.ino)</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200 flex items-start justify-between gap-2">
+            <div>
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800">
+                1. Programa Blockly
+              </span>
+              <p className="font-bold text-slate-900 mt-0.5">
+                {validationIssues.length === 0
+                  ? 'Programa validado y listo'
+                  : 'Revisar advertencia de hardware'}
+              </p>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                {statementCount} bloque(s) activos en el lienzo
+              </p>
+            </div>
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          </div>
+
+          <div className="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200 flex items-start justify-between gap-2">
+            <div>
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800">
+                2. Sketch Arduino (.ino)
+              </span>
+              <p className="font-bold text-slate-900 mt-0.5">
+                Generado en vivo ({sketchLinesCount} líneas)
+              </p>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                Compatible con Arduino IDE y Arduino CLI
+              </p>
+            </div>
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          </div>
+
+          <div className="p-3 rounded-xl bg-indigo-50/80 border border-indigo-200 flex items-start justify-between gap-2">
+            <div>
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-800">
+                3. Carga directa por USB
+              </span>
+              <p className="font-bold text-indigo-950 mt-0.5">
+                Conexión con placa física — próximamente disponible desde el
+                navegador
+              </p>
+              <p className="text-[11px] text-indigo-800 mt-0.5">
+                Habilitada hoy en el entorno local de laboratorio
+              </p>
+            </div>
+            <Clock className="w-5 h-5 text-indigo-600 shrink-0" />
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   // ============================================================================
   // MODO PLACA REAL PARA CAMERA NODE BI-TECH (ESP32-CAM · V0.4A SOFTWARE READINESS)
@@ -668,20 +767,154 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
               {/* 5. Cargar */}
               <div
                 data-testid="cam-step-5-upload"
-                className="p-3 rounded-xl bg-amber-50/60 border border-amber-200 space-y-1"
+                className={`p-3 rounded-xl border space-y-2 ${
+                  uploadStatus === 'completed'
+                    ? 'bg-emerald-50/70 border-emerald-200'
+                    : 'bg-amber-50/60 border-amber-200'
+                }`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-900">
-                    5. Cargar
-                  </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
-                    Pendiente de validación con hardware
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900">
+                      5. Cargar
+                    </span>
+                    <p className="text-[11px] text-slate-700">
+                      {!selectedPort
+                        ? 'Seleccioná primero el puerto USB en el Paso 3.'
+                        : !isSketchCurrentlyCompiled
+                        ? 'Compilá primero el sketch en el Paso 4.'
+                        : `Listo para cargar en ESP32-CAM por ${selectedPort}.`}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    data-testid="board-upload-btn"
+                    onClick={handleUpload}
+                    disabled={
+                      !selectedPort ||
+                      !isSketchCurrentlyCompiled ||
+                      uploadStatus === 'connecting' ||
+                      uploadStatus === 'uploading'
+                    }
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                  >
+                    {uploadStatus === 'connecting' ||
+                    uploadStatus === 'uploading' ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>
+                          {uploadStatus === 'connecting'
+                            ? 'Conectando...'
+                            : `Cargando${
+                                uploadPercentage !== null
+                                  ? ` (${uploadPercentage}%)`
+                                  : '...'
+                              }`}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Cargar en la placa</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-                <p className="text-[11px] text-slate-700">
-                  Transferencia por USB hacia la ESP32-CAM física (disponible al
-                  conectar la placa).
-                </p>
+
+                {(uploadStatus === 'connecting' ||
+                  uploadStatus === 'uploading') && (
+                  <div
+                    data-testid="upload-progress-box"
+                    className="space-y-1 px-2.5 py-1.5 rounded-lg bg-cyan-50 border border-cyan-200 text-xs text-cyan-950"
+                  >
+                    <div className="flex items-center justify-between font-semibold">
+                      <span>{uploadStatusText}</span>
+                      {uploadPercentage !== null && (
+                        <span>{uploadPercentage}%</span>
+                      )}
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-cyan-200 overflow-hidden">
+                      <div
+                        className="h-full bg-cyan-600 transition-all duration-200"
+                        style={{ width: `${uploadPercentage ?? 10}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {uploadStatus === 'completed' && uploadResult && (
+                  <div
+                    data-testid="upload-status-completed"
+                    className="space-y-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        Carga completada en {selectedPort}
+                      </span>
+                      <button
+                        type="button"
+                        data-testid="toggle-upload-technical-details"
+                        onClick={() => setShowUploadDetails((prev) => !prev)}
+                        className="text-[11px] font-semibold text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Ver detalles técnicos</span>
+                        {showUploadDetails ? (
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                    {showUploadDetails && (
+                      <pre
+                        data-testid="upload-technical-details"
+                        className="mt-1 p-2 rounded-lg bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto max-h-36 whitespace-pre-wrap"
+                      >
+                        {uploadResult.technicalDetails}
+                      </pre>
+                    )}
+                  </div>
+                )}
+
+                {uploadStatus === 'error' && uploadResult && (
+                  <div
+                    data-testid="upload-status-error"
+                    className="space-y-1.5 px-2.5 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-900"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                        Error en la carga
+                      </span>
+                      <button
+                        type="button"
+                        data-testid="toggle-upload-technical-details"
+                        onClick={() => setShowUploadDetails((prev) => !prev)}
+                        className="text-[11px] font-semibold text-rose-800 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Ver detalles técnicos</span>
+                        {showUploadDetails ? (
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-rose-800">
+                      {uploadResult.summaryMessage}
+                    </p>
+                    {showUploadDetails && (
+                      <pre
+                        data-testid="upload-technical-details"
+                        className="mt-1 p-2 rounded-lg bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto max-h-36 whitespace-pre-wrap"
+                      >
+                        {uploadResult.technicalDetails}
+                      </pre>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* 6. Monitor Serie */}
@@ -835,9 +1068,70 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
                 <span className="text-xs font-extrabold tracking-wide text-white">
                   Monitor Serie — Camera Node
                 </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40">
-                  Pendiente de validación con hardware
+                <span
+                  data-testid="serial-status-pill"
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    isMonitorConnected
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                  }`}
+                >
+                  {isMonitorConnected
+                    ? `Conectado (${selectedPort})`
+                    : 'Pendiente de validación con hardware'}
                 </span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <select
+                  data-testid="serial-baud-select"
+                  aria-label="Velocidad en baudios Camera Node"
+                  value={baudRate}
+                  onChange={(e) => setBaudRate(Number(e.target.value))}
+                  disabled={isMonitorConnected}
+                  className="px-2 py-1 rounded bg-slate-700 text-slate-100 text-[11px] font-mono border border-slate-600"
+                >
+                  <option value={115200}>115200 baud</option>
+                  <option value={9600}>9600 baud</option>
+                </select>
+
+                <button
+                  type="button"
+                  data-testid="serial-clear-btn"
+                  onClick={() => setSerialOutput('')}
+                  className="p-1.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 cursor-pointer"
+                  title="Limpiar consola"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  data-testid="serial-connect-btn"
+                  onClick={handleToggleSerialMonitor}
+                  disabled={
+                    !selectedPort ||
+                    uploadStatus === 'connecting' ||
+                    uploadStatus === 'uploading'
+                  }
+                  className={`px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 cursor-pointer transition ${
+                    isMonitorConnected
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                      : 'bg-cyan-600 hover:bg-cyan-700 text-white disabled:bg-slate-700 disabled:text-slate-400'
+                  }`}
+                >
+                  {isMonitorConnected ? (
+                    <>
+                      <Unplug className="w-3.5 h-3.5" />
+                      <span>Desconectar</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plug className="w-3.5 h-3.5" />
+                      <span>Conectar</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
 

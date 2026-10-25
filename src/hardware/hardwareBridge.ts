@@ -99,6 +99,24 @@ export interface HardwareBridge {
 }
 
 /**
+ * Detecta si la aplicación se está ejecutando en un entorno web alojado (ej. Firebase Hosting)
+ * donde no está presente el middleware local de Arduino CLI.
+ */
+export function isHostedWebEnvironment(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  const host = window.location.hostname;
+  return (
+    host !== 'localhost' &&
+    host !== '127.0.0.1' &&
+    !host.startsWith('192.168.') &&
+    !host.startsWith('10.') &&
+    !host.endsWith('.local')
+  );
+}
+
+/**
  * Sanitiza salidas técnicas de compilación y carga para no exponer
  * direcciones MAC ni rutas de usuario locales.
  */

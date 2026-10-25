@@ -89,7 +89,19 @@ export const VirtualSystemPanel: React.FC<VirtualSystemPanelProps> = ({
             </div>
 
             <div className="my-auto flex flex-col items-center justify-center py-2 z-10">
-              {cameraState.activa ? (
+              {configuredStreamUrl ? (
+                <div className="w-full flex flex-col items-center justify-center gap-1">
+                  <img
+                    data-testid="camera-real-stream-img"
+                    src={configuredStreamUrl}
+                    alt="Vista en vivo OV2640 desde ESP32-CAM"
+                    className="max-h-[125px] w-auto rounded-lg border border-cyan-400/50 object-contain bg-black"
+                  />
+                  <span className="text-[10px] font-semibold text-emerald-300">
+                    Imagen real OV2640 recibida ({configuredStreamUrl})
+                  </span>
+                </div>
+              ) : cameraState.activa ? (
                 <div className="text-center">
                   <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-400/50 mb-1">
                     <Sprout className="w-7 h-7 text-emerald-400" />
