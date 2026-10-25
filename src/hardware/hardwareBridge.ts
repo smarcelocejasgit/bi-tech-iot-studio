@@ -21,7 +21,7 @@ export interface SerialPortInfo {
 }
 
 export interface CompileRequest {
-  device: 'nodemcu-esp8266';
+  device: 'nodemcu-esp8266' | 'camera-node';
   fqbn: string;
   sketchCode: string;
 }
@@ -52,7 +52,7 @@ export interface UploadProgress {
 }
 
 export interface UploadRequest {
-  device: 'nodemcu-esp8266';
+  device: 'nodemcu-esp8266' | 'camera-node';
   fqbn: string;
   port: string;
   sketchCode: string;

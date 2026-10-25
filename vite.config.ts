@@ -90,6 +90,26 @@ function createHardwareBridgeVitePlugin(): Plugin {
     fs.mkdirSync(sketchDir, { recursive: true });
     const sketchFile = path.join(sketchDir, 'bitech_live_sketch.ino');
     fs.writeFileSync(sketchFile, sketchCode, 'utf8');
+
+    // Si existe wifi_credentials.h local (excluido de Git) o variables de entorno, copiarlo al directorio temporal de compilación
+    const localWifiHeader = path.resolve(process.cwd(), 'wifi_credentials.h');
+    const targetWifiHeader = path.join(sketchDir, 'wifi_credentials.h');
+    if (fs.existsSync(localWifiHeader)) {
+      fs.copyFileSync(localWifiHeader, targetWifiHeader);
+    } else if (process.env.BITECH_WIFI_SSID && process.env.BITECH_WIFI_PASS) {
+      const headerContent = [
+        '#ifndef BITECH_WIFI_CREDENTIALS_H',
+        '#define BITECH_WIFI_CREDENTIALS_H',
+        `#define WIFI_SSID "${process.env.BITECH_WIFI_SSID}"`,
+        `#define WIFI_PASS "${process.env.BITECH_WIFI_PASS}"`,
+        '#endif',
+        '',
+      ].join('\n');
+      fs.writeFileSync(targetWifiHeader, headerContent, 'utf8');
+    } else if (fs.existsSync(targetWifiHeader)) {
+      fs.unlinkSync(targetWifiHeader);
+    }
+
     return sketchDir;
   }
 
@@ -177,14 +197,18 @@ function createHardwareBridgeVitePlugin(): Plugin {
             const sketchCode = String(body.sketchCode ?? '');
             const fqbn = String(body.fqbn || 'esp8266:esp8266:nodemcuv2');
 
-            if (fqbn !== 'esp8266:esp8266:nodemcuv2') {
+            const allowedFqbns = new Set([
+              'esp8266:esp8266:nodemcuv2',
+              'esp32:esp32:esp32cam',
+            ]);
+            if (!allowedFqbns.has(fqbn)) {
               res.statusCode = 400;
               res.setHeader('Content-Type', 'application/json');
               res.end(
                 JSON.stringify({
                   success: false,
                   summaryMessage:
-                    'En V0.3 la compilación directa está habilitada únicamente para NodeMCU ESP8266.',
+                    'FQBN no habilitado para compilación directa en esta etapa.',
                   technicalDetails: `FQBN recibido: ${fqbn}`,
                   compiledAt: new Date().toISOString(),
                 })

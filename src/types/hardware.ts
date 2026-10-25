@@ -158,6 +158,10 @@ export interface CameraNodeHardwareConfig extends BaseDeviceHardwareProfile {
   id: 'camera-node';
   mcu: 'ESP32-CAM';
   sensor: 'OV2640';
+  /** FQBN candidato para compilación previa a validación física (ej. esp32:esp32:esp32cam) */
+  candidateFqbn: string;
+  /** Supuesto documentado del modelo de placa hasta verificar físicamente el hardware */
+  boardModelAssumption: string;
   programmingChannel: 'USB';
   streamingChannel: 'Wi-Fi';
   streamEndpointUrl: string | null;

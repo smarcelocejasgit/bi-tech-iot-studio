@@ -28,6 +28,8 @@ interface VirtualSystemPanelProps {
   nodeMcuSensors: NodeMcuSensorState;
   nodeMcuActuators: NodeMcuActuatorState;
   cameraState: CameraSimulationState;
+  configuredStreamUrl?: string | null;
+  onChangeConfiguredStreamUrl?: (url: string) => void;
 }
 
 export const VirtualSystemPanel: React.FC<VirtualSystemPanelProps> = ({
@@ -37,6 +39,8 @@ export const VirtualSystemPanel: React.FC<VirtualSystemPanelProps> = ({
   nodeMcuSensors,
   nodeMcuActuators,
   cameraState,
+  configuredStreamUrl = null,
+  onChangeConfiguredStreamUrl,
 }) => {
   const [viewMode, setViewMode] = useState<'jardin' | 'esquema'>('jardin');
   const profile = getDeviceProfile(activeDevice);
@@ -105,7 +109,11 @@ export const VirtualSystemPanel: React.FC<VirtualSystemPanelProps> = ({
 
             <div className="flex items-center justify-between text-[10px] text-slate-300 font-mono z-10 border-t border-white/10 pt-1.5">
               <span>Calidad JPEG: {cameraState.calidad}</span>
-              <span>Endpoint: configurable (V0.3)</span>
+              <span data-testid="camera-panel-stream-endpoint">
+                {configuredStreamUrl
+                  ? `Stream: ${configuredStreamUrl}`
+                  : 'Stream real: Pendiente de validación con hardware'}
+              </span>
             </div>
           </div>
 
@@ -164,6 +172,29 @@ export const VirtualSystemPanel: React.FC<VirtualSystemPanelProps> = ({
                   </strong>
                 </div>
               </div>
+            </div>
+
+            {/* Configuración preparada para recibir URL real de streaming sin valores hardcodeados */}
+            <div
+              data-testid="camera-streaming-config-box"
+              className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 text-xs space-y-1.5"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-slate-800 text-[11px]">
+                  Conexión de Streaming Real (V0.4A)
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                  Pendiente de validación con hardware
+                </span>
+              </div>
+              <input
+                type="text"
+                data-testid="virtual-panel-stream-url-input"
+                placeholder="Introducir o detectar URL de streaming al conectar ESP32-CAM"
+                value={configuredStreamUrl ?? ''}
+                onChange={(e) => onChangeConfiguredStreamUrl?.(e.target.value)}
+                className="w-full px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-xs font-mono text-slate-800"
+              />
             </div>
 
             <div className="px-3 py-2 rounded-xl bg-cyan-50/90 border border-cyan-200 text-xs text-cyan-950 font-medium flex items-center gap-2">

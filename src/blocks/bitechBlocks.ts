@@ -800,7 +800,7 @@ export const DEFAULT_CAMERA_WORKSPACE_XML = `
                   <block type="bitech_cam_init" id="cam_block_init">
                     <next>
                       <block type="bitech_cam_wifi" id="cam_block_wifi">
-                        <field name="SSID">Red_Escolar_BiTech</field>
+                        <field name="SSID">SSID_PENDIENTE_CONFIGURACION</field>
                         <next>
                           <block type="bitech_cam_stream_start" id="cam_block_stream">
                             <next>

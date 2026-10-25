@@ -10,7 +10,7 @@ const STORAGE_KEYS = {
   projectName: 'bitech_studio_v012_project_name',
   activeDevice: 'bitech_studio_v012_active_device',
   gardenXml: 'bitech_studio_v012_garden_xml',
-  cameraXml: 'bitech_studio_v012_camera_xml',
+  cameraXml: 'bitech_studio_v04a_camera_xml',
   nodemcuXml: 'bitech_studio_v03_nodemcu_xml',
 };
 

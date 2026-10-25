@@ -9,6 +9,10 @@ import { RealBoardPanel } from './components/RealBoardPanel';
 import { SimulatorControlsPanel } from './components/SimulatorControlsPanel';
 import { VirtualSystemPanel } from './components/VirtualSystemPanel';
 import { generateArduinoCode } from './generators/arduinoGenerator';
+import {
+  CameraStreamConnectionInput,
+  resolveCameraStreamUrl,
+} from './hardware/cameraSerialParser';
 import { getDeviceCapabilities } from './hardware/hardwareCapabilities';
 import { getManualEntryForDevice } from './manual/contextualManualData';
 import {
@@ -102,6 +106,18 @@ export const App: React.FC = () => {
   );
   const [isHardwareModalOpen, setIsHardwareModalOpen] =
     useState<boolean>(false);
+  const [cameraStreamConfig, setCameraStreamConfig] =
+    useState<CameraStreamConnectionInput>({
+      host: '',
+      port: '',
+      endpointPath: '',
+      fullUrl: '',
+    });
+
+  const resolvedCameraStreamUrl = useMemo(
+    () => resolveCameraStreamUrl(cameraStreamConfig),
+    [cameraStreamConfig]
+  );
 
   const handleProjectNameChange = (name: string) => {
     setProjectName(name);
@@ -237,6 +253,8 @@ export const App: React.FC = () => {
               parsedProgram.setupStatements.length +
               parsedProgram.loopStatements.length
             }
+            cameraStreamConfig={cameraStreamConfig}
+            onChangeCameraStreamConfig={setCameraStreamConfig}
           />
         )}
 
@@ -308,6 +326,10 @@ export const App: React.FC = () => {
               nodeMcuSensors={nodeMcuSensors}
               nodeMcuActuators={nodeMcuActuators}
               cameraState={cameraSimulation}
+              configuredStreamUrl={resolvedCameraStreamUrl}
+              onChangeConfiguredStreamUrl={(fullUrl) =>
+                setCameraStreamConfig((prev) => ({ ...prev, fullUrl }))
+              }
             />
           </div>
         </div>

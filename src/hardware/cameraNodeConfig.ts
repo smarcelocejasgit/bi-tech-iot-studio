@@ -10,6 +10,9 @@ export const CAMERA_NODE_CONFIG: CameraNodeHardwareConfig = {
   mcu: 'ESP32-CAM',
   simulatorKind: 'camera-system',
   verifiedFqbn: null,
+  candidateFqbn: 'esp32:esp32:esp32cam',
+  boardModelAssumption:
+    'Candidato de compilación: AI-Thinker ESP32-CAM (OV2640). El modelo físico exacto y su mapa de pines se confirmarán al conectar la placa real en V0.4B.',
   sensor: 'OV2640',
   programmingChannel: 'USB',
   streamingChannel: 'Wi-Fi',

@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { getCatalogForDevice } from '../blocks/bitechBlocks';
 import { generateArduinoCode } from '../generators/arduinoGenerator';
 import { CAMERA_NODE_CONFIG } from '../hardware/cameraNodeConfig';
+import {
+  parseCameraSerialOutput,
+  resolveCameraStreamUrl,
+} from '../hardware/cameraSerialParser';
 import { GARDEN_NODE_CONFIG } from '../hardware/gardenNodeConfig';
 import { sanitizeHardwareLog } from '../hardware/hardwareBridge';
 import { getDeviceCapabilities } from '../hardware/hardwareCapabilities';
@@ -352,5 +356,67 @@ describe('Bi-Tech IoT Studio V0.3 — Placa real y HardwareBridge', () => {
     expect(clean).not.toContain('84:f3:eb:e4:13:63');
     expect(clean).toContain('<LOCAL_USER_PATH>');
     expect(clean).not.toContain('C:\\Users\\Alumno');
+  });
+});
+
+describe('Bi-Tech IoT Studio V0.4A — Preparación de Camera Node Bi-Tech (ESP32-CAM)', () => {
+  it('mantiene verifiedFqbn en null (pendiente de placa física) y define candidateFqbn esp32:esp32:esp32cam sin URLs hardcodeadas', () => {
+    expect(CAMERA_NODE_CONFIG.verifiedFqbn).toBeNull();
+    expect(CAMERA_NODE_CONFIG.candidateFqbn).toBe('esp32:esp32:esp32cam');
+    expect(CAMERA_NODE_CONFIG.streamEndpointUrl).toBeNull();
+    expect(CAMERA_NODE_CONFIG.captureEndpointUrl).toBeNull();
+    expect(resolveCameraStreamUrl({})).toBeNull();
+  });
+
+  it('genera un sketch Arduino C/C++ completo y compilable para ESP32-CAM con placeholders seguros de Wi-Fi', () => {
+    const camProgram: ParsedProgram = {
+      device: 'camera-node',
+      setupStatements: [
+        { kind: 'cam_config' },
+        { kind: 'cam_resolution', resolution: 'SVGA (800x600)' },
+        { kind: 'cam_quality', quality: 10 },
+        { kind: 'cam_init' },
+        { kind: 'cam_wifi', ssid: 'SSID_PENDIENTE_CONFIGURACION' },
+        { kind: 'cam_stream_start' },
+      ],
+      loopStatements: [
+        { kind: 'cam_capture' },
+        { kind: 'wait', seconds: 10 },
+      ],
+    };
+
+    const output = generateArduinoCode(camProgram);
+    expect(output.validationIssues).toHaveLength(0);
+    expect(output.compilableSketch).toContain('#include "esp_camera.h"');
+    expect(output.compilableSketch).toContain('#include <WiFi.h>');
+    expect(output.compilableSketch).toContain('#include "esp_http_server.h"');
+    expect(output.compilableSketch).toContain('#if __has_include("wifi_credentials.h")');
+    expect(output.compilableSketch).toContain('#define WIFI_SSID "SSID_PENDIENTE_CONFIGURACION"');
+    expect(output.compilableSketch).toContain('#define WIFI_PASS "PASS_PENDIENTE_CONFIGURACION"');
+    expect(output.compilableSketch).toContain('esp_camera_init(&cameraConfig)');
+    expect(output.compilableSketch).toContain('httpd_start(&streamHttpd, &config)');
+    expect(output.compilableSketch).toContain('esp_camera_fb_get()');
+  });
+
+  it('parsea de forma tolerante y configurable los mensajes serie futuros de Camera Node', () => {
+    const sampleLog = [
+      'Bi-Tech Camera Node booting...',
+      'Camera ready',
+      'WiFi connected',
+      'IP: 192.168.1.120',
+      'Streaming started',
+    ].join('\n');
+
+    const parsed = parseCameraSerialOutput(sampleLog);
+    expect(parsed.cameraReady).toBe(true);
+    expect(parsed.wifiConnected).toBe(true);
+    expect(parsed.detectedIp).toBe('192.168.1.120');
+    expect(parsed.streamingStarted).toBe(true);
+
+    const emptyParsed = parseCameraSerialOutput('Esperando conexión física...');
+    expect(emptyParsed.cameraReady).toBe(false);
+    expect(emptyParsed.wifiConnected).toBe(false);
+    expect(emptyParsed.detectedIp).toBeNull();
+    expect(emptyParsed.streamingStarted).toBe(false);
   });
 });

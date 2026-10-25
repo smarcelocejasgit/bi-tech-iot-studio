@@ -1,22 +1,33 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
+  Camera,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Clock,
   Cpu,
   Download,
   FileCode2,
   Loader2,
   Play,
   Plug,
+  Radio,
   RefreshCw,
+  ShieldCheck,
   Terminal,
   Trash2,
   Unplug,
   Upload,
+  Wifi,
 } from 'lucide-react';
+import { CAMERA_NODE_CONFIG } from '../hardware/cameraNodeConfig';
+import {
+  CameraStreamConnectionInput,
+  parseCameraSerialOutput,
+  resolveCameraStreamUrl,
+} from '../hardware/cameraSerialParser';
 import {
   CompileResult,
   defaultHardwareBridge,
@@ -35,6 +46,8 @@ interface RealBoardPanelProps {
   sketchCode: string;
   validationIssues: HardwareValidationIssue[];
   statementCount: number;
+  cameraStreamConfig?: CameraStreamConnectionInput;
+  onChangeCameraStreamConfig?: (config: CameraStreamConnectionInput) => void;
   bridge?: HardwareBridge;
 }
 
@@ -47,6 +60,8 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
   sketchCode,
   validationIssues,
   statementCount,
+  cameraStreamConfig,
+  onChangeCameraStreamConfig,
   bridge = defaultHardwareBridge,
 }) => {
   // 3. Puerto
@@ -77,10 +92,51 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
   const monitorSessionRef = useRef<SerialMonitorSession | null>(null);
   const serialConsoleRef = useRef<HTMLPreElement | null>(null);
 
+  // Configuración local de streaming para Camera Node (sin valores hardcodeados)
+  const [localStreamInput, setLocalStreamInput] =
+    useState<CameraStreamConnectionInput>(
+      cameraStreamConfig ?? {
+        host: '',
+        port: '',
+        endpointPath: '',
+        fullUrl: '',
+      }
+    );
+
+  const effectiveStreamInput = cameraStreamConfig ?? localStreamInput;
+
+  const updateStreamInput = (patch: Partial<CameraStreamConnectionInput>) => {
+    const next = { ...effectiveStreamInput, ...patch };
+    setLocalStreamInput(next);
+    onChangeCameraStreamConfig?.(next);
+  };
+
+  // Parser tolerante para mensajes futuros del Monitor Serie en Camera Node
+  const parsedCameraSerial = useMemo(
+    () => parseCameraSerialOutput(serialOutput),
+    [serialOutput]
+  );
+
+  // Si el parser detecta una IP en el Monitor Serie y el campo host está vacío, sugerirla
+  useEffect(() => {
+    if (
+      activeDevice === 'camera-node' &&
+      parsedCameraSerial.detectedIp &&
+      !effectiveStreamInput.host
+    ) {
+      updateStreamInput({ host: parsedCameraSerial.detectedIp });
+    }
+  }, [activeDevice, parsedCameraSerial.detectedIp]);
+
+  const resolvedStreamUrl = useMemo(
+    () => resolveCameraStreamUrl(effectiveStreamInput),
+    [effectiveStreamInput]
+  );
+
   const isSketchCurrentlyCompiled =
     compileStatus === 'success' && compiledSketchSnapshot === sketchCode;
 
-  // Si el estudiante modifica los bloques después de compilar, requiere volver a compilar antes de cargar
+  // Resetear estado de compilación al cambiar de dispositivo o modificar el sketch
   useEffect(() => {
     if (
       compileStatus === 'success' &&
@@ -119,10 +175,9 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
       if (detected.length === 0) {
         setSelectedPort('');
         setPortScanMessage(
-          'No se detectaron puertos serie. Conectá la placa NodeMCU por USB y volvé a buscar.'
+          'No se detectaron puertos serie. Conectá la placa por USB y volvé a buscar.'
         );
-      } else {
-        // Mantener puerto si sigue presente, o preseleccionar el primer puerto USB detectado sin fijar nombres estáticos
+      } else if (activeDevice === 'nodemcu-esp8266') {
         const stillExists = detected.some((p) => p.address === selectedPort);
         if (!stillExists) {
           const preferredUsb = detected.find((p) => p.isUsb) ?? detected[0];
@@ -139,17 +194,21 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
   };
 
   useEffect(() => {
-    if (activeDevice === 'nodemcu-esp8266') {
+    if (activeDevice === 'nodemcu-esp8266' || activeDevice === 'camera-node') {
       void handleScanPorts();
     }
   }, [activeDevice]);
 
   const handleDownloadIno = () => {
+    const filename =
+      activeDevice === 'camera-node'
+        ? 'bitech_camera_node_sketch.ino'
+        : 'bitech_nodemcu_sketch.ino';
     const blob = new Blob([sketchCode], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'bitech_nodemcu_sketch.ino';
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -163,10 +222,17 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
     setUploadStatus('idle');
     setUploadResult(null);
 
+    const targetDevice =
+      activeDevice === 'camera-node' ? 'camera-node' : 'nodemcu-esp8266';
+    const targetFqbn =
+      activeDevice === 'camera-node'
+        ? CAMERA_NODE_CONFIG.verifiedFqbn ?? CAMERA_NODE_CONFIG.candidateFqbn
+        : NODEMCU_ESP8266_CONFIG.verifiedFqbn ?? 'esp8266:esp8266:nodemcuv2';
+
     try {
       const result = await bridge.compile({
-        device: 'nodemcu-esp8266',
-        fqbn: NODEMCU_ESP8266_CONFIG.verifiedFqbn ?? 'esp8266:esp8266:nodemcuv2',
+        device: targetDevice,
+        fqbn: targetFqbn,
         sketchCode,
       });
       setCompileResult(result);
@@ -200,10 +266,16 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
       return;
     }
 
-    // Cerrar Monitor Serie si estaba conectado para liberar el puerto USB
     if (isMonitorConnected) {
       await disconnectSerialMonitor();
     }
+
+    const targetDevice =
+      activeDevice === 'camera-node' ? 'camera-node' : 'nodemcu-esp8266';
+    const targetFqbn =
+      activeDevice === 'camera-node'
+        ? CAMERA_NODE_CONFIG.verifiedFqbn ?? CAMERA_NODE_CONFIG.candidateFqbn
+        : NODEMCU_ESP8266_CONFIG.verifiedFqbn ?? 'esp8266:esp8266:nodemcuv2';
 
     setUploadStatus('connecting');
     setUploadPercentage(5);
@@ -214,8 +286,8 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
     try {
       const result = await bridge.upload(
         {
-          device: 'nodemcu-esp8266',
-          fqbn: NODEMCU_ESP8266_CONFIG.verifiedFqbn ?? 'esp8266:esp8266:nodemcuv2',
+          device: targetDevice,
+          fqbn: targetFqbn,
           port: selectedPort,
           sketchCode,
         },
@@ -291,7 +363,556 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
     }
   };
 
-  // Si el dispositivo activo no es NodeMCU ESP8266, informar alcance V0.3
+  const sketchLinesCount = sketchCode.split('\n').length;
+
+  // ============================================================================
+  // MODO PLACA REAL PARA CAMERA NODE BI-TECH (ESP32-CAM · V0.4A SOFTWARE READINESS)
+  // ============================================================================
+  if (activeDevice === 'camera-node') {
+    return (
+      <section
+        data-testid="real-board-panel-camera"
+        className="bg-white rounded-2xl border-2 border-cyan-600/80 shadow-sm p-4 space-y-4"
+      >
+        {/* Cabecera Camera Node Placa real */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-cyan-700 text-white flex items-center justify-center shadow-2xs">
+              <Camera className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-extrabold text-slate-900">
+                  Placa real — Camera Node Bi-Tech (ESP32-CAM · OV2640)
+                </h2>
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-900 border border-cyan-200">
+                  FQBN candidato: {CAMERA_NODE_CONFIG.candidateFqbn}
+                </span>
+                <span
+                  data-testid="camera-hardware-pending-pill"
+                  className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300"
+                >
+                  Pendiente de validación con hardware
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Entorno de compilación ESP32, placeholders seguros de Wi-Fi y
+                panel de streaming listos para conectar mañana la ESP32-CAM
+                física.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center flex-wrap gap-1 text-[11px] font-bold">
+            {[
+              { label: '1. PROGRAMA', done: true },
+              { label: '2. SKETCH', done: true },
+              { label: '4. COMPILAR', done: isSketchCurrentlyCompiled },
+              { label: '3/5/6/7/8/9 HARDWARE', pending: true },
+            ].map((item, idx, arr) => (
+              <React.Fragment key={item.label}>
+                <span
+                  className={`px-2 py-1 rounded-lg border ${
+                    item.done
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : 'bg-amber-50 text-amber-900 border-amber-300'
+                  }`}
+                >
+                  {item.label}
+                </span>
+                {idx < arr.length - 1 && (
+                  <ArrowRight className="w-3 h-3 text-slate-400" />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+
+        {/* Grilla de los 9 pasos de Camera Node + Monitor Serie preparado */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Izquierda: Pasos 1 a 9 */}
+          <div className="lg:col-span-7 space-y-2.5">
+            {/* Fila: 1. Programa y 2. Sketch generado */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {/* 1. Programa */}
+              <div
+                data-testid="cam-step-1-program"
+                className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-start justify-between gap-2"
+              >
+                <div>
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800">
+                    1. Programa
+                  </span>
+                  <p className="text-xs font-bold text-slate-900 mt-0.5">
+                    Programa Blockly listo
+                  </p>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    {statementCount} bloque(s) configurados (OV2640 + Wi-Fi +
+                    Streaming)
+                  </p>
+                </div>
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              </div>
+
+              {/* 2. Sketch generado */}
+              <div
+                data-testid="cam-step-2-sketch"
+                className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-start justify-between gap-2"
+              >
+                <div>
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800">
+                    2. Sketch generado
+                  </span>
+                  <p className="text-xs font-bold text-slate-900 mt-0.5">
+                    Sketch .ino completo ({sketchLinesCount} líneas)
+                  </p>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    Incluye esp_camera.h, WiFi.h y esp_http_server.h
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadIno}
+                  className="px-2 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold flex items-center gap-1 cursor-pointer shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5 text-cyan-700" />
+                  <span>.ino</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 3. Puerto USB */}
+            <div
+              data-testid="cam-step-3-port"
+              className="p-3 rounded-xl bg-amber-50/60 border border-amber-200 space-y-2"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-900">
+                    3. Puerto USB
+                  </span>
+                  <p className="text-xs text-slate-700">
+                    Seleccioná el puerto cuando conectes la ESP32-CAM física.
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-bold">
+                  <Clock className="w-3.5 h-3.5 text-amber-700" />
+                  Pendiente de validación con hardware
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  data-testid="board-port-select"
+                  aria-label="Seleccionar puerto USB para ESP32-CAM"
+                  value={selectedPort}
+                  onChange={(e) => setSelectedPort(e.target.value)}
+                  className="flex-1 min-w-[200px] px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-xs font-semibold text-slate-800"
+                >
+                  <option value="">
+                    -- Sin ESP32-CAM conectada (seleccionar mañana) --
+                  </option>
+                  {ports.map((p) => (
+                    <option key={p.address} value={p.address}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  data-testid="detect-ports-btn"
+                  onClick={handleScanPorts}
+                  disabled={isScanningPorts}
+                  className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw
+                    className={`w-3.5 h-3.5 text-cyan-700 ${
+                      isScanningPorts ? 'animate-spin' : ''
+                    }`}
+                  />
+                  <span>Detectar puertos</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 4. Compilar */}
+            <div
+              data-testid="cam-step-4-compile"
+              className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-cyan-800">
+                    4. Compilar (Validación de software habilitada hoy)
+                  </span>
+                  <p className="text-xs text-slate-600">
+                    Compila el sketch de Camera Node con el core oficial ESP32 (
+                    <code>{CAMERA_NODE_CONFIG.candidateFqbn}</code>).
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  data-testid="board-compile-btn"
+                  onClick={handleCompile}
+                  disabled={compileStatus === 'compiling'}
+                  className="px-4 py-2 rounded-xl bg-cyan-700 hover:bg-cyan-800 disabled:bg-cyan-400 text-white text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-2xs"
+                >
+                  {compileStatus === 'compiling' ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Compilando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileCode2 className="w-4 h-4" />
+                      <span>Compilar programa</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {compileStatus === 'compiling' && (
+                <div
+                  data-testid="compile-status-compiling"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan-50 border border-cyan-200 text-xs font-semibold text-cyan-900"
+                >
+                  <Loader2 className="w-4 h-4 animate-spin text-cyan-700" />
+                  <span>
+                    Compilando proyecto Camera Node para ESP32-CAM...
+                  </span>
+                </div>
+              )}
+
+              {compileStatus === 'success' && compileResult && (
+                <div
+                  data-testid="compile-status-success"
+                  className="space-y-1.5 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 font-bold">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Compilación correcta (ESP32-CAM)</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      data-testid="toggle-compile-technical-details"
+                      onClick={() => setShowCompileDetails((prev) => !prev)}
+                      className="text-[11px] font-semibold text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Ver detalles técnicos</span>
+                      {showCompileDetails ? (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-emerald-800">
+                    {compileResult.summaryMessage}
+                  </p>
+                  {showCompileDetails && (
+                    <pre
+                      data-testid="compile-technical-details"
+                      className="mt-2 p-2.5 rounded-lg bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto max-h-40 whitespace-pre-wrap"
+                    >
+                      {compileResult.technicalDetails}
+                    </pre>
+                  )}
+                </div>
+              )}
+
+              {compileStatus === 'error' && compileResult && (
+                <div
+                  data-testid="compile-status-error"
+                  className="space-y-1.5 px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-900"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 font-bold">
+                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>Error de compilación</span>
+                    </div>
+                    <button
+                      type="button"
+                      data-testid="toggle-compile-technical-details"
+                      onClick={() => setShowCompileDetails((prev) => !prev)}
+                      className="text-[11px] font-semibold text-rose-800 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Ver detalles técnicos</span>
+                      {showCompileDetails ? (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-rose-800">
+                    {compileResult.summaryMessage}
+                  </p>
+                  {showCompileDetails && (
+                    <pre
+                      data-testid="compile-technical-details"
+                      className="mt-2 p-2.5 rounded-lg bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto max-h-40 whitespace-pre-wrap"
+                    >
+                      {compileResult.technicalDetails}
+                    </pre>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Pasos 5, 6, 7 y 8: requieren cámara física */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {/* 5. Cargar */}
+              <div
+                data-testid="cam-step-5-upload"
+                className="p-3 rounded-xl bg-amber-50/60 border border-amber-200 space-y-1"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-900">
+                    5. Cargar
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                    Pendiente de validación con hardware
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-700">
+                  Transferencia por USB hacia la ESP32-CAM física (disponible al
+                  conectar la placa).
+                </p>
+              </div>
+
+              {/* 6. Monitor Serie */}
+              <div
+                data-testid="cam-step-6-serial"
+                className="p-3 rounded-xl bg-amber-50/60 border border-amber-200 space-y-1"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-900">
+                    6. Monitor Serie
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                    Pendiente de validación con hardware
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-700">
+                  Parser tolerante preparado para reconocer{' '}
+                  <code>Camera ready</code>, <code>WiFi connected</code>,{' '}
+                  <code>IP</code> y <code>Streaming started</code>.
+                </p>
+              </div>
+
+              {/* 7. Wi-Fi */}
+              <div
+                data-testid="cam-step-7-wifi"
+                className="p-3 rounded-xl bg-amber-50/60 border border-amber-200 space-y-1"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-900 flex items-center gap-1">
+                    <Wifi className="w-3.5 h-3.5 text-amber-800" />
+                    7. Wi-Fi
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                    Pendiente de validación con hardware
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-700">
+                  Placeholders seguros activos (<code>WIFI_SSID</code> /{' '}
+                  <code>WIFI_PASS</code> en <code>wifi_credentials.h</code>{' '}
+                  excluido por <code>.gitignore</code>).
+                </p>
+              </div>
+
+              {/* 8. Cámara */}
+              <div
+                data-testid="cam-step-8-camera"
+                className="p-3 rounded-xl bg-amber-50/60 border border-amber-200 space-y-1"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-900 flex items-center gap-1">
+                    <Camera className="w-3.5 h-3.5 text-amber-800" />
+                    8. Cámara (OV2640)
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                    Pendiente de validación con hardware
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-700">
+                  Inicialización física del sensor OV2640 sujeta a conexión de
+                  la placa ESP32-CAM.
+                </p>
+              </div>
+            </div>
+
+            {/* 9. Streaming */}
+            <div
+              data-testid="cam-step-9-streaming"
+              className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200 space-y-2.5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Radio className="w-4 h-4 text-amber-800" />
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-900">
+                    9. Streaming (Configuración sin IP/Puerto/Endpoint
+                    hardcodeados)
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                  Pendiente de validación con hardware
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                    IP / Host (detectado o manual)
+                  </label>
+                  <input
+                    type="text"
+                    data-testid="camera-stream-host-input"
+                    placeholder="Pendiente de conexión Wi-Fi"
+                    value={effectiveStreamInput.host ?? ''}
+                    onChange={(e) => updateStreamInput({ host: e.target.value })}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 text-xs font-mono text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                    Puerto (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    data-testid="camera-stream-port-input"
+                    placeholder="Sin fijar"
+                    value={effectiveStreamInput.port ?? ''}
+                    onChange={(e) => updateStreamInput({ port: e.target.value })}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 text-xs font-mono text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                    Endpoint (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    data-testid="camera-stream-path-input"
+                    placeholder="Sin fijar"
+                    value={effectiveStreamInput.endpointPath ?? ''}
+                    onChange={(e) =>
+                      updateStreamInput({ endpointPath: e.target.value })
+                    }
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 text-xs font-mono text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-slate-700">
+                <span>
+                  URL de streaming resuelta:{' '}
+                  <code
+                    data-testid="resolved-camera-stream-url"
+                    className="font-mono font-bold text-slate-900"
+                  >
+                    {resolvedStreamUrl ??
+                      'Pendiente (se completará al conectar la ESP32-CAM a Wi-Fi)'}
+                  </code>
+                </span>
+                <span className="inline-flex items-center gap-1 text-emerald-800 font-semibold">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  Sin credenciales ni IPs fijadas en código
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Derecha: Monitor Serie preparado con estado del parser de Camera Node */}
+          <div className="lg:col-span-5 flex flex-col bg-slate-900 text-slate-100 rounded-xl border border-slate-800 overflow-hidden min-h-[380px]">
+            <div className="px-3.5 py-2.5 bg-slate-800/90 border-b border-slate-700 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-cyan-400" />
+                <span className="text-xs font-extrabold tracking-wide text-white">
+                  Monitor Serie — Camera Node
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40">
+                  Pendiente de validación con hardware
+                </span>
+              </div>
+            </div>
+
+            {/* Indicadores del parser tolerante de Camera Node */}
+            <div className="px-3.5 py-2 bg-slate-800/50 border-b border-slate-800 grid grid-cols-2 gap-1.5 text-[11px] font-mono">
+              <div className="px-2 py-1 rounded bg-slate-900/90 border border-slate-700 flex items-center justify-between">
+                <span className="text-slate-400">Camera ready:</span>
+                <span
+                  className={
+                    parsedCameraSerial.cameraReady
+                      ? 'text-emerald-400 font-bold'
+                      : 'text-amber-300'
+                  }
+                >
+                  {parsedCameraSerial.cameraReady ? 'Detectado' : 'Pendiente'}
+                </span>
+              </div>
+              <div className="px-2 py-1 rounded bg-slate-900/90 border border-slate-700 flex items-center justify-between">
+                <span className="text-slate-400">WiFi connected:</span>
+                <span
+                  className={
+                    parsedCameraSerial.wifiConnected
+                      ? 'text-emerald-400 font-bold'
+                      : 'text-amber-300'
+                  }
+                >
+                  {parsedCameraSerial.wifiConnected ? 'Detectado' : 'Pendiente'}
+                </span>
+              </div>
+              <div className="px-2 py-1 rounded bg-slate-900/90 border border-slate-700 flex items-center justify-between">
+                <span className="text-slate-400">IP detectada:</span>
+                <span className="text-cyan-300">
+                  {parsedCameraSerial.detectedIp ?? 'Pendiente'}
+                </span>
+              </div>
+              <div className="px-2 py-1 rounded bg-slate-900/90 border border-slate-700 flex items-center justify-between">
+                <span className="text-slate-400">Streaming:</span>
+                <span
+                  className={
+                    parsedCameraSerial.streamingStarted
+                      ? 'text-emerald-400 font-bold'
+                      : 'text-amber-300'
+                  }
+                >
+                  {parsedCameraSerial.streamingStarted
+                    ? 'Iniciado'
+                    : 'Pendiente'}
+                </span>
+              </div>
+            </div>
+
+            <pre
+              ref={serialConsoleRef}
+              data-testid="serial-monitor-output"
+              className="flex-1 p-3.5 font-mono text-xs text-cyan-200 overflow-y-auto whitespace-pre-wrap leading-relaxed"
+            >
+              {serialOutput ||
+                [
+                  '[V0.4A — Preparación de Software Camera Node Bi-Tech]',
+                  'Estado actual: Pendiente de validación con hardware (ESP32-CAM física no conectada hoy).',
+                  '',
+                  'Parser Serie configurado y listo para detectar mañana:',
+                  '  • Camera ready',
+                  '  • WiFi connected',
+                  '  • IP: xxx.xxx.xxx.xxx',
+                  '  • Streaming started',
+                ].join('\n')}
+            </pre>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Si el dispositivo activo es Garden Node (ESP32), informar alcance actual
   if (activeDevice !== 'nodemcu-esp8266') {
     return (
       <section
@@ -305,34 +926,41 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
             </div>
             <div>
               <h2 className="text-base font-extrabold text-slate-900">
-                Modo Placa real (V0.3) — Habilitado para NodeMCU ESP8266
+                Modo Placa real — Habilitado para NodeMCU ESP8266 y preparado
+                para Camera Node (ESP32-CAM)
               </h2>
               <p className="text-xs text-slate-600 mt-1 max-w-2xl">
-                En esta etapa el flujo directo{' '}
-                <strong>
-                  Blockly → Código Arduino → Compilar → Cargar → Ejecutar
-                </strong>{' '}
-                está validado y habilitado únicamente para{' '}
-                <strong>NodeMCU — ESP8266</strong>.
+                Seleccioná <strong>NodeMCU — ESP8266</strong> para cargar en
+                placa física o <strong>Camera Node Bi-Tech — ESP32-CAM</strong>{' '}
+                para compilar y preparar el nodo de cámara.
               </p>
             </div>
           </div>
 
-          <button
-            type="button"
-            data-testid="switch-to-nodemcu-btn"
-            onClick={() => onSelectDevice('nodemcu-esp8266')}
-            className="px-4 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold transition cursor-pointer flex items-center gap-2 shadow-xs"
-          >
-            <Cpu className="w-4 h-4" />
-            Cambiar a NodeMCU — ESP8266
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              data-testid="switch-to-nodemcu-btn"
+              onClick={() => onSelectDevice('nodemcu-esp8266')}
+              className="px-4 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold transition cursor-pointer flex items-center gap-2 shadow-xs"
+            >
+              <Cpu className="w-4 h-4" />
+              NodeMCU — ESP8266
+            </button>
+            <button
+              type="button"
+              data-testid="switch-to-camera-btn"
+              onClick={() => onSelectDevice('camera-node')}
+              className="px-4 py-2 rounded-xl bg-cyan-700 hover:bg-cyan-800 text-white text-xs font-bold transition cursor-pointer flex items-center gap-2 shadow-xs"
+            >
+              <Camera className="w-4 h-4" />
+              Camera Node — ESP32-CAM
+            </button>
+          </div>
         </div>
       </section>
     );
   }
-
-  const sketchLinesCount = sketchCode.split('\n').length;
 
   return (
     <section

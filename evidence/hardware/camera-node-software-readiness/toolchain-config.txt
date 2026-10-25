@@ -1,0 +1,19 @@
+=== CONFIGURACIÓN DE TOOLCHAIN ESP32 (V0.4A) ===
+
+Herramienta: Arduino CLI 1.5.1
+Core oficial instalado: esp32:esp32@2.0.17 (Espressif Systems)
+URL de índice oficial: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+
+=== CORES INSTALADOS (`arduino-cli core list`) ===
+ID              Instalado Última Nombre
+arduino:avr     1.8.6     1.8.8  Arduino AVR Boards
+esp32:esp32     2.0.17    3.3.12 esp32
+esp8266:esp8266 3.1.2     3.1.2  esp8266
+
+=== FQBN CANDIDATO PARA CAMERA NODE BI-TECH ===
+candidateFqbn: esp32:esp32:esp32cam (AI Thinker ESP32-CAM)
+verifiedFqbn:  null (Pendiente de verificación con la placa física en V0.4B)
+
+Supuesto documentado:
+- El sketch compilable utiliza el mapa de pines estándar del módulo AI-Thinker ESP32-CAM + sensor OV2640.
+- El modelo físico exacto de la placa y su asignación de pines se confirmarán al conectar la ESP32-CAM real.

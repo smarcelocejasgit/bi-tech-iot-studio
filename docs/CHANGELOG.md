@@ -4,6 +4,25 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 
 ---
 
+## [0.4.0-alpha.1 (V0.4A)] — 2026-10-25
+### Preparación de Software para Camera Node Bi-Tech (`ESP32-CAM · OV2640`)
+- **Toolchain ESP32 y FQBN Candidato (`src/hardware/cameraNodeConfig.ts`, `src/types/hardware.ts`):**
+  - Instalación del core oficial de Espressif `esp32:esp32@2.0.17` en Arduino CLI.
+  - Identificación de `candidateFqbn: 'esp32:esp32:esp32cam'` (*AI Thinker ESP32-CAM*) manteniendo `verifiedFqbn: null` y documentando el supuesto de modelo de placa hasta realizar mañana la validación física.
+- **Generación de Sketch Compilable Completo para Camera Node (`src/generators/arduinoGenerator.ts`):**
+  - Generación de código Arduino C/C++ (`.ino`) 100 % compilable con `#include "esp_camera.h"`, `#include <WiFi.h>` y `#include "esp_http_server.h"`, soportando `configurarCamara()`, `seleccionarResolucion()`, `configurarCalidad()`, `iniciarCamara()`, `conectarWiFi()`, `iniciarStreaming()`, `detenerStreaming()`, `tomarCaptura()` y `estadoCamara()`.
+  - Compilación real verificada desde la interfaz (`834969 bytes` / `26%` de flash, `48060 bytes` / `14%` de RAM).
+- **Configuración Segura de Wi-Fi y Streaming sin Valores Hardcodeados (`.env.example`, `wifi_credentials.example.h`, `src/hardware/cameraSerialParser.ts`):**
+  - Uso de placeholders (`SSID_PENDIENTE_CONFIGURACION` y `PASS_PENDIENTE_CONFIGURACION`) e inclusión condicional `#if __has_include("wifi_credentials.h")` excluida por `.gitignore`.
+  - Configuración desacoplada de streaming (`resolveCameraStreamUrl`) sin hardcodear IP, puerto, endpoint `/stream` ni URL completa.
+- **Modo `Placa real` de 9 Pasos y Parser Tolerante de Monitor Serie (`src/components/RealBoardPanel.tsx`, `src/components/VirtualSystemPanel.tsx`):**
+  - Visualización de los 9 pasos de Camera Node (`1. Programa`, `2. Sketch generado`, `3. Puerto USB`, `4. Compilar`, `5. Cargar`, `6. Monitor Serie`, `7. Wi-Fi`, `8. Cámara`, `9. Streaming`), manteniendo todos los pasos que requieren cámara física en estado explícito **Pendiente de validación con hardware**.
+  - Parser tolerante y configurable (`parseCameraSerialOutput`) preparado para reconocer `Camera ready`, `WiFi connected`, `IP: xxx.xxx.xxx.xxx` y `Streaming started`.
+- **Evidencia registrada:**
+  - Guardada en [`evidence/hardware/camera-node-software-readiness/`](file:///j:/Bi-Tech-IoT-Studio/evidence/hardware/camera-node-software-readiness/README.md) indicando explícitamente que todavía no hubo validación física.
+
+---
+
 ## [0.3.0 (V0.3)] — 2026-10-25
 ### Hito: Primer programa transferido a hardware físico directamente desde la interfaz de Bi-Tech IoT Studio
 - **Habilitación del modo `Placa real` para NodeMCU ESP8266 (`src/components/RealBoardPanel.tsx`, `src/components/HeaderBar.tsx`, `src/App.tsx`):**

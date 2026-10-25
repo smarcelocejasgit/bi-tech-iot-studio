@@ -1,0 +1,4 @@
+Comando: arduino-cli compile --fqbn esp32:esp32:esp32cam
+
+El Sketch usa 834969 bytes (26%) del espacio de almacenamiento de programa. El máximo es 3145728 bytes.
+Las variables Globales usan 48060 bytes (14%) de la memoria dinámica, dejando 279620 bytes para las variables locales. El máximo es 327680 bytes.

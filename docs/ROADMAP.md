@@ -69,8 +69,15 @@ flowchart LR
 
 ---
 
-## 🟡 V0.4 — Ampliación de Perfiles Físicos (ESP32 / ESP32-CAM) y Conectividad IoT (Próxima Etapa)
-- Incorporación progresiva de `Garden Node (ESP32)` y `Camera Node (ESP32-CAM)` al flujo de carga real, streaming MJPEG y eventos IoT.
+## ✅ V0.4A — Preparación de Software para Camera Node Bi-Tech (Completado — Sin Validación Física Todavía)
+- **Flujo preparado:** **`Blockly → Arduino C/C++ → compilación para ESP32-CAM (`esp32:esp32:esp32cam`) → interfaz Placa real (9 pasos) → configuración Wi-Fi segura → panel de streaming configurable`**.
+- Core oficial `esp32:esp32@2.0.17` instalado, sketch completo compilable con `esp_camera.h` / `WiFi.h` / `esp_http_server.h`, parser serie tolerante (`parseCameraSerialOutput`) y pasos dependientes de cámara física marcados como **Pendiente de validación con hardware**.
+- Evidencia registrada en [`evidence/hardware/camera-node-software-readiness/`](file:///j:/Bi-Tech-IoT-Studio/evidence/hardware/camera-node-software-readiness/README.md).
+
+---
+
+## 🟡 V0.4B — Validación Física de Camera Node Bi-Tech (Próxima Etapa con Placa Real)
+- Validar con la `ESP32-CAM` física: **`Conectar → Detectar → Cargar → Wi-Fi → IP → Streaming real`**.
 
 ---
 
