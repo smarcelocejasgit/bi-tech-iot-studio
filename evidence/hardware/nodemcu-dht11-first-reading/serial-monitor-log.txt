@@ -1,0 +1,33 @@
+Bi-Tech IoT Studio
+DHT11 conectado
+
+Temperatura: 22.6 °C
+Humedad: 54.0 %
+
+Temperatura: 22.6 °C
+Humedad: 54.0 %
+
+Temperatura: 22.6 °C
+Humedad: 53.0 %
+
+Temperatura: 22.6 °C
+Humedad: 53.0 %
+
+Temperatura: 22.6 °C
+Humedad: 52.0 %
+
+--- Variación física al acercar calor/humedad al sensor DHT11 ---
+
+Temperatura: 26.7 °C
+Humedad: 74.0 %
+
+Temperatura: 27.1 °C
+Humedad: 75.0 %
+
+Temperatura: 27.6 °C
+Humedad: 76.0 %
+
+Temperatura: 27.6 °C
+Humedad: 76.0 %
+
+Temperatura: 28.0 °C

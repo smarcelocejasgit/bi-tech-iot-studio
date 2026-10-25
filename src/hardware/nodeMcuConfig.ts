@@ -148,14 +148,14 @@ export const NODEMCU_ESP8266_CONFIG: NodeMcuHardwareConfig = {
   pins: {
     dht11: {
       symbolicName: 'DHT_PIN',
-      boardLabel: null,
-      verifiedGpio: null,
+      boardLabel: 'D5',
+      verifiedGpio: 14,
       candidateBoardLabel: 'D5',
       candidateGpio: 14,
       mode: 'INPUT',
       component: 'Sensor DHT11 (Temperatura y Humedad Ambiente)',
       verificationNote:
-        'Cableado definitivo pendiente. Candidato seguro para compilación: D5 → GPIO14 (SP-09).',
+        'Pin verificado físicamente en V0.2C: D5 → GPIO14 con librería DHT sensor library@1.4.4 (SP-09).',
     },
     analogA0: {
       symbolicName: 'ANALOG_A0_PIN',

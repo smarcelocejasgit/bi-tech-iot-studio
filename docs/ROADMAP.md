@@ -46,9 +46,15 @@ flowchart LR
 
 ---
 
-## 🟡 V0.2C — Segundo Canal de Relay / Iluminación y Validación Progresiva de Hardware (Próxima Etapa)
-- Ensayo físico del segundo canal del módulo relay / iluminación antes de conectar la bomba.
-- Relevamiento de polaridad con carga conectada y pruebas de sensores (`A0` / `DHT11`).
+## ✅ V0.2C — Primera Entrada Física con Sensor DHT11 en NodeMCU ESP8266 (Completado)
+- **Hito alcanzado:** `DHT11 (D5 / GPIO14) → NodeMCU ESP8266 → Arduino C/C++ generado desde Bi-Tech IoT Studio → lectura real por Monitor Serie`.
+- Pin verificado para el sensor `DHT11`: **`D5 → GPIO14`** (`DHT_PIN`), utilizando `DHT sensor library@1.4.4` incluida condicionalmente y comprobando lecturas reales de temperatura y humedad ambiente (`22.6 °C → 28.0 °C`, `52.0 % → 76.0 %`).
+- Evidencia sanitizada registrada en [`evidence/hardware/nodemcu-dht11-first-reading/`](file:///j:/Bi-Tech-IoT-Studio/evidence/hardware/nodemcu-dht11-first-reading/README.md).
+
+---
+
+## 🟡 V0.2D — Siguientes Ensayos de Hardware Físico (Próxima Etapa)
+- Ensayos progresivos de entradas analógicas (`A0`), segundo canal de relay / iluminación y reglas de control sensor → actuador sobre hardware físico.
 
 ---
 

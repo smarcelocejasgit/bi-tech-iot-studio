@@ -4,6 +4,17 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 
 ---
 
+## [0.2.0-alpha.3 (V0.2C)] — 2026-10-25
+### Hito: Primera entrada física con sensor DHT11 en NodeMCU ESP8266 (`D5 → GPIO14`)
+- **Validación física del flujo `DHT11 (D5 / GPIO14) → NodeMCU ESP8266 → Arduino C/C++ generado desde Bi-Tech IoT Studio → lectura real por Monitor Serie`:**
+  - Registro del pin verificado en [`nodeMcuConfig.ts`](file:///j:/Bi-Tech-IoT-Studio/src/hardware/nodeMcuConfig.ts): `DHT_PIN` asignado a **`D5` (`GPIO14`)**.
+  - Instalación y registro de la librería `DHT sensor library@1.4.4` (`Adafruit Unified Sensor@1.1.12`) en Arduino CLI.
+  - Inclusión condicional en [`arduinoGenerator.ts`](file:///j:/Bi-Tech-IoT-Studio/src/generators/arduinoGenerator.ts) de `#include <DHT.h>`, `DHT dht(DHT_PIN, DHT11)` y `dht.begin()` únicamente cuando el programa utiliza los bloques `temperatura` o `humedad ambiente`, manteniendo la abstracción pedagógica *sensor físico → dato → variable utilizable en el programa*.
+  - Compilación (`esp8266:esp8266:nodemcuv2`), transferencia por **`COM15`** y comprobación en Monitor Serie (`115200` baudios) tanto en reposo (`22.6 °C` / `52.0 % – 54.0 %`) como ante variación térmica/húmeda directa (`26.7 °C → 28.0 °C` / `74.0 % → 76.0 %`).
+  - Evidencia sanitizada guardada en [`evidence/hardware/nodemcu-dht11-first-reading/`](file:///j:/Bi-Tech-IoT-Studio/evidence/hardware/nodemcu-dht11-first-reading/README.md).
+
+---
+
 ## [0.2.0-alpha.2 (V0.2B)] — 2026-10-25
 ### Hito: Primera salida física con relay controlada desde NodeMCU ESP8266 (`D1 → GPIO5`)
 - **Validación física del flujo `Bi-Tech IoT Studio → Blockly → Arduino C/C++ → compilación → USB → NodeMCU → GPIO5 → relay físico`:**

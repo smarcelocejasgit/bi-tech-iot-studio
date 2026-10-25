@@ -21,7 +21,8 @@ describe('Bi-Tech IoT Studio V0.1.1 — Capacidades de Hardware y Perfiles', () 
   it('mantiene los pines GPIO físicos sin inventar (null) en los 3 perfiles y estados iniciales seguros OFF', () => {
     expect(GARDEN_NODE_CONFIG.pins.dht11.verifiedGpio).toBeNull();
     expect(GARDEN_NODE_CONFIG.pins.soilMoisture.verifiedGpio).toBeNull();
-    expect(NODEMCU_ESP8266_CONFIG.pins.dht11.verifiedGpio).toBeNull();
+    expect(NODEMCU_ESP8266_CONFIG.pins.dht11.boardLabel).toBe('D5');
+    expect(NODEMCU_ESP8266_CONFIG.pins.dht11.verifiedGpio).toBe(14);
     expect(NODEMCU_ESP8266_CONFIG.pins.analogA0.verifiedGpio).toBeNull();
     expect(NODEMCU_ESP8266_CONFIG.pins.relay.boardLabel).toBe('D1');
     expect(NODEMCU_ESP8266_CONFIG.pins.relay.verifiedGpio).toBe(5);
@@ -313,11 +314,29 @@ describe('Bi-Tech IoT Studio V0.1.2 — Hardware Readiness y Sketch Compilable (
     // 2. Sketch compilable completo (.ino) sin librerías externas innecesarias
     expect(output.compilableSketch).toContain('#include <Arduino.h>');
     expect(output.compilableSketch).not.toContain('#include <ESP8266WiFi.h>');
+    expect(output.compilableSketch).not.toContain('#include <DHT.h>');
     expect(output.compilableSketch).toContain('#define RELAY_PIN       5   // D1 -> GPIO5');
     expect(output.compilableSketch).toContain('#define ANALOG_A0_PIN   A0  // A0 -> A0');
     expect(output.compilableSketch).toContain('adcInputVoltageRange: unverified');
     expect(output.compilableSketch).toContain('int leerEntradaAnalogicaA0() {');
     expect(output.compilableSketch).toContain('void relayOn() {');
     expect(output.compilableSketch).toContain('void relayOff() {');
+
+    // 3. Al utilizar bloques de temperatura y humedad ambiente, incluye <DHT.h> y dht.begin()
+    const dhtProgram: ParsedProgram = {
+      device: 'nodemcu-esp8266',
+      setupStatements: [],
+      loopStatements: [
+        { kind: 'data_log', label: 'Temperatura', sensor: 'temperatura' },
+        { kind: 'data_log', label: 'Humedad', sensor: 'humedadAmbiente' },
+        { kind: 'wait', seconds: 2 },
+      ],
+    };
+    const dhtOutput = generateArduinoCode(dhtProgram);
+    expect(dhtOutput.compilableSketch).toContain('#include <DHT.h>');
+    expect(dhtOutput.compilableSketch).toContain('DHT dht(DHT_PIN, DHT_TYPE);');
+    expect(dhtOutput.compilableSketch).toContain('dht.begin();');
+    expect(dhtOutput.compilableSketch).toContain('return dht.readTemperature();');
+    expect(dhtOutput.compilableSketch).toContain('return dht.readHumidity();');
   });
 });

@@ -1,0 +1,87 @@
+================================================================================
+BI-TECH IoT STUDIO — V0.2C PRIMERA ENTRADA FÍSICA: DHT11
+LOG DE DEPENDENCIAS, COMPILACIÓN Y UPLOAD (NodeMCU ESP8266 <- D5 / GPIO14 <- DHT11)
+================================================================================
+
+Hito registrado:
+  DHT11 -> NodeMCU ESP8266 (D5 / GPIO14) -> Arduino C/C++ generado desde Bi-Tech IoT Studio -> lectura real por Monitor Serie
+
+1. DEPENDENCIA INSTALADA Y VERIFICADA
+--------------------------------------------------------------------------------
+Comando de verificación inicial:
+  arduino-cli lib list -> No hay librerías instaladas.
+
+Comando de instalación:
+  arduino-cli lib install "DHT sensor library"
+
+Librerías instaladas resultantes:
+  - DHT sensor library@1.4.4 (Adafruit)
+  - Adafruit Unified Sensor@1.1.12 (dependencia requerida por DHT sensor library)
+
+2. PARÁMETROS DE HARDWARE UTILIZADOS
+--------------------------------------------------------------------------------
+Placa          : NodeMCU 1.0 (ESP-12E Module)
+FQBN           : esp8266:esp8266:nodemcuv2
+Puerto USB     : COM15 (Silicon Labs CP210x USB to UART Bridge)
+Pin de datos   : D5 -> GPIO14 (DHT_PIN)
+Alimentación   : VCC -> 3.3V | GND -> GND
+
+3. COMANDO Y RESULTADO DE COMPILACIÓN
+--------------------------------------------------------------------------------
+Comando:
+  arduino-cli compile --fqbn esp8266:esp8266:nodemcuv2 "evidence/hardware/nodemcu-dht11-first-reading"
+
+Salida:
+  . Variables and constants in RAM (global, static), used 28300 / 80192 bytes (35%)
+  ║   SEGMENT  BYTES    DESCRIPTION
+  ╠══ DATA     1496     initialized variables
+  ╠══ RODATA   1028     constants       
+  ╚══ BSS      25776    zeroed variables
+  . Instruction RAM (IRAM_ATTR, ICACHE_RAM_ATTR), used 60331 / 65536 bytes (92%)
+  ║   SEGMENT  BYTES    DESCRIPTION
+  ╠══ ICACHE   32768    reserved space for flash instruction cache
+  ╚══ IRAM     27563    code in IRAM    
+  . Code in flash (default, ICACHE_FLASH_ATTR), used 238692 / 1048576 bytes (22%)
+  ║   SEGMENT  BYTES    DESCRIPTION
+  ╚══ IROM     238692   code in flash   
+  Exit code: 0
+
+4. COMANDO Y RESULTADO DE UPLOAD
+--------------------------------------------------------------------------------
+Comando:
+  arduino-cli upload -p COM15 --fqbn esp8266:esp8266:nodemcuv2 "evidence/hardware/nodemcu-dht11-first-reading" -v
+
+Salida:
+  esptool.py v3.0
+  Serial port COM15
+  Connecting....
+  Chip is ESP8266EX
+  Features: WiFi
+  Crystal is 26MHz
+  MAC: [REDACTED]
+  Uploading stub...
+  Running stub...
+  Stub running...
+  Configuring flash size...
+  Auto-detected Flash size: 4MB
+  Compressed 272928 bytes to 200726...
+  Writing at 0x00000000... (7 %)
+  Writing at 0x00004000... (15 %)
+  Writing at 0x00008000... (23 %)
+  Writing at 0x0000c000... (30 %)
+  Writing at 0x00010000... (38 %)
+  Writing at 0x00014000... (46 %)
+  Writing at 0x00018000... (53 %)
+  Writing at 0x0001c000... (61 %)
+  Writing at 0x00020000... (69 %)
+  Writing at 0x00024000... (76 %)
+  Writing at 0x00028000... (84 %)
+  Writing at 0x0002c000... (92 %)
+  Writing at 0x00030000... (100 %)
+  Wrote 272928 bytes (200726 compressed) at 0x00000000 in 17.9 seconds (effective 122.0 kbit/s)...
+  Hash of data verified.
+
+  Leaving...
+  Hard resetting via RTS pin...
+  New upload port: COM15 (serial)
+  Exit code: 0

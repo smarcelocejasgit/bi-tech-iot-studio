@@ -210,17 +210,21 @@ function emitStatementsC(
         out.push({ code: `${indent}tomarCaptura();`, blockId: st.blockId });
         break;
       case 'data_log': {
-        const call = SENSOR_CODE_META[st.sensor].funcCall;
+        const valExpr = useLocalVars
+          ? SENSOR_CODE_META[st.sensor].varName
+          : SENSOR_CODE_META[st.sensor].funcCall;
         out.push({
-          code: `${indent}registrarDato("${st.label}", ${call});`,
+          code: `${indent}registrarDato("${st.label}", ${valExpr});`,
           blockId: st.blockId,
         });
         break;
       }
       case 'iot_publish': {
-        const call = SENSOR_CODE_META[st.sensor].funcCall;
+        const valExpr = useLocalVars
+          ? SENSOR_CODE_META[st.sensor].varName
+          : SENSOR_CODE_META[st.sensor].funcCall;
         out.push({
-          code: `${indent}enviarDatoIoT("${st.topic}", ${call});`,
+          code: `${indent}enviarDatoIoT("${st.topic}", ${valExpr});`,
           blockId: st.blockId,
         });
         break;
@@ -266,6 +270,9 @@ function buildNodeMcuCompilableSketch(
   const dhtGpio = pins.dht11.verifiedGpio ?? pins.dht11.candidateGpio ?? 14;
 
   const includeLines: string[] = ['#include <Arduino.h>'];
+  if (usesDht) {
+    includeLines.push('#include <DHT.h>');
+  }
   if (usesWifi) {
     includeLines.push('#include <ESP8266WiFi.h>');
   }
@@ -320,14 +327,11 @@ function buildNodeMcuCompilableSketch(
     helperLines.push(
       '',
       'float leerTemperatura() {',
-      '  // Placeholder compilable para DHT11 en DHT_PIN hasta vincular librería DHT en laboratorio',
-      '  (void)DHT_PIN;',
-      '  return 24.0f;',
+      '  return dht.readTemperature();',
       '}',
       '',
       'float leerHumedadAmbiente() {',
-      '  (void)DHT_PIN;',
-      '  return 55.0f;',
+      '  return dht.readHumidity();',
       '}'
     );
   }
@@ -336,10 +340,20 @@ function buildNodeMcuCompilableSketch(
     helperLines.push(
       '',
       'void registrarDato(const char* etiqueta, float valor) {',
-      '  Serial.print("[BI-TECH DATO] ");',
       '  Serial.print(etiqueta);',
       '  Serial.print(": ");',
-      '  Serial.println(valor);',
+      '  if (isnan(valor)) {',
+      '    Serial.println("Error de lectura (NaN)");',
+      '    return;',
+      '  }',
+      '  Serial.print(valor, 1);',
+      '  if (strncmp(etiqueta, "Temp", 4) == 0 || strncmp(etiqueta, "temp", 4) == 0) {',
+      '    Serial.println(" °C");',
+      '  } else if (strncmp(etiqueta, "Hum", 3) == 0 || strncmp(etiqueta, "hum", 3) == 0) {',
+      '    Serial.println(" %");',
+      '  } else {',
+      '    Serial.println();',
+      '  }',
       '}'
     );
   }
@@ -383,6 +397,14 @@ function buildNodeMcuCompilableSketch(
     `#define ENTRADA_DIG_PIN ${dinGpio}  // ${pins.digitalInput.candidateBoardLabel} -> GPIO${dinGpio} (${pins.digitalInput.component})`,
     `#define LUZ_PIN         ${lightGpio}   // ${pins.lighting.candidateBoardLabel} -> GPIO${lightGpio} (${pins.lighting.component})`,
     `#define SALIDA_DIG_PIN  ${doutGpio}  // ${pins.digitalOutput.candidateBoardLabel} (${pins.digitalOutput.component})`,
+    ...(usesDht
+      ? [
+          '',
+          '// --- Instancia del sensor DHT11 ---',
+          '#define DHT_TYPE        DHT11',
+          'DHT dht(DHT_PIN, DHT_TYPE);',
+        ]
+      : []),
     '',
     '// --- Prototipos de funciones ---',
     'int leerEntradaAnalogicaA0();',
@@ -571,18 +593,28 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
     const { relay, lighting, digitalOutput, digitalInput } =
       NODEMCU_ESP8266_CONFIG.pins;
 
+    const usesDhtInProgram =
+      allUsedSensors.has('temperatura') || allUsedSensors.has('humedadAmbiente');
+
     rawLines.push({ code: 'void setup() {' });
     rawLines.push({ code: '  Serial.begin(115200);' });
     rawLines.push({ code: `  pinMode(${relay.symbolicName}, OUTPUT);` });
     rawLines.push({ code: `  pinMode(${lighting.symbolicName}, OUTPUT);` });
     rawLines.push({ code: `  pinMode(${digitalOutput.symbolicName}, OUTPUT);` });
     rawLines.push({ code: `  pinMode(${digitalInput.symbolicName}, INPUT);` });
+    if (usesDhtInProgram) {
+      rawLines.push({ code: '  dht.begin();' });
+    }
     rawLines.push({ code: '  Serial.println();' });
     rawLines.push({ code: '  Serial.println("Bi-Tech IoT Studio");' });
-    rawLines.push({ code: '  Serial.println("NodeMCU conectada");' });
+    rawLines.push({
+      code: usesDhtInProgram
+        ? '  Serial.println("DHT11 conectado");'
+        : '  Serial.println("NodeMCU conectada");',
+    });
     if (program.setupStatements.length > 0) {
       emitStatementsC(program.setupStatements, '  ', false, rawLines);
-    } else {
+    } else if (!usesDhtInProgram) {
       rawLines.push({ code: '  relayOff();' });
     }
     rawLines.push({ code: '}' });
