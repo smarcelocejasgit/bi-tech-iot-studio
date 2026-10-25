@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import {
   Camera,
   Check,
-  CheckCircle2,
-  Clock,
   Code2,
   Cpu,
   GraduationCap,
@@ -17,7 +15,6 @@ import {
   ALL_DEVICE_PROFILES,
   getDeviceProfile,
 } from '../hardware/hardwareCapabilities';
-import { NODEMCU_ESP8266_CONFIG } from '../hardware/nodeMcuConfig';
 import { DeviceProfileId, WorkMode } from '../types/hardware';
 
 interface HeaderBarProps {
@@ -39,11 +36,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   workMode,
   onSelectWorkMode,
   onOpenHardwareModal,
-  hasValidationIssues = false,
 }) => {
   const [editingTitle, setEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(projectName);
-  const [showBoardNotice, setShowBoardNotice] = useState(false);
 
   const profile = getDeviceProfile(activeDevice);
   const { capabilities } = profile;
@@ -223,10 +218,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <button
               type="button"
               data-testid="mode-program"
-              onClick={() => {
-                setShowBoardNotice(false);
-                onSelectWorkMode('program');
-              }}
+              onClick={() => onSelectWorkMode('program')}
               className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition cursor-pointer border ${
                 workMode === 'program'
                   ? 'bg-[#1b8354] text-white border-[#156a43] shadow-xs'
@@ -240,10 +232,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <button
               type="button"
               data-testid="mode-simulate"
-              onClick={() => {
-                setShowBoardNotice(false);
-                onSelectWorkMode('simulate');
-              }}
+              onClick={() => onSelectWorkMode('simulate')}
               className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition cursor-pointer border ${
                 workMode === 'simulate'
                   ? 'bg-[#1b8354] text-white border-[#156a43] shadow-xs'
@@ -254,105 +243,24 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               Simular
             </button>
 
-            <div className="relative">
-              <button
-                type="button"
-                data-testid="mode-board"
-                onClick={() => setShowBoardNotice((prev) => !prev)}
-                className="px-3.5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition cursor-pointer"
-                title="Estado de preparación para hardware real (Hardware Readiness V0.1.2)"
-              >
-                <Cpu className="w-4 h-4 text-indigo-600" />
-                <span>Placa real</span>
-                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-900 font-bold border border-indigo-200">
-                  Readiness V0.1.2
-                </span>
-              </button>
-
-              {showBoardNotice && (
-                <div
-                  data-testid="board-readiness-popover"
-                  className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-xl border border-slate-200 p-4 z-50 text-xs text-slate-700"
-                >
-                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-100">
-                    <span className="font-extrabold text-slate-900 uppercase tracking-wider text-[11px]">
-                      Estado de preparación — Placa real (V0.1.2)
-                    </span>
-                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
-                      {NODEMCU_ESP8266_CONFIG.verifiedFqbn}
-                    </span>
-                  </div>
-
-                  <ol className="space-y-2">
-                    <li className="flex items-center justify-between gap-2 p-2 rounded-lg bg-emerald-50/80 border border-emerald-200">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span className="font-semibold text-slate-900">
-                          1. Programa validado
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-bold text-emerald-800">
-                        {hasValidationIssues ? 'Revisar advertencia' : 'Listo'}
-                      </span>
-                    </li>
-
-                    <li className="flex items-center justify-between gap-2 p-2 rounded-lg bg-emerald-50/80 border border-emerald-200">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span className="font-semibold text-slate-900">
-                          2. Sketch generado (.ino)
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-bold text-emerald-800">
-                        Listo
-                      </span>
-                    </li>
-
-                    <li className="flex items-center justify-between gap-2 p-2 rounded-lg bg-emerald-50/80 border border-emerald-200">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span className="font-semibold text-slate-900">
-                          3. Compilación correcta
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-bold text-emerald-800">
-                        Arduino CLI OK
-                      </span>
-                    </li>
-
-                    <li className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-500">
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span className="font-medium">
-                          4. Conectar placa — próxima etapa
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                        V0.2 USB
-                      </span>
-                    </li>
-
-                    <li className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-500">
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span className="font-medium">
-                          5. Cargar firmware — próxima etapa
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                        V0.2 Flash
-                      </span>
-                    </li>
-                  </ol>
-
-                  <p className="mt-2.5 text-[11px] text-slate-500 leading-snug">
-                    No se simula una carga falsa al hardware: el sketch{' '}
-                    <code>.ino</code> completo ya es compilable con{' '}
-                    <code>arduino-cli</code> y se transferirá por USB en V0.2.
-                  </p>
-                </div>
-              )}
-            </div>
+            <button
+              type="button"
+              data-testid="mode-board"
+              onClick={() => onSelectWorkMode('board')}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition cursor-pointer border ${
+                workMode === 'board'
+                  ? 'bg-indigo-700 text-white border-indigo-800 shadow-xs'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+              title="Compilar, cargar por USB y monitorear la placa física NodeMCU ESP8266 (V0.3)"
+            >
+              <Cpu
+                className={`w-4 h-4 ${
+                  workMode === 'board' ? 'text-white' : 'text-indigo-600'
+                }`}
+              />
+              <span>Placa real</span>
+            </button>
           </div>
         </div>
       </div>

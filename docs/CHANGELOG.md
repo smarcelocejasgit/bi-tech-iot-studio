@@ -4,6 +4,22 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 
 ---
 
+## [0.3.0 (V0.3)] — 2026-10-25
+### Hito: Primer programa transferido a hardware físico directamente desde la interfaz de Bi-Tech IoT Studio
+- **Habilitación del modo `Placa real` para NodeMCU ESP8266 (`src/components/RealBoardPanel.tsx`, `src/components/HeaderBar.tsx`, `src/App.tsx`):**
+  - Implementación del flujo pedagógico guiado de 6 pasos en la interfaz: **1. Programa → 2. Sketch (`.ino`) → 3. Puerto → 4. Compilar → 5. Cargar → 6. Ejecutar**, acompañado de la secuencia visual `PROGRAMAR → SIMULAR → PLACA REAL → COMPILAR → CARGAR → OBSERVAR`.
+  - Ocultamiento por defecto de logs técnicos complejos para el estudiante y botón desplegable **Ver detalles técnicos** para diagnóstico docente (con sanitización automática de direcciones MAC y rutas locales).
+  - Verificación de seguridad previa al upload: requiere puerto serie seleccionado, sketch actual compilado sin errores y acción explícita del estudiante (sin cargas automáticas al conectar la placa).
+- **Capa de abstracción `HardwareBridge` (`src/hardware/hardwareBridge.ts`, `vite.config.ts`):**
+  - Contrato desacoplado con las operaciones `listPorts()`, `compile()`, `upload()` (con progreso porcentual en vivo) y `openSerialMonitor()`.
+  - Implementación local `LocalArduinoCliHardwareBridge` conectada al middleware local sobre Arduino CLI para validar la experiencia pedagógica completa sin utilizar manualmente la terminal.
+- **Panel `Monitor de la placa` integrado en vivo:**
+  - Transmisión serie en tiempo real a `115200` baudios por defecto, con controles para **Conectar / Desconectar**, **Limpiar consola** y liberación automática del puerto antes de iniciar una nueva carga.
+- **Evidencia registrada:**
+  - Captura de interfaz, sketch generado, resultado de compilación, resultado de upload y salida del Monitor Serie en [`evidence/hardware/ui-first-real-upload/`](file:///j:/Bi-Tech-IoT-Studio/evidence/hardware/ui-first-real-upload/README.md).
+
+---
+
 ## [0.2.0-alpha.4 (V0.2D)] — 2026-10-25
 ### Hito: Primer ciclo físico Sensor → Decisión → Actuador (`mundo físico → sensor → dato → algoritmo → decisión → actuador físico`)
 - **Validación física en dos etapas (`sensor de humedad de suelo → A0 → NodeMCU → condición creada en Blockly → D1/GPIO5 → relay`):**

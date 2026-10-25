@@ -3,6 +3,7 @@ import { getCatalogForDevice } from '../blocks/bitechBlocks';
 import { generateArduinoCode } from '../generators/arduinoGenerator';
 import { CAMERA_NODE_CONFIG } from '../hardware/cameraNodeConfig';
 import { GARDEN_NODE_CONFIG } from '../hardware/gardenNodeConfig';
+import { sanitizeHardwareLog } from '../hardware/hardwareBridge';
 import { getDeviceCapabilities } from '../hardware/hardwareCapabilities';
 import { validateProgramAgainstCapabilities } from '../hardware/hardwareValidator';
 import { NODEMCU_ESP8266_CONFIG } from '../hardware/nodeMcuConfig';
@@ -339,5 +340,17 @@ describe('Bi-Tech IoT Studio V0.1.2 — Hardware Readiness y Sketch Compilable (
     expect(dhtOutput.compilableSketch).toContain('dht.begin();');
     expect(dhtOutput.compilableSketch).toContain('return dht.readTemperature();');
     expect(dhtOutput.compilableSketch).toContain('return dht.readHumidity();');
+  });
+});
+
+describe('Bi-Tech IoT Studio V0.3 — Placa real y HardwareBridge', () => {
+  it('sanitiza direcciones MAC y rutas locales en los detalles técnicos de compilación y carga', () => {
+    const rawLog =
+      'Chip is ESP8266EX\nMAC: 84:f3:eb:e4:13:63\nPath: C:\\Users\\Alumno\\AppData\\Local\\Arduino15\\packages';
+    const clean = sanitizeHardwareLog(rawLog);
+    expect(clean).toContain('MAC: [REDACTED]');
+    expect(clean).not.toContain('84:f3:eb:e4:13:63');
+    expect(clean).toContain('<LOCAL_USER_PATH>');
+    expect(clean).not.toContain('C:\\Users\\Alumno');
   });
 });

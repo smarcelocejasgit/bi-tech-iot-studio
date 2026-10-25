@@ -1,0 +1,14 @@
+Comando: arduino-cli compile --fqbn esp8266:esp8266:nodemcuv2
+
+. Variables and constants in RAM (global, static), used 28292 / 80192 bytes (35%)
+║   SEGMENT  BYTES    DESCRIPTION
+╠══ DATA     1496     initialized variables
+╠══ RODATA   1052     constants       
+╚══ BSS      25744    zeroed variables
+. Instruction RAM (IRAM_ATTR, ICACHE_RAM_ATTR), used 60331 / 65536 bytes (92%)
+║   SEGMENT  BYTES    DESCRIPTION
+╠══ ICACHE   32768    reserved space for flash instruction cache
+╚══ IRAM     27563    code in IRAM    
+. Code in flash (default, ICACHE_FLASH_ATTR), used 238052 / 1048576 bytes (22%)
+║   SEGMENT  BYTES    DESCRIPTION
+╚══ IROM     238052   code in flash

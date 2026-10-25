@@ -61,13 +61,16 @@ flowchart LR
 
 ---
 
-## 🟡 V0.2E — Siguientes Ensayos de Hardware Físico (Próxima Etapa)
-- Ensayos progresivos con LDR, segundo canal de relay / iluminación y conexión posterior de carga física (bomba).
+## ✅ V0.3 — Placa Real desde Bi-Tech IoT Studio (Completado)
+- **Hito alcanzado:** **Primer programa transferido a hardware físico directamente desde la interfaz de Bi-Tech IoT Studio.**
+- Flujo completo ejecutado por el estudiante desde la interfaz sin usar la terminal: **`Blockly → código Arduino → Compilar → Cargar → Ejecutar en NodeMCU → Monitor de la placa`**.
+- Capa desacoplada [`HardwareBridge`](file:///j:/Bi-Tech-IoT-Studio/src/hardware/hardwareBridge.ts) (`listPorts()`, `compile()`, `upload()`, `openSerialMonitor()`) y panel [`RealBoardPanel`](file:///j:/Bi-Tech-IoT-Studio/src/components/RealBoardPanel.tsx) con **Detalles técnicos** para diagnóstico docente y **Monitor de la placa** en vivo a `115200` baudios.
+- Evidencia registrada en [`evidence/hardware/ui-first-real-upload/`](file:///j:/Bi-Tech-IoT-Studio/evidence/hardware/ui-first-real-upload/README.md).
 
 ---
 
-## 🟠 V0.3 — Integración Completa de Camera Node y Streaming Real
-- Vinculación de la `ESP32-CAM` programada por USB con el streaming MJPEG real vía Wi-Fi dentro del entorno.
+## 🟡 V0.4 — Ampliación de Perfiles Físicos (ESP32 / ESP32-CAM) y Conectividad IoT (Próxima Etapa)
+- Incorporación progresiva de `Garden Node (ESP32)` y `Camera Node (ESP32-CAM)` al flujo de carga real, streaming MJPEG y eventos IoT.
 
 ---
 

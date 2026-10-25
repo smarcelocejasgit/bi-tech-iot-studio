@@ -5,6 +5,7 @@ import { BlocklyWorkspacePanel } from './components/BlocklyWorkspacePanel';
 import { ContextualManualPanel } from './components/ContextualManualPanel';
 import { HardwareConfigModal } from './components/HardwareConfigModal';
 import { HeaderBar } from './components/HeaderBar';
+import { RealBoardPanel } from './components/RealBoardPanel';
 import { SimulatorControlsPanel } from './components/SimulatorControlsPanel';
 import { VirtualSystemPanel } from './components/VirtualSystemPanel';
 import { generateArduinoCode } from './generators/arduinoGenerator';
@@ -225,10 +226,24 @@ export const App: React.FC = () => {
 
       {/* Contenedor principal de las 3 filas */}
       <main className="max-w-[1600px] w-full mx-auto px-3 mt-2.5 flex-1 flex flex-col gap-2.5">
+        {/* Panel interactivo de Placa real (V0.3) cuando se activa el modo Placa real */}
+        {workMode === 'board' && (
+          <RealBoardPanel
+            activeDevice={activeDevice}
+            onSelectDevice={handleSelectDevice}
+            sketchCode={generatedCode.compilableSketch}
+            validationIssues={generatedCode.validationIssues}
+            statementCount={
+              parsedProgram.setupStatements.length +
+              parsedProgram.loopStatements.length
+            }
+          />
+        )}
+
         {/* Fila Central: BLOQUES | ÁREA DE PROGRAMACIÓN | CÓDIGO ARDUINO */}
         <div
           className={`grid grid-cols-1 lg:grid-cols-12 gap-2.5 transition-all ${
-            workMode === 'simulate'
+            workMode === 'simulate' || workMode === 'board'
               ? 'min-h-[340px] lg:h-[360px]'
               : 'min-h-[410px] lg:h-[440px]'
           }`}

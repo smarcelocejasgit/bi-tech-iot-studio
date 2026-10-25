@@ -833,10 +833,13 @@ export const DEFAULT_CAMERA_WORKSPACE_XML = `
 `.trim();
 
 /**
- * XML inicial para NodeMCU — ESP8266 (V0.1.2 Hardware Readiness).
- * Programa mínimo de validación:
+ * XML inicial para NodeMCU — ESP8266 (V0.3 Placa real).
+ * Programa validado físicamente:
  *   al iniciar -> apagar relay
- *   repetir siempre -> si entrada analógica A0 < 400 -> encender relay / si no -> apagar relay
+ *   repetir siempre ->
+ *     registrar en consola "Humedad suelo" valor de humedad del suelo
+ *     si humedad del suelo > 800 -> encender relay / si no -> apagar relay
+ *     esperar 1 segundos
  */
 export const DEFAULT_NODEMCU_WORKSPACE_XML = `
 <xml xmlns="https://developers.google.com/blockly/xml">
@@ -846,22 +849,33 @@ export const DEFAULT_NODEMCU_WORKSPACE_XML = `
         <next>
           <block type="bitech_forever" id="nodemcu_block_loop">
             <statement name="LOOP_DO">
-              <block type="bitech_if_else" id="nodemcu_if_else_a0">
-                <value name="CONDITION">
-                  <block type="bitech_compare" id="nodemcu_cmp_a0">
-                    <field name="OP">&lt;</field>
-                    <field name="RIGHT_NUM">400</field>
-                    <value name="LEFT">
-                      <block type="bitech_sensor_analog_a0" id="nodemcu_sensor_a0"></block>
+              <block type="bitech_data_serial_log" id="nodemcu_log_soil">
+                <field name="LABEL">Humedad suelo</field>
+                <field name="SENSOR">humedadSuelo</field>
+                <next>
+                  <block type="bitech_if_else" id="nodemcu_if_else_a0">
+                    <value name="CONDITION">
+                      <block type="bitech_compare" id="nodemcu_cmp_a0">
+                        <field name="OP">&gt;</field>
+                        <field name="RIGHT_NUM">800</field>
+                        <value name="LEFT">
+                          <block type="bitech_sensor_soil" id="nodemcu_sensor_soil"></block>
+                        </value>
+                      </block>
                     </value>
+                    <statement name="DO">
+                      <block type="bitech_actuator_relay_on" id="nodemcu_relay_on"></block>
+                    </statement>
+                    <statement name="ELSE">
+                      <block type="bitech_actuator_relay_off" id="nodemcu_relay_off"></block>
+                    </statement>
+                    <next>
+                      <block type="bitech_wait" id="nodemcu_wait_1s">
+                        <field name="SECONDS">1</field>
+                      </block>
+                    </next>
                   </block>
-                </value>
-                <statement name="DO">
-                  <block type="bitech_actuator_relay_on" id="nodemcu_relay_on"></block>
-                </statement>
-                <statement name="ELSE">
-                  <block type="bitech_actuator_relay_off" id="nodemcu_relay_off"></block>
-                </statement>
+                </next>
               </block>
             </statement>
           </block>
