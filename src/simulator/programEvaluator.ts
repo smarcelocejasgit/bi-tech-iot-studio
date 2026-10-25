@@ -5,6 +5,9 @@ import {
   ConditionNode,
   GardenActuatorState,
   GardenSensorState,
+  NodeMcuActuatorState,
+  NodeMcuSensorState,
+  NumericExpressionNode,
   ParsedProgram,
   SensorKey,
   StatementNode,
@@ -15,6 +18,8 @@ const SENSOR_HUMAN_NAMES: Record<SensorKey, string> = {
   temperatura: 'La temperatura',
   humedadAmbiente: 'La humedad ambiente',
   nivelLuz: 'El nivel de luz',
+  entradaAnalogicaA0: 'La entrada analógica A0',
+  entradaDigital: 'La entrada digital',
 };
 
 const SENSOR_SHORT_LABELS: Record<SensorKey, string> = {
@@ -22,9 +27,15 @@ const SENSOR_SHORT_LABELS: Record<SensorKey, string> = {
   temperatura: 'temperatura',
   humedadAmbiente: 'humedad ambiente',
   nivelLuz: 'nivel de luz',
+  entradaAnalogicaA0: 'entrada analógica A0',
+  entradaDigital: 'entrada digital',
 };
 
-function compareValues(left: number, op: ComparisonOperator, right: number): boolean {
+function compareValues(
+  left: number,
+  op: ComparisonOperator,
+  right: number
+): boolean {
   switch (op) {
     case '<':
       return left < right;
@@ -41,11 +52,45 @@ function compareValues(left: number, op: ComparisonOperator, right: number): boo
   }
 }
 
-function describeCondition(cond: ConditionNode | null, sensors: GardenSensorState): string {
+function readSensorFromMap(
+  sensorKey: SensorKey,
+  values: Record<SensorKey, number>
+): number {
+  return values[sensorKey] ?? 0;
+}
+
+function evalNumericExpr(
+  expr: NumericExpressionNode | undefined,
+  values: Record<SensorKey, number>
+): number {
+  if (!expr) return 0;
+  if (expr.kind === 'number_literal') return expr.value;
+  if (expr.kind === 'sensor_read') return readSensorFromMap(expr.sensor, values);
+  if (expr.kind === 'math_op') {
+    const l = evalNumericExpr(expr.left, values);
+    const r = expr.rightNumber;
+    switch (expr.operator) {
+      case '+':
+        return l + r;
+      case '-':
+        return l - r;
+      case '*':
+        return l * r;
+      case '/':
+        return r !== 0 ? l / r : 0;
+    }
+  }
+  return 0;
+}
+
+function describeConditionWithMap(
+  cond: ConditionNode | null,
+  values: Record<SensorKey, number>
+): string {
   if (!cond) return 'condición vacía';
   if (cond.kind === 'comparison') {
     const sensorKey = cond.leftSensor ?? 'humedadSuelo';
-    const currentVal = sensors[sensorKey];
+    const currentVal = readSensorFromMap(sensorKey, values);
     const opText =
       cond.operator === '<'
         ? `está por debajo de ${cond.rightNumber}`
@@ -56,50 +101,67 @@ function describeCondition(cond: ConditionNode | null, sensors: GardenSensorStat
   }
   if (cond.kind === 'logical') {
     const joiner = cond.operator === 'AND' ? 'y' : 'o';
-    return `${describeCondition(cond.left, sensors)} ${joiner} ${describeCondition(
-      cond.right,
-      sensors
-    )}`;
+    return `${describeConditionWithMap(
+      cond.left,
+      values
+    )} ${joiner} ${describeConditionWithMap(cond.right, values)}`;
   }
   return 'estado de cámara';
+}
+
+export function evaluateConditionWithMap(
+  cond: ConditionNode | null,
+  values: Record<SensorKey, number>
+): boolean {
+  if (!cond) return false;
+  if (cond.kind === 'comparison') {
+    const leftVal = cond.leftExpr
+      ? evalNumericExpr(cond.leftExpr, values)
+      : cond.leftSensor
+      ? readSensorFromMap(cond.leftSensor, values)
+      : (cond.leftNumber ?? 0);
+    return compareValues(leftVal, cond.operator, cond.rightNumber);
+  }
+  if (cond.kind === 'logical') {
+    const l = evaluateConditionWithMap(cond.left, values);
+    const r = evaluateConditionWithMap(cond.right, values);
+    return cond.operator === 'AND' ? l && r : l || r;
+  }
+  return true;
 }
 
 export function evaluateCondition(
   cond: ConditionNode | null,
   sensors: GardenSensorState
 ): boolean {
-  if (!cond) return false;
-  if (cond.kind === 'comparison') {
-    const leftVal = cond.leftSensor
-      ? sensors[cond.leftSensor]
-      : (cond.leftNumber ?? 0);
-    return compareValues(leftVal, cond.operator, cond.rightNumber);
-  }
-  if (cond.kind === 'logical') {
-    const l = evaluateCondition(cond.left, sensors);
-    const r = evaluateCondition(cond.right, sensors);
-    return cond.operator === 'AND' ? l && r : l || r;
-  }
-  return true;
+  return evaluateConditionWithMap(cond, {
+    ...sensors,
+    entradaAnalogicaA0: sensors.humedadSuelo,
+    entradaDigital: 0,
+  });
 }
 
 interface BranchExecutionContext {
   bomba: boolean;
+  relay: boolean;
   iluminacion: boolean;
+  salidaDigital: boolean;
   lastDelaySeconds: number | null;
   explanations: string[];
   triggeredConditions: string[];
 }
 
-function runGardenBranch(
+function runSystemBranch(
   stmts: StatementNode[],
-  sensors: GardenSensorState,
+  values: Record<SensorKey, number>,
   ctx: BranchExecutionContext,
   activeConditionDescription?: string
 ): void {
   let seenWaitInBranch = false;
   let pumpTurnedOnBeforeWait = false;
+  let relayTurnedOnBeforeWait = false;
   let lightTurnedOnBeforeWait = false;
+  let digitalOutTurnedOnBeforeWait = false;
 
   for (const st of stmts) {
     switch (st.kind) {
@@ -109,21 +171,50 @@ function runGardenBranch(
           pumpTurnedOnBeforeWait = true;
         }
         if (activeConditionDescription) {
-          ctx.explanations.push(`${activeConditionDescription}: el programa activa la bomba.`);
+          ctx.explanations.push(
+            `${activeConditionDescription}: el programa activa la bomba.`
+          );
         } else {
           ctx.explanations.push('El programa activa la bomba de agua.');
         }
         break;
 
       case 'bomba_off':
-        // Si en la misma rama se encendió la bomba, luego hubo un esperar (delay) y luego apagar bomba,
-        // representa un pulso de riego activo mientras la condición se cumple.
         if (pumpTurnedOnBeforeWait && seenWaitInBranch) {
           ctx.bomba = true;
         } else {
           ctx.bomba = false;
           if (activeConditionDescription) {
-            ctx.explanations.push(`${activeConditionDescription}: el programa apaga la bomba.`);
+            ctx.explanations.push(
+              `${activeConditionDescription}: el programa apaga la bomba.`
+            );
+          }
+        }
+        break;
+
+      case 'relay_on':
+        ctx.relay = true;
+        if (!seenWaitInBranch) {
+          relayTurnedOnBeforeWait = true;
+        }
+        if (activeConditionDescription) {
+          ctx.explanations.push(
+            `${activeConditionDescription}: el programa activa el relay.`
+          );
+        } else {
+          ctx.explanations.push('El programa enciende el módulo relay.');
+        }
+        break;
+
+      case 'relay_off':
+        if (relayTurnedOnBeforeWait && seenWaitInBranch) {
+          ctx.relay = true;
+        } else {
+          ctx.relay = false;
+          if (activeConditionDescription) {
+            ctx.explanations.push(
+              `${activeConditionDescription}: el programa apaga el relay.`
+            );
           }
         }
         break;
@@ -155,18 +246,39 @@ function runGardenBranch(
         }
         break;
 
+      case 'digital_out_on':
+        ctx.salidaDigital = true;
+        if (!seenWaitInBranch) {
+          digitalOutTurnedOnBeforeWait = true;
+        }
+        if (activeConditionDescription) {
+          ctx.explanations.push(
+            `${activeConditionDescription}: salida digital en HIGH.`
+          );
+        } else {
+          ctx.explanations.push('El programa activa la salida digital (HIGH).');
+        }
+        break;
+
+      case 'digital_out_off':
+        if (digitalOutTurnedOnBeforeWait && seenWaitInBranch) {
+          ctx.salidaDigital = true;
+        } else {
+          ctx.salidaDigital = false;
+        }
+        break;
+
       case 'wait':
         seenWaitInBranch = true;
         ctx.lastDelaySeconds = st.seconds;
         break;
 
       case 'if': {
-        const isTrue = evaluateCondition(st.condition, sensors);
+        const isTrue = evaluateConditionWithMap(st.condition, values);
         if (isTrue) {
-          const condDesc = describeCondition(st.condition, sensors);
+          const condDesc = describeConditionWithMap(st.condition, values);
           ctx.triggeredConditions.push(condDesc);
 
-          // Caso exacto de la referencia visual para mensaje didáctico claro
           let friendlyPrefix = condDesc;
           if (
             st.condition?.kind === 'comparison' &&
@@ -183,21 +295,31 @@ function runGardenBranch(
               friendlyPrefix = `${SENSOR_HUMAN_NAMES[sKey]} está por debajo de ${st.condition.rightNumber}`;
             } else if (st.condition.operator === '>') {
               friendlyPrefix = `${SENSOR_HUMAN_NAMES[sKey]} supera ${st.condition.rightNumber}`;
+            } else if (st.condition.operator === '==') {
+              friendlyPrefix = `${SENSOR_HUMAN_NAMES[sKey]} es igual a ${st.condition.rightNumber}`;
             }
           }
 
-          runGardenBranch(st.thenBranch, sensors, ctx, friendlyPrefix);
+          runSystemBranch(st.thenBranch, values, ctx, friendlyPrefix);
         } else if (st.elseBranch && st.elseBranch.length > 0) {
-          runGardenBranch(
+          runSystemBranch(
             st.elseBranch,
-            sensors,
+            values,
             ctx,
             'La condición no se cumple (rama "si no")'
           );
-        } else if (st.condition?.kind === 'comparison' && st.condition.leftSensor) {
+        } else if (
+          st.condition?.kind === 'comparison' &&
+          st.condition.leftSensor
+        ) {
           const sKey = st.condition.leftSensor;
           ctx.explanations.push(
-            `Lectura de ${SENSOR_SHORT_LABELS[sKey]} (${sensors[sKey]}) no cumple ${st.condition.operator} ${st.condition.rightNumber}: actuadores en reposo (OFF).`
+            `Lectura de ${SENSOR_SHORT_LABELS[sKey]} (${readSensorFromMap(
+              sKey,
+              values
+            )}) no cumple ${st.condition.operator} ${
+              st.condition.rightNumber
+            }: actuadores en reposo (OFF).`
           );
         }
         break;
@@ -210,24 +332,30 @@ function runGardenBranch(
 }
 
 /**
- * Evalúa el programa de bloques del estudiante para el perfil Garden Node Bi-Tech
- * frente a los valores actuales de los sensores del simulador.
- * Estado inicial seguro: Bomba OFF, Iluminación OFF.
+ * Evalúa el programa de bloques del estudiante para el perfil Garden Node Bi-Tech (ESP32).
  */
 export function evaluateGardenProgram(
   program: ParsedProgram,
   sensors: GardenSensorState
 ): GardenActuatorState {
   const ctx: BranchExecutionContext = {
-    bomba: false, // Estado seguro inicial OFF (Sección 12)
-    iluminacion: false, // Estado seguro inicial OFF (Sección 12)
+    bomba: false,
+    relay: false,
+    iluminacion: false,
+    salidaDigital: false,
     lastDelaySeconds: null,
     explanations: [],
     triggeredConditions: [],
   };
 
-  runGardenBranch(program.setupStatements, sensors, ctx);
-  runGardenBranch(program.loopStatements, sensors, ctx);
+  const sensorMap: Record<SensorKey, number> = {
+    ...sensors,
+    entradaAnalogicaA0: sensors.humedadSuelo,
+    entradaDigital: 0,
+  };
+
+  runSystemBranch(program.setupStatements, sensorMap, ctx);
+  runSystemBranch(program.loopStatements, sensorMap, ctx);
 
   const primaryExplanation =
     ctx.explanations.length > 0
@@ -244,8 +372,59 @@ export function evaluateGardenProgram(
 }
 
 /**
+ * Evalúa el programa de bloques del estudiante para el perfil NodeMCU — ESP8266.
+ * Interpreta las lecturas de DHT11, la única entrada analógica A0 y la entrada digital,
+ * actualizando el estado de Relay, Iluminación y Salida Digital.
+ */
+export function evaluateNodeMcuProgram(
+  program: ParsedProgram,
+  sensors: NodeMcuSensorState
+): NodeMcuActuatorState {
+  const ctx: BranchExecutionContext = {
+    bomba: false,
+    relay: false,
+    iluminacion: false,
+    salidaDigital: false,
+    lastDelaySeconds: null,
+    explanations: [],
+    triggeredConditions: [],
+  };
+
+  // En NodeMCU el único canal ADC físico es A0
+  const sensorMap: Record<SensorKey, number> = {
+    temperatura: sensors.temperatura,
+    humedadAmbiente: sensors.humedadAmbiente,
+    entradaAnalogicaA0: sensors.entradaAnalogicaA0,
+    humedadSuelo: sensors.entradaAnalogicaA0,
+    nivelLuz: sensors.entradaAnalogicaA0,
+    entradaDigital: sensors.entradaDigital,
+  };
+
+  runSystemBranch(program.setupStatements, sensorMap, ctx);
+  runSystemBranch(program.loopStatements, sensorMap, ctx);
+
+  const activeSummaries = ctx.explanations.filter(
+    (msg) => !msg.includes('en reposo (OFF)')
+  );
+
+  const primaryExplanation =
+    activeSummaries.length > 0
+      ? activeSummaries.join(' · ')
+      : ctx.explanations[0] ??
+        'NodeMCU en estado seguro: Relay OFF, Iluminación OFF, Salida Digital LOW.';
+
+  return {
+    relay: ctx.relay || ctx.bomba,
+    iluminacion: ctx.iluminacion,
+    salidaDigital: ctx.salidaDigital,
+    lastDelaySeconds: ctx.lastDelaySeconds,
+    explanation: primaryExplanation,
+    triggeredConditions: ctx.triggeredConditions,
+  };
+}
+
+/**
  * Evalúa el programa de bloques del estudiante para el perfil Camera Node Bi-Tech.
- * Representa el comportamiento de la ESP32-CAM sin asumir streaming por USB.
  */
 export function evaluateCameraProgram(
   program: ParsedProgram,
@@ -261,18 +440,17 @@ export function evaluateCameraProgram(
     streaming: false,
     capturas: 0,
     ultimaCaptura: null,
-    explanation: 'Camera Node en espera. Agrega bloques de cámara para inicializar el sistema.',
+    explanation:
+      'Camera Node en espera. Agrega bloques de cámara para inicializar el sistema.',
   };
 
   const allStatements = [...program.setupStatements, ...program.loopStatements];
-  const actionsDone: string[] = [];
 
   function processStatements(stmts: StatementNode[]): void {
     for (const st of stmts) {
       switch (st.kind) {
         case 'cam_config':
           state.configurada = true;
-          actionsDone.push('cámara configurada');
           break;
         case 'cam_resolution':
           state.resolucion = st.resolution;
@@ -282,29 +460,22 @@ export function evaluateCameraProgram(
           break;
         case 'cam_init':
           state.activa = true;
-          actionsDone.push('cámara activa');
           break;
         case 'cam_wifi':
           state.wifiConectado = true;
-          actionsDone.push(`Wi-Fi conectado (${st.ssid})`);
           break;
         case 'cam_stream_start':
           if (state.activa) {
             state.streaming = true;
-            actionsDone.push('streaming Wi-Fi ON');
-          } else {
-            actionsDone.push('aviso: iniciar cámara antes del streaming');
           }
           break;
         case 'cam_stream_stop':
           state.streaming = false;
-          actionsDone.push('streaming detenido (OFF)');
           break;
         case 'cam_capture':
           if (state.activa) {
             state.capturas += 1;
             state.ultimaCaptura = manualTimestamp ?? '14:32:15';
-            actionsDone.push('captura tomada');
           }
           break;
         case 'if':
@@ -330,7 +501,8 @@ export function evaluateCameraProgram(
   } else if (state.activa) {
     state.explanation = `Cámara ACTIVA (${state.resolucion}, calidad ${state.calidad}). Streaming en OFF.`;
   } else if (state.configurada) {
-    state.explanation = 'Cámara configurada pero inactiva: agrega el bloque "iniciar cámara".';
+    state.explanation =
+      'Cámara configurada pero inactiva: agrega el bloque "iniciar cámara".';
   }
 
   return state;

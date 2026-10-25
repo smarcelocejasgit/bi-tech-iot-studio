@@ -20,17 +20,24 @@ La plataforma prioriza la comprensión algorítmica y sistémica mediante tres r
 
 ---
 
-## 🤖 Perfiles de Dispositivos Iniciales (V0.1)
+## 🤖 Perfiles de Dispositivos Oficiales (V0.1.1)
 
-### 1. Garden Node Bi-Tech (ESP32)
-orientado a la automatización de cultivo y monitoreo ambiental:
+Cada dispositivo declara sus capacidades físicas en una capa centralizada (`HardwareCapabilities`), haciendo visible para el estudiante la relación **problema → algoritmo → recursos necesarios → hardware disponible → programa**:
+
+### 1. Garden Node Bi-Tech — ESP32
+Orientado a la automatización de cultivo y monitoreo ambiental con múltiples entradas analógicas:
 - **Sensores:** Temperatura y humedad ambiente (`DHT11`), humedad del suelo (analógico), nivel de luz (`LDR`).
 - **Actuadores:** Módulo relay de 2 canales para **bomba de riego** e **iluminación LED** (con estado seguro inicial `OFF` y lógica activo `HIGH/LOW` configurable).
 
-### 2. Camera Node Bi-Tech (ESP32-CAM)
+### 2. Camera Node Bi-Tech — ESP32-CAM
 Orientado a visión, registro visual y monitoreo remoto:
 - **Hardware:** `ESP32-CAM` con sensor `OV2640` y conectividad `Wi-Fi`.
 - **Modelo de operación:** Programación por **USB** y comunicación/streaming por **Wi-Fi** (endpoint configurable).
+
+### 3. NodeMCU — ESP8266
+Placa educativa presente en numerosas instituciones y disponible físicamente para la primera validación de compilación y carga en hardware real (`V0.2`):
+- **Capacidades y restricciones reales:** `DHT11`, **1 única entrada analógica (`A0`, 0–1023)**, entradas/salidas digitales, control de relay de 1 canal, iluminación LED y `Wi-Fi`.
+- **Validación pedagógica:** Si el estudiante intenta utilizar más entradas analógicas que las disponibles en NodeMCU (`A0`), el entorno muestra una advertencia explicativa clara en lugar de generar silenciosamente código inválido.
 
 ---
 

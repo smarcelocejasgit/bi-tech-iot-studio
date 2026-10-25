@@ -10,7 +10,7 @@ import {
   Plus,
   Settings,
 } from 'lucide-react';
-import { BLOCK_CATEGORIES_CATALOG } from '../blocks/bitechBlocks';
+import { getCatalogForDevice } from '../blocks/bitechBlocks';
 import { DeviceProfileId } from '../types/hardware';
 import { BlockCategoryId } from '../types/studio';
 
@@ -80,12 +80,12 @@ export const BlockCategoriesPanel: React.FC<BlockCategoriesPanelProps> = ({
   onSelectCategory,
   onInsertBlock,
 }) => {
-  const visibleCategories = BLOCK_CATEGORIES_CATALOG.filter(
-    (c) => c.deviceScope === 'all' || c.deviceScope === activeDevice
-  );
+  // Obtiene las categorías y bloques filtrados por las capacidades del hardware activo
+  const visibleCategories = getCatalogForDevice(activeDevice);
 
   const currentCatalog =
-    visibleCategories.find((c) => c.id === selectedCategory) || visibleCategories[0];
+    visibleCategories.find((c) => c.id === selectedCategory) ||
+    visibleCategories[0];
 
   return (
     <aside className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-3 flex flex-col justify-between h-full">
@@ -97,7 +97,7 @@ export const BlockCategoriesPanel: React.FC<BlockCategoriesPanelProps> = ({
           </h2>
         </div>
 
-        {/* Botones de categorías estilo referencia visual */}
+        {/* Botones de categorías filtrados según capacidades de hardware */}
         <div className="space-y-2">
           {visibleCategories.map((cat) => {
             const style = CATEGORY_STYLES[cat.id];
@@ -114,7 +114,9 @@ export const BlockCategoriesPanel: React.FC<BlockCategoriesPanelProps> = ({
                   style.bg
                 } ${isSelected ? style.activeBorder : ''}`}
               >
-                <IconComponent className={`w-4 h-4 shrink-0 ${style.iconColor}`} />
+                <IconComponent
+                  className={`w-4 h-4 shrink-0 ${style.iconColor}`}
+                />
                 <span>{cat.label}</span>
               </button>
             );
@@ -122,14 +124,14 @@ export const BlockCategoriesPanel: React.FC<BlockCategoriesPanelProps> = ({
         </div>
       </div>
 
-      {/* Paleta rápida de bloques de la categoría seleccionada para agregar con 1 clic */}
+      {/* Paleta rápida de bloques compatibles de la categoría seleccionada */}
       <div className="mt-3 pt-2.5 border-t border-slate-100">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
             Agregar de {currentCatalog.label}:
           </span>
         </div>
-        <div className="space-y-1.5 max-h-40 overflow-y-auto pr-0.5">
+        <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
           {currentCatalog.blocks.map((b) => (
             <button
               key={b.type}

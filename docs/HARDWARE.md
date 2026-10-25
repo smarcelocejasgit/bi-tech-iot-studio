@@ -1,68 +1,57 @@
 # Especificación de Hardware y Supuestos Pendientes
 
 > [!IMPORTANT]
-> Ningún pin físico (GPIO) ni dirección de red ha sido inventado como definitivo. Toda asignación se gestiona mediante constantes simbólicas y un archivo de configuración centralizado (`src/hardware/`) para su actualización una vez verificado el conexionado real en el laboratorio de Escuela Estación Buenos Aires.
+> Ningún pin físico (GPIO) ni dirección de red ha sido inventado como definitivo. Toda asignación se gestiona mediante constantes simbólicas y archivos de configuración centralizados (`src/hardware/`) para su actualización una vez verificado el conexionado real en laboratorio.
 
 ---
 
-## 1. Perfil A: Garden Node Bi-Tech (`ESP32`)
+## 1. Matriz Comparativa de Capacidades (`HardwareCapabilities`)
 
-### 1.1 Componentes Físicos
-| Componente | Función | Tipo de Señal | Función Educativa en C/C++ |
+| Característica | Garden Node Bi-Tech (`ESP32`) | Camera Node Bi-Tech (`ESP32-CAM`) | NodeMCU (`ESP8266`) |
 | :--- | :--- | :--- | :--- |
-| Microcontrolador **ESP32** | Unidad central de procesamiento y Wi-Fi | Digital / ADC | `setup()`, `loop()` |
-| Sensor **DHT11** | Temperatura (°C) y Humedad Ambiente (%) | Digital (1-Wire propio) | `leerTemperatura()`, `leerHumedadAmbiente()` |
-| Sensor de **Humedad del Suelo** | Lectura cruda de conductividad/capacitancia | Analógica (ADC) | `leerHumedadSuelo()` |
-| Sensor **LDR** (Fotorresistor) | Nivel de iluminación ambiental | Analógica (ADC) | `leerNivelLuz()` |
-| **Relay Canal 1 → Bomba de agua** | Activación de riego | Salida Digital | `bombaOn()`, `bombaOff()` |
-| **Relay Canal 2 → Iluminación LED** | Activación de luz de cultivo | Salida Digital | `luzOn()`, `luzOff()` |
-
-### 1.2 Estado Seguro de Actuadores
-Al energizar o reiniciar el `Garden Node`, ambos canales del módulo relay deben inicializarse en estado seguro **APAGADO (`OFF`)** antes de ejecutar cualquier lógica de usuario:
-- `Canal 1 (Bomba)` → `OFF`
-- `Canal 2 (Iluminación)` → `OFF`
-
-Dado que los módulos de relé comerciales suelen ser activos en nivel bajo (`ACTIVE LOW`) pero existen variantes activas en nivel alto (`ACTIVE HIGH`), la configuración central define:
-```ts
-export interface RelayConfig {
-  activeLevel: 'LOW' | 'HIGH' | 'PENDING_VERIFICATION';
-  safeInitialState: 'OFF';
-}
-```
-En el código C/C++ generado, esta abstracción se encapsula dentro de `bombaOn()`, `bombaOff()`, `luzOn()` y `luzOff()`, protegiendo al estudiante de invertir accidentalmente la lógica y asegurando que un cambio de hardware solo requiera ajustar la constante de configuración.
+| **Microcontrolador** | `ESP32` | `ESP32-CAM` | `ESP8266` (`ESP-12E`) |
+| **Entradas Analógicas (ADC)** | Múltiples (`4` canales ADC1) | `0` (ocupados por cámara) | **`1` única entrada (`A0`, 0–1023)** |
+| **Entradas / Salidas Digitales** | `6` / `6` | `1` / `1` | `4` / `4` |
+| **Canales de Relay** | `2` (Bomba + Iluminación) | `0` | `1` (Relay de propósito general) |
+| **Cámara OV2640** | No | **Sí** (`OV2640`) | No |
+| **Conectividad Wi-Fi** | Sí | Sí (Streaming y control) | Sí (Telemetría e IoT) |
 
 ---
 
-## 2. Perfil B: Camera Node Bi-Tech (`ESP32-CAM`)
-
-### 2.1 Componentes y Flujo Operativo
-- **Placa:** `ESP32-CAM` con cámara `OV2640` y conectividad `Wi-Fi`.
-- **Flujo de trabajo previsto:**
-  1. **USB:** Exclusivamente para programación/carga de firmware en la `ESP32-CAM`.
-  2. **Wi-Fi:** Comunicación de red, control y streaming de video en tiempo real (no se asume streaming de video por USB).
-
-### 2.2 Funciones Educativas en C/C++
-- `configurarCamara()`
-- `seleccionarResolucion(resolucion)`
-- `configurarCalidad(calidad)`
-- `iniciarCamara()`
-- `conectarWiFi(ssid, password)` *(utilizando placeholders seguros, nunca credenciales en repositorio)*
-- `iniciarStreaming()`
-- `detenerStreaming()`
-- `tomarCaptura()`
-- `estadoCamara()`
+## 2. Perfil A: Garden Node Bi-Tech (`ESP32`)
+- **Sensores:** `DHT11` (`leerTemperatura()`, `leerHumedadAmbiente()`), `Humedad del Suelo` (`leerHumedadSuelo()`), `LDR` (`leerNivelLuz()`).
+- **Actuadores:** Relay de 2 canales (`bombaOn()`, `bombaOff()`, `luzOn()`, `luzOff()`) con estado inicial seguro `OFF`.
 
 ---
 
-## 3. Registro de Supuestos Pendientes de Verificación en Laboratorio
+## 3. Perfil B: Camera Node Bi-Tech (`ESP32-CAM`)
+- **Hardware:** `ESP32-CAM` + sensor `OV2640` + `Wi-Fi`.
+- **Modelo de operación:** **USB** para programación; **Wi-Fi** para comunicación y streaming (endpoint configurable).
+- **Funciones educativas:** `configurarCamara()`, `seleccionarResolucion()`, `configurarCalidad()`, `iniciarCamara()`, `conectarWiFi()`, `iniciarStreaming()`, `detenerStreaming()`, `tomarCaptura()`.
 
-| ID | Dispositivo | Elemento Pendiente | Estado Actual en V0.1 | Acción Requerida |
+---
+
+## 4. Perfil C: NodeMCU (`ESP8266`)
+- **Propósito educativo:** Placa ampliamente presente en instituciones educativas y disponible físicamente en nuestro laboratorio para la primera validación de compilación y carga real en `V0.2`.
+- **Sensores compatibles:**
+  - Sensor digital `DHT11` (`leerTemperatura()`, `leerHumedadAmbiente()`).
+  - **Única entrada analógica `A0`** (`leerEntradaAnalogicaA0()`, o `leerHumedadSuelo()` / `leerNivelLuz()` ocupando el único canal `A0`).
+  - Entrada digital (`leerEntradaDigital()`).
+- **Actuadores compatibles:**
+  - Salida digital (`activarSalidaDigital()`, `desactivarSalidaDigital()`).
+  - Módulo Relay de 1 canal (`relayOn()`, `relayOff()`).
+  - Iluminación LED (`luzOn()`, `luzOff()`).
+- **Restricción física validada por el entorno:** Si un estudiante intenta utilizar simultáneamente más de 1 sensor analógico en NodeMCU, el validador de capacidades muestra la advertencia:
+  > *"Este proyecto requiere más entradas analógicas que las disponibles en el dispositivo seleccionado."*
+
+---
+
+## 5. Registro de Supuestos Pendientes de Verificación en Laboratorio
+
+| ID | Dispositivo | Elemento Pendiente | Estado Actual en V0.1.1 | Acción Requerida |
 | :--- | :--- | :--- | :--- | :--- |
-| **SP-01** | Garden Node | GPIO asignado a sensor `DHT11` | Simbólico (`DHT_PIN`) | Verificar en esquemático/placa del Smart Garden Lab. |
-| **SP-02** | Garden Node | GPIO (ADC1) para `Humedad del Suelo` | Simbólico (`SUELO_PIN`) | Verificar que utilice un canal `ADC1` (compatible con Wi-Fi activo en ESP32). |
-| **SP-03** | Garden Node | GPIO (ADC1) para sensor `LDR` | Simbólico (`LDR_PIN`) | Verificar pin analógico y divisor resistivo en placa real. |
-| **SP-04** | Garden Node | GPIOs de salida para `Relay Canal 1 (Bomba)` y `Canal 2 (Luz)` | Simbólicos (`BOMBA_PIN`, `LUZ_PIN`) | Verificar pines sin *glitch* de arranque en ESP32. |
-| **SP-05** | Garden Node | Polaridad de activación del módulo Relay (`ACTIVE LOW` vs `ACTIVE HIGH`) | Configurable (`RELAY_ON` / `RELAY_OFF`) | Medir con multímetro o probar continuidad en placa física. |
-| **SP-06** | Garden Node | Rango de calibración del sensor de humedad de suelo (seco vs. sumergido) | Lectura cruda numérica (sin asumir %) | Relevar valores reales en tierra seca y húmeda para documentar escala. |
-| **SP-07** | Camera Node | Firmware base y endpoint HTTP/MJPEG de streaming y captura | URL configurable vacía por defecto | Verificar firmware cargado en la `ESP32-CAM` del laboratorio (ej. ruta `/stream`, `/capture`). |
-| **SP-08** | Camera Node | Método de descubrimiento de IP en la red escolar | Configurable manual / mDNS pendiente | Definir si se usará IP fija, monitor serie o mDNS (`.local`). |
+| **SP-01 a SP-04** | Garden Node | GPIOs para `DHT11`, `Suelo`, `LDR`, `Bomba` y `Luz` | Simbólicos (`DHT_PIN`, etc.) | Verificar en placa del Smart Garden Lab. |
+| **SP-05** | Garden Node | Polaridad de activación del módulo Relay de 2 canales | Configurable | Medir en placa física (`ACTIVE_LOW` vs `ACTIVE_HIGH`). |
+| **SP-06** | Garden Node | Rango de calibración de humedad de suelo | Lectura numérica cruda | Relevar valores en tierra seca y húmeda. |
+| **SP-07 y SP-08** | Camera Node | Endpoint HTTP de streaming MJPEG e IP en red escolar | URL configurable (`null`) | Verificar firmware en `ESP32-CAM`. |
+| **SP-09 a SP-14** | NodeMCU ESP8266 | Asignación de pines digitales (`D1`–`D7`) para `DHT11`, `ENTRADA_DIG_PIN`, `SALIDA_DIG_PIN`, `RELAY_PIN` y `LUZ_PIN` | Simbólicos en `nodeMcuConfig.ts` | Verificar sobre la placa física NodeMCU ESP8266 disponible para `V0.2`. |

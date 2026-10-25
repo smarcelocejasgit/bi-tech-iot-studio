@@ -1,10 +1,9 @@
 # Hoja de Ruta (Roadmap) — Bi-Tech IoT Studio
 
-El desarrollo de **Bi-Tech IoT Studio** se organiza de manera incremental y documentada en seis hitos evolutivos:
-
 ```mermaid
 flowchart LR
-    V01["V0.1: Editor + Código + Simulador + Manual"] --> V02["V0.2: Compilación y Carga ESP32"]
+    V01["V0.1: Garden + Camera Base"] --> V011["V0.1.1: Capacidades + NodeMCU ESP8266"]
+    V011 --> V02["V0.2: Compilación y Carga Física (NodeMCU / ESP32)"]
     V02 --> V03["V0.3: Camera Node + Streaming Real"]
     V03 --> V04["V0.4: IoT + Datos + Conectividad"]
     V04 --> V05["V0.5: Firebase + Usuarios + Proyectos"]
@@ -13,48 +12,40 @@ flowchart LR
 
 ---
 
-## 🟢 V0.1 — Entorno Pedagógico Base (Alcance Actual)
-**Objetivo:** Demostrar el ciclo completo **PROGRAMAR → COMPRENDER → PROBAR** de forma local.
-- Selector de dispositivo: **Garden Node Bi-Tech (`ESP32`)** y **Camera Node Bi-Tech (`ESP32-CAM`)**.
-- Selector de modos de trabajo: **Programar**, **Simular**, **Placa real** (preparado conceptualmente).
-- Editor visual basado en **Blockly** con categorías: `Inicio`, `Sensores`, `Control`, `Actuadores`, `Cámara`, `Datos` (base), `IoT` (conceptual).
-- Generador de código **Arduino C/C++** en vivo con funciones educativas claras y resaltado contextual.
-- **Simulador pedagógico del Garden Node:** Sliders interactivos para temperatura, humedad ambiente, humedad del suelo y nivel de luz; respuesta en vivo de bomba e iluminación virtual.
-- **Simulador pedagógico del Camera Node:** Estado de cámara, resolución, calidad, estado de streaming, contador de capturas y marca temporal de última captura.
-- **Manual contextual integrado:** Panel *¿Qué hace este bloque?* con explicación pedagógica, hardware, tipo de dato y código.
+## ✅ V0.1 — Entorno Pedagógico Base (Completado)
+- Editor visual Blockly + Generador Arduino C/C++ en vivo + Simulador pedagógico + Manual contextual para `Garden Node Bi-Tech (ESP32)` y `Camera Node Bi-Tech (ESP32-CAM)`.
 
 ---
 
-## 🟡 V0.2 — Programación de Hardware Real (ESP32)
-**Objetivo:** Habilitar el modo **Placa real** para transferir los programas generados al `Garden Node`.
-- Verificación y cierre de supuestos de pines GPIO reales y polaridad del relay en laboratorio.
-- Evaluación e integración de transferencia por USB (`Web Serial API` / `esptool-js` / servicio de compilación con `Arduino CLI`).
-- Monitor serie educativo integrado para observar lecturas reales de sensores.
+## 🟢 V0.1.1 — Capacidades de Hardware y Soporte Oficial para NodeMCU ESP8266 (Actual)
+- Capa declarativa centralizada `HardwareCapabilities` (`src/hardware/hardwareCapabilities.ts`).
+- Tercer perfil oficial: **NodeMCU — ESP8266** (`DHT11`, única entrada analógica `A0`, entrada/salida digital, relay, iluminación y Wi-Fi).
+- Validador pedagógico de restricciones físicas (`src/hardware/hardwareValidator.ts`): alerta explícita cuando un proyecto solicita más entradas analógicas que las disponibles en el dispositivo seleccionado.
+- Simulador interactivo específico para NodeMCU ESP8266 y adaptación del Manual Contextual según el hardware activo.
+
+---
+
+## 🟡 V0.2 — Programación de Hardware Real (Validación Inicial con NodeMCU ESP8266 y ESP32)
+- Primera validación física real del flujo completo: **Blockly → Arduino C/C++ → Compilación → USB → Placa física**, utilizando la placa **NodeMCU ESP8266** disponible en laboratorio y posteriormente el **ESP32**.
+- Relevamiento y cierre de asignación de pines GPIO reales (`SP-01` a `SP-14`).
+- Habilitación del modo **Placa real** y monitor serie educativo.
 
 ---
 
 ## 🟠 V0.3 — Integración Completa de Camera Node y Streaming Real
-**Objetivo:** Vincular el programa de la `ESP32-CAM` con el streaming Wi-Fi real en el panel del entorno.
-- Flujo completo: carga por USB → reinicio → conexión Wi-Fi → visualización del stream MJPEG y capturas reales dentro de Bi-Tech IoT Studio.
-- Configuración segura de parámetros de red local y endpoint de cámara verificado.
+- Vinculación de la `ESP32-CAM` programada por USB con el streaming MJPEG real vía Wi-Fi dentro del entorno.
 
 ---
 
 ## 🔵 V0.4 — IoT, Datos y Conectividad
-**Objetivo:** Activar las categorías de `Datos` e `IoT` para registro de series temporales y comunicación entre nodos.
-- Registro de lecturas de sensores a lo largo del tiempo (tablas y gráficos pedagógicos).
-- Envío y recepción de eventos entre `Garden Node` y `Camera Node` (ej. tomar una captura fotográfica cada vez que se activa el riego).
+- Series temporales, gráficos de sensores y comunicación de eventos IoT entre nodos (`Garden Node`, `NodeMCU` y `Camera Node`).
 
 ---
 
 ## 🟣 V0.5 — Plataforma con Firebase, Usuarios y Proyectos
-**Objetivo:** Persistencia en la nube y gestión áulica.
-- Autenticación de estudiantes y docentes.
-- Guardado, versionado y compartición de proyectos de bloques.
-- Almacenamiento de bitácoras de datos IoT del *Smart Garden Lab*.
+- Persistencia en la nube, cuentas de estudiantes/docentes y gestión de proyectos áulicos.
 
 ---
 
 ## 🌟 V1.0 — Primera Versión Educativa Integrada
-**Objetivo:** Lanzamiento consolidado y validado en aula en **Escuela Estación Buenos Aires**.
-- Guías didácticas integradas, secuencias de actividades por nivel y validación completa con hardware físico y nube.
+- Lanzamiento consolidado y validado en aula en **Escuela Estación Buenos Aires**.

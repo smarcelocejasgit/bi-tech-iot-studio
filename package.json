@@ -1,7 +1,7 @@
 {
   "name": "bi-tech-iot-studio",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Entorno educativo web para programación física, simulación e IoT con ESP32 y ESP32-CAM (Smart Garden Lab Bi-Tech)",
   "type": "module",
   "scripts": {

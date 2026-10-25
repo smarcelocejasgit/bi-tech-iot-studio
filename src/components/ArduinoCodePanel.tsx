@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
-import { Check, Code2, Copy, FileCode2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  Code2,
+  Copy,
+  FileCode2,
+} from 'lucide-react';
 import { GeneratedArduinoOutput } from '../types/studio';
 
 interface ArduinoCodePanelProps {
@@ -8,17 +14,22 @@ interface ArduinoCodePanelProps {
 }
 
 /**
- * Resaltador sintáctico ligero y seguro para código Arduino C/C++ educativo,
- * siguiendo la paleta cromática de la referencia visual V0.1.
+ * Resaltador sintáctico ligero y seguro para código Arduino C/C++ educativo.
  */
 function renderHighlightedLine(line: string): React.ReactNode {
+  if (line.trim().startsWith('// ⚠️')) {
+    return (
+      <span className="text-amber-800 font-bold bg-amber-100/90 px-1 rounded">
+        {line}
+      </span>
+    );
+  }
   if (line.trim().startsWith('//')) {
     return <span className="text-emerald-700/80 italic">{line}</span>;
   }
 
-  // Tokenización simple por palabras, números, cadenas y símbolos
   const tokenRegex =
-    /(".*?"|\b(?:void|int|float|bool|const|char|if|else|true|false)\b|\b(?:setup|loop|pinMode|Serial|begin|delay|leerTemperatura|leerHumedadAmbiente|leerHumedadSuelo|leerNivelLuz|bombaOn|bombaOff|luzOn|luzOff|configurarCamara|seleccionarResolucion|configurarCalidad|iniciarCamara|conectarWiFi|iniciarStreaming|detenerStreaming|tomarCaptura|estadoCamara|registrarDato|enviarDatoIoT)\b|\b(?:OUTPUT|INPUT|BOMBA_PIN|LUZ_PIN|DHT_PIN|SUELO_PIN|LDR_PIN|WIFI_SSID|WIFI_PASS)\b|\b\d+\b)/g;
+    /(".*?"|\b(?:void|int|float|bool|const|char|if|else|true|false)\b|\b(?:setup|loop|pinMode|Serial|begin|delay|leerTemperatura|leerHumedadAmbiente|leerHumedadSuelo|leerNivelLuz|leerEntradaAnalogicaA0|leerEntradaDigital|bombaOn|bombaOff|luzOn|luzOff|relayOn|relayOff|activarSalidaDigital|desactivarSalidaDigital|configurarCamara|seleccionarResolucion|configurarCalidad|iniciarCamara|conectarWiFi|iniciarStreaming|detenerStreaming|tomarCaptura|estadoCamara|registrarDato|enviarDatoIoT)\b|\b(?:OUTPUT|INPUT|BOMBA_PIN|LUZ_PIN|DHT_PIN|SUELO_PIN|LDR_PIN|RELAY_PIN|ANALOG_A0_PIN|ENTRADA_DIG_PIN|SALIDA_DIG_PIN|WIFI_SSID|WIFI_PASS)\b|\b\d+\b)/g;
 
   const parts = line.split(tokenRegex);
 
@@ -46,7 +57,7 @@ function renderHighlightedLine(line: string): React.ReactNode {
       );
     }
     if (
-      /^(OUTPUT|INPUT|BOMBA_PIN|LUZ_PIN|DHT_PIN|SUELO_PIN|LDR_PIN|WIFI_SSID|WIFI_PASS)$/.test(
+      /^(OUTPUT|INPUT|BOMBA_PIN|LUZ_PIN|DHT_PIN|SUELO_PIN|LDR_PIN|RELAY_PIN|ANALOG_A0_PIN|ENTRADA_DIG_PIN|SALIDA_DIG_PIN|WIFI_SSID|WIFI_PASS)$/.test(
         part
       )
     ) {
@@ -57,7 +68,7 @@ function renderHighlightedLine(line: string): React.ReactNode {
       );
     }
     if (
-      /^(setup|loop|pinMode|Serial|begin|delay|leerTemperatura|leerHumedadAmbiente|leerHumedadSuelo|leerNivelLuz|bombaOn|bombaOff|luzOn|luzOff|configurarCamara|seleccionarResolucion|configurarCalidad|iniciarCamara|conectarWiFi|iniciarStreaming|detenerStreaming|tomarCaptura|estadoCamara|registrarDato|enviarDatoIoT)$/.test(
+      /^(setup|loop|pinMode|Serial|begin|delay|leerTemperatura|leerHumedadAmbiente|leerHumedadSuelo|leerNivelLuz|leerEntradaAnalogicaA0|leerEntradaDigital|bombaOn|bombaOff|luzOn|luzOff|relayOn|relayOff|activarSalidaDigital|desactivarSalidaDigital|configurarCamara|seleccionarResolucion|configurarCalidad|iniciarCamara|conectarWiFi|iniciarStreaming|detenerStreaming|tomarCaptura|estadoCamara|registrarDato|enviarDatoIoT)$/.test(
         part
       )
     ) {
@@ -91,6 +102,7 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
   };
 
   const fullLines = generatedCode.fullCode.split('\n');
+  const hasIssues = generatedCode.validationIssues.length > 0;
 
   return (
     <section className="bg-white rounded-2xl border border-slate-200/90 shadow-xs flex flex-col h-full overflow-hidden">
@@ -104,12 +116,35 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-semibold text-emerald-800">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            se actualiza en vivo
-          </span>
+          {hasIssues ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-[11px] font-bold text-amber-900">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
+              restricción de hardware
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-semibold text-emerald-800">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              se actualiza en vivo
+            </span>
+          )}
         </div>
       </div>
+
+      {/* Advertencia pedagógica visible cuando el programa excede capacidades del dispositivo */}
+      {hasIssues && (
+        <div
+          data-testid="hardware-validation-warning"
+          className="mx-3 mt-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-950 flex items-start gap-2"
+        >
+          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold">{generatedCode.validationIssues[0].message}</p>
+            <p className="text-[11px] text-amber-900 mt-0.5 leading-snug">
+              {generatedCode.validationIssues[0].pedagogicalExplanation}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Área de código con numeración de líneas y botón de copiar */}
       <div className="relative flex-1 bg-[#f9fbfd] overflow-auto p-3 font-mono text-[13px] leading-6">
@@ -152,12 +187,15 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
                   <span className="w-7 shrink-0 text-right pr-3 text-xs text-slate-400 select-none">
                     {idx + 1}
                   </span>
-                  <code className="whitespace-pre">{renderHighlightedLine(lineText)}</code>
+                  <code className="whitespace-pre">
+                    {renderHighlightedLine(lineText)}
+                  </code>
                 </div>
               ))
             : generatedCode.lines.map((lineObj) => {
                 const isHighlighted =
-                  Boolean(selectedBlockId) && lineObj.blockId === selectedBlockId;
+                  Boolean(selectedBlockId) &&
+                  lineObj.blockId === selectedBlockId;
                 return (
                   <div
                     key={lineObj.lineNumber}

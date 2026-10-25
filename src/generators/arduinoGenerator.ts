@@ -1,9 +1,16 @@
 import { CAMERA_NODE_CONFIG } from '../hardware/cameraNodeConfig';
 import { GARDEN_NODE_CONFIG } from '../hardware/gardenNodeConfig';
+import { getDeviceProfile } from '../hardware/hardwareCapabilities';
+import {
+  collectAllSensorsInStatements,
+  validateProgramAgainstCapabilities,
+} from '../hardware/hardwareValidator';
+import { NODEMCU_ESP8266_CONFIG } from '../hardware/nodeMcuConfig';
 import {
   CodeLineMapping,
   ConditionNode,
   GeneratedArduinoOutput,
+  NumericExpressionNode,
   ParsedProgram,
   SensorKey,
   StatementNode,
@@ -36,45 +43,52 @@ const SENSOR_CODE_META: Record<SensorKey, SensorVariableMeta> = {
     cType: 'int',
     funcCall: 'leerNivelLuz()',
   },
+  entradaAnalogicaA0: {
+    varName: 'valorA0',
+    cType: 'int',
+    funcCall: 'leerEntradaAnalogicaA0()',
+  },
+  entradaDigital: {
+    varName: 'estadoDigital',
+    cType: 'int',
+    funcCall: 'leerEntradaDigital()',
+  },
 };
 
-function collectUsedSensorsInCondition(
-  cond: ConditionNode | null,
-  acc: Set<SensorKey>
-): void {
-  if (!cond) return;
-  if (cond.kind === 'comparison') {
-    if (cond.leftSensor) acc.add(cond.leftSensor);
-    if (cond.rightSensor) acc.add(cond.rightSensor);
-  } else if (cond.kind === 'logical') {
-    collectUsedSensorsInCondition(cond.left, acc);
-    collectUsedSensorsInCondition(cond.right, acc);
+function formatNumericExprC(
+  expr: NumericExpressionNode | undefined,
+  useLocalVars: boolean
+): string {
+  if (!expr) return '0';
+  if (expr.kind === 'number_literal') {
+    return String(expr.value);
   }
-}
-
-function collectUsedSensorsInStatements(
-  stmts: StatementNode[],
-  acc: Set<SensorKey>
-): void {
-  for (const st of stmts) {
-    if (st.kind === 'if') {
-      collectUsedSensorsInCondition(st.condition, acc);
-      collectUsedSensorsInStatements(st.thenBranch, acc);
-      if (st.elseBranch) {
-        collectUsedSensorsInStatements(st.elseBranch, acc);
-      }
-    }
+  if (expr.kind === 'sensor_read') {
+    return useLocalVars
+      ? SENSOR_CODE_META[expr.sensor].varName
+      : SENSOR_CODE_META[expr.sensor].funcCall;
   }
+  if (expr.kind === 'math_op') {
+    return `(${formatNumericExprC(expr.left, useLocalVars)} ${expr.operator} ${
+      expr.rightNumber
+    })`;
+  }
+  return '0';
 }
 
 function formatConditionC(cond: ConditionNode | null, useLocalVars: boolean): string {
   if (!cond) return 'false';
   if (cond.kind === 'comparison') {
-    const left = cond.leftSensor
-      ? useLocalVars
+    let left: string;
+    if (cond.leftExpr && cond.leftExpr.kind === 'math_op') {
+      left = formatNumericExprC(cond.leftExpr, useLocalVars);
+    } else if (cond.leftSensor) {
+      left = useLocalVars
         ? SENSOR_CODE_META[cond.leftSensor].varName
-        : SENSOR_CODE_META[cond.leftSensor].funcCall
-      : String(cond.leftNumber ?? 0);
+        : SENSOR_CODE_META[cond.leftSensor].funcCall;
+    } else {
+      left = String(cond.leftNumber ?? 0);
+    }
     return `${left} ${cond.operator} ${cond.rightNumber}`;
   }
   if (cond.kind === 'logical') {
@@ -107,6 +121,24 @@ function emitStatementsC(
       case 'luz_off':
         out.push({ code: `${indent}luzOff();`, blockId: st.blockId });
         break;
+      case 'relay_on':
+        out.push({ code: `${indent}relayOn();`, blockId: st.blockId });
+        break;
+      case 'relay_off':
+        out.push({ code: `${indent}relayOff();`, blockId: st.blockId });
+        break;
+      case 'digital_out_on':
+        out.push({
+          code: `${indent}activarSalidaDigital();`,
+          blockId: st.blockId,
+        });
+        break;
+      case 'digital_out_off':
+        out.push({
+          code: `${indent}desactivarSalidaDigital();`,
+          blockId: st.blockId,
+        });
+        break;
       case 'wait': {
         const ms = Math.max(0, Math.round(st.seconds * 1000));
         out.push({ code: `${indent}delay(${ms});`, blockId: st.blockId });
@@ -116,7 +148,10 @@ function emitStatementsC(
         const condStr = formatConditionC(st.condition, useLocalVars);
         out.push({ code: `${indent}if (${condStr}) {`, blockId: st.blockId });
         if (st.thenBranch.length === 0) {
-          out.push({ code: `${indent}  // Agrega bloques de acción aquí`, blockId: st.blockId });
+          out.push({
+            code: `${indent}  // Agrega bloques de acción aquí`,
+            blockId: st.blockId,
+          });
         } else {
           emitStatementsC(st.thenBranch, `${indent}  `, useLocalVars, out);
         }
@@ -137,7 +172,10 @@ function emitStatementsC(
         });
         break;
       case 'cam_quality':
-        out.push({ code: `${indent}configurarCalidad(${st.quality});`, blockId: st.blockId });
+        out.push({
+          code: `${indent}configurarCalidad(${st.quality});`,
+          blockId: st.blockId,
+        });
         break;
       case 'cam_init':
         out.push({ code: `${indent}iniciarCamara();`, blockId: st.blockId });
@@ -178,20 +216,37 @@ function emitStatementsC(
 }
 
 /**
- * Genera el código Arduino C/C++ educativo a partir del programa estructurado (AST).
- * - Sin GPIO inventados: usa las constantes simbólicas de GARDEN_NODE_CONFIG / CAMERA_NODE_CONFIG.
- * - Incluye versión compacta (foco pedagógico en setup y loop) y versión completa con declaraciones.
+ * Genera el código Arduino C/C++ educativo a partir del programa estructurado (AST)
+ * y valida que los recursos solicitados sean compatibles con las capacidades del dispositivo.
  */
 export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOutput {
+  const validationIssues = validateProgramAgainstCapabilities(program);
+  const profile = getDeviceProfile(program.device);
   const rawLines: { code: string; blockId?: string }[] = [];
 
-  if (program.device === 'garden-node') {
+  if (validationIssues.length > 0) {
+    rawLines.push({
+      code: '// ⚠️ ADVERTENCIA PEDAGÓGICA DE HARDWARE:',
+    });
+    for (const issue of validationIssues) {
+      rawLines.push({
+        code: `// ${issue.message}`,
+      });
+    }
+    rawLines.push({ code: '' });
+  }
+
+  if (profile.simulatorKind === 'garden-system') {
     const { relayChannel1Pump, relayChannel2Light } = GARDEN_NODE_CONFIG.pins;
 
     rawLines.push({ code: 'void setup() {' });
     rawLines.push({ code: '  Serial.begin(115200);' });
-    rawLines.push({ code: `  pinMode(${relayChannel1Pump.symbolicName}, OUTPUT);` });
-    rawLines.push({ code: `  pinMode(${relayChannel2Light.symbolicName}, OUTPUT);` });
+    rawLines.push({
+      code: `  pinMode(${relayChannel1Pump.symbolicName}, OUTPUT);`,
+    });
+    rawLines.push({
+      code: `  pinMode(${relayChannel2Light.symbolicName}, OUTPUT);`,
+    });
     if (program.setupStatements.length > 0) {
       emitStatementsC(program.setupStatements, '  ', false, rawLines);
     }
@@ -200,7 +255,7 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
     rawLines.push({ code: 'void loop() {' });
 
     const usedSensors = new Set<SensorKey>();
-    collectUsedSensorsInStatements(program.loopStatements, usedSensors);
+    collectAllSensorsInStatements(program.loopStatements, usedSensors);
 
     for (const sensorKey of usedSensors) {
       const meta = SENSOR_CODE_META[sensorKey];
@@ -210,7 +265,45 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
     }
 
     if (program.loopStatements.length === 0) {
-      rawLines.push({ code: '  // Construye tu programa arrastrando bloques aquí' });
+      rawLines.push({
+        code: '  // Construye tu programa arrastrando bloques aquí',
+      });
+    } else {
+      emitStatementsC(program.loopStatements, '  ', true, rawLines);
+    }
+
+    rawLines.push({ code: '}' });
+  } else if (profile.simulatorKind === 'nodemcu-system') {
+    const { relay, lighting, digitalOutput, digitalInput } =
+      NODEMCU_ESP8266_CONFIG.pins;
+
+    rawLines.push({ code: 'void setup() {' });
+    rawLines.push({ code: '  Serial.begin(115200);' });
+    rawLines.push({ code: `  pinMode(${relay.symbolicName}, OUTPUT);` });
+    rawLines.push({ code: `  pinMode(${lighting.symbolicName}, OUTPUT);` });
+    rawLines.push({ code: `  pinMode(${digitalOutput.symbolicName}, OUTPUT);` });
+    rawLines.push({ code: `  pinMode(${digitalInput.symbolicName}, INPUT);` });
+    if (program.setupStatements.length > 0) {
+      emitStatementsC(program.setupStatements, '  ', false, rawLines);
+    }
+    rawLines.push({ code: '}' });
+    rawLines.push({ code: '' });
+    rawLines.push({ code: 'void loop() {' });
+
+    const usedSensors = new Set<SensorKey>();
+    collectAllSensorsInStatements(program.loopStatements, usedSensors);
+
+    for (const sensorKey of usedSensors) {
+      const meta = SENSOR_CODE_META[sensorKey];
+      rawLines.push({
+        code: `  ${meta.cType} ${meta.varName} = ${meta.funcCall};`,
+      });
+    }
+
+    if (program.loopStatements.length === 0) {
+      rawLines.push({
+        code: '  // Construye tu programa para NodeMCU ESP8266 aquí',
+      });
     } else {
       emitStatementsC(program.loopStatements, '  ', true, rawLines);
     }
@@ -225,7 +318,9 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
       rawLines.push({
         code: `  seleccionarResolucion("${CAMERA_NODE_CONFIG.defaultResolution}");`,
       });
-      rawLines.push({ code: `  configurarCalidad(${CAMERA_NODE_CONFIG.defaultQuality});` });
+      rawLines.push({
+        code: `  configurarCalidad(${CAMERA_NODE_CONFIG.defaultQuality});`,
+      });
       rawLines.push({ code: '  iniciarCamara();' });
     } else {
       emitStatementsC(program.setupStatements, '  ', false, rawLines);
@@ -249,56 +344,89 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
 
   const compactCode = lines.map((l) => l.code).join('\n');
 
-  const headerAndHelpers =
-    program.device === 'garden-node'
-      ? [
-          '// ============================================================================',
-          '// BI-TECH IoT STUDIO · Dispositivo: Garden Node Bi-Tech (ESP32)',
-          '// NOTA: Los pines GPIO son simbólicos hasta su validación física en laboratorio.',
-          '// Estado seguro inicial de actuadores: Bomba OFF · Iluminación OFF',
-          '// ============================================================================',
-          '',
-          `// Configuración centralizada (${GARDEN_NODE_CONFIG.name})`,
-          '// #define DHT_PIN   <GPIO_PENDIENTE_VERIFICACION>',
-          '// #define SUELO_PIN <ADC1_PENDIENTE_VERIFICACION>',
-          '// #define LDR_PIN   <ADC1_PENDIENTE_VERIFICACION>',
-          '// #define BOMBA_PIN <GPIO_PENDIENTE_VERIFICACION>',
-          '// #define LUZ_PIN   <GPIO_PENDIENTE_VERIFICACION>',
-          '',
-          'float leerTemperatura();',
-          'float leerHumedadAmbiente();',
-          'int leerHumedadSuelo();',
-          'int leerNivelLuz();',
-          'void bombaOn();',
-          'void bombaOff();',
-          'void luzOn();',
-          'void luzOff();',
-          '',
-          compactCode,
-        ].join('\n')
-      : [
-          '// ============================================================================',
-          '// BI-TECH IoT STUDIO · Dispositivo: Camera Node Bi-Tech (ESP32-CAM · OV2640)',
-          '// Canal de programación: USB | Canal de comunicación y streaming: Wi-Fi',
-          '// NOTA: Credenciales Wi-Fi y endpoint de streaming se configuran localmente.',
-          '// ============================================================================',
-          '',
-          'void configurarCamara();',
-          'void seleccionarResolucion(const char* resolucion);',
-          'void configurarCalidad(int calidad);',
-          'void iniciarCamara();',
-          'void conectarWiFi(const char* ssid, const char* pass);',
-          'void iniciarStreaming();',
-          'void detenerStreaming();',
-          'void tomarCaptura();',
-          'bool estadoCamara();',
-          '',
-          compactCode,
-        ].join('\n');
+  let headerAndHelpers: string;
+  if (profile.simulatorKind === 'garden-system') {
+    headerAndHelpers = [
+      '// ============================================================================',
+      '// BI-TECH IoT STUDIO · Dispositivo: Garden Node Bi-Tech (ESP32)',
+      '// NOTA: Los pines GPIO son simbólicos hasta su validación física en laboratorio.',
+      '// Estado seguro inicial de actuadores: Bomba OFF · Iluminación OFF',
+      '// ============================================================================',
+      '',
+      `// Configuración centralizada (${GARDEN_NODE_CONFIG.name})`,
+      '// #define DHT_PIN   <GPIO_PENDIENTE_VERIFICACION>',
+      '// #define SUELO_PIN <ADC1_PENDIENTE_VERIFICACION>',
+      '// #define LDR_PIN   <ADC1_PENDIENTE_VERIFICACION>',
+      '// #define BOMBA_PIN <GPIO_PENDIENTE_VERIFICACION>',
+      '// #define LUZ_PIN   <GPIO_PENDIENTE_VERIFICACION>',
+      '',
+      'float leerTemperatura();',
+      'float leerHumedadAmbiente();',
+      'int leerHumedadSuelo();',
+      'int leerNivelLuz();',
+      'void bombaOn();',
+      'void bombaOff();',
+      'void luzOn();',
+      'void luzOff();',
+      '',
+      compactCode,
+    ].join('\n');
+  } else if (profile.simulatorKind === 'nodemcu-system') {
+    headerAndHelpers = [
+      '// ============================================================================',
+      '// BI-TECH IoT STUDIO · Dispositivo: NodeMCU (ESP8266)',
+      '// Capacidades: 1 entrada analógica (A0: 0-1023), E/S digitales, DHT11, Relay, Wi-Fi.',
+      '// NOTA: Los pines GPIO son simbólicos hasta su validación en placa física.',
+      '// Estado seguro inicial: Relay OFF · Iluminación OFF · Salida Digital LOW',
+      '// ============================================================================',
+      '',
+      '// #include <ESP8266WiFi.h>',
+      '// #define DHT_PIN         <GPIO_PENDIENTE_VERIFICACION>',
+      '// #define ANALOG_A0_PIN   A0',
+      '// #define ENTRADA_DIG_PIN <GPIO_PENDIENTE_VERIFICACION>',
+      '// #define SALIDA_DIG_PIN  <GPIO_PENDIENTE_VERIFICACION>',
+      '// #define RELAY_PIN       <GPIO_PENDIENTE_VERIFICACION>',
+      '// #define LUZ_PIN         <GPIO_PENDIENTE_VERIFICACION>',
+      '',
+      'float leerTemperatura();',
+      'float leerHumedadAmbiente();',
+      'int leerEntradaAnalogicaA0();',
+      'int leerEntradaDigital();',
+      'void relayOn();',
+      'void relayOff();',
+      'void luzOn();',
+      'void luzOff();',
+      'void activarSalidaDigital();',
+      'void desactivarSalidaDigital();',
+      '',
+      compactCode,
+    ].join('\n');
+  } else {
+    headerAndHelpers = [
+      '// ============================================================================',
+      '// BI-TECH IoT STUDIO · Dispositivo: Camera Node Bi-Tech (ESP32-CAM · OV2640)',
+      '// Canal de programación: USB | Canal de comunicación y streaming: Wi-Fi',
+      '// NOTA: Credenciales Wi-Fi y endpoint de streaming se configuran localmente.',
+      '// ============================================================================',
+      '',
+      'void configurarCamara();',
+      'void seleccionarResolucion(const char* resolucion);',
+      'void configurarCalidad(int calidad);',
+      'void iniciarCamara();',
+      'void conectarWiFi(const char* ssid, const char* pass);',
+      'void iniciarStreaming();',
+      'void detenerStreaming();',
+      'void tomarCaptura();',
+      'bool estadoCamara();',
+      '',
+      compactCode,
+    ].join('\n');
+  }
 
   return {
     fullCode: headerAndHelpers,
     compactCode,
     lines,
+    validationIssues,
   };
 }

@@ -1,3 +1,5 @@
+import { getDeviceProfile } from '../hardware/hardwareCapabilities';
+import { DeviceProfileId } from '../types/hardware';
 import { ContextualManualEntry } from '../types/studio';
 
 export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = {
@@ -8,15 +10,17 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewLabel: '▶ al iniciar',
     previewColor: '#109856',
     description:
-      'Ejecuta una sola vez las instrucciones iniciales cuando se enciende o reinicia la placa ESP32. Prepara la comunicación serie y deja los actuadores en estado seguro (APAGADOS).',
-    physicalComponent: 'Microcontrolador ESP32 / ESP32-CAM',
-    dataUsed: 'Configuración de pines de entrada/salida y velocidad del puerto serie (115200 baudios)',
+      'Ejecuta una sola vez las instrucciones iniciales cuando se enciende o reinicia el microcontrolador. Prepara la comunicación serie y deja los actuadores en estado seguro (APAGADOS).',
+    physicalComponent: 'Microcontrolador (ESP32 / ESP32-CAM / NodeMCU ESP8266)',
+    dataUsed:
+      'Configuración de pines de entrada/salida y velocidad del puerto serie (115200 baudios)',
     dataType: 'Estructura de control inicial (void setup)',
     behavior:
-      'Configura los pines simbólicos (BOMBA_PIN, LUZ_PIN) como salidas y garantiza que la bomba y la luz comiencen apagadas.',
-    arduinoCode: 'void setup() {\n  Serial.begin(115200);\n  pinMode(BOMBA_PIN, OUTPUT);\n  pinMode(LUZ_PIN, OUTPUT);\n}',
+      'Configura los pines simbólicos como entradas o salidas y garantiza que relés, bombas o luces comiencen apagados.',
+    arduinoCode:
+      'void setup() {\n  Serial.begin(115200);\n  pinMode(RELAY_PIN, OUTPUT);\n  pinMode(LUZ_PIN, OUTPUT);\n}',
     technicalNotes:
-      'En sistemas reales de automatización, inicializar los relés en OFF evita que la bomba se active accidentalmente al encender el equipo.',
+      'En sistemas reales de automatización, inicializar los relés en OFF evita activaciones accidentales al energizar la placa.',
   },
 
   bitech_forever: {
@@ -27,14 +31,16 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewColor: '#9b3df5',
     description:
       'Todo lo que coloques dentro de este bloque se repite de manera continua mientras el dispositivo esté encendido. Es el corazón del control automático.',
-    physicalComponent: 'Procesador principal del ESP32',
-    dataUsed: 'Ciclo continuo de lectura de sensores, evaluación lógica y control de actuadores',
+    physicalComponent: 'Procesador principal del microcontrolador',
+    dataUsed:
+      'Ciclo continuo de lectura de sensores, evaluación lógica y control de actuadores',
     dataType: 'Ciclo infinito (void loop)',
     behavior:
-      'Lee sensores actualizados en cada vuelta del ciclo, evalúa las condiciones "si / entonces" y actualiza la bomba o la iluminación.',
-    arduinoCode: 'void loop() {\n  // Instrucciones que se repiten continuamente\n}',
+      'Lee sensores actualizados en cada vuelta del ciclo, evalúa las condiciones "si / entonces" y actualiza los actuadores.',
+    arduinoCode:
+      'void loop() {\n  // Instrucciones que se repiten continuamente\n}',
     technicalNotes:
-      'El microcontrolador ejecuta miles de ciclos por segundo salvo que se agregue una pausa con delay().',
+      'En ESP8266 (NodeMCU), el ciclo loop() también cede tiempo al stack Wi-Fi interno en cada iteración o llamada a delay().',
   },
 
   bitech_wait: {
@@ -45,11 +51,11 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewColor: '#2573e8',
     description:
       'Detiene temporalmente la ejecución del programa durante la cantidad de segundos indicada antes de pasar al siguiente bloque.',
-    physicalComponent: 'Temporizador interno del ESP32',
+    physicalComponent: 'Temporizador interno del microcontrolador',
     dataUsed: 'Tiempo en segundos (convertido a milisegundos en Arduino C/C++)',
     dataType: 'Numérico entero (milisegundos, ej. 5 s = 5000 ms)',
     behavior:
-      'Mantiene el estado actual de los actuadores (por ejemplo, la bomba encendida durante 5 segundos) antes de continuar.',
+      'Mantiene el estado actual de los actuadores durante los segundos configurados antes de continuar.',
     arduinoCode: 'delay(5000);',
     technicalNotes:
       'En Arduino C/C++, la función delay() recibe milisegundos: 1 segundo equivale a 1000 milisegundos.',
@@ -62,15 +68,20 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewLabel: '💧 si [ humedad del suelo ] [ < ] [ 30 ] entonces',
     previewColor: '#2e8af7',
     description:
-      'Este bloque lee el valor de un sensor (en este caso, la humedad del suelo) y compara si cumple la condición (por ejemplo, menor que 30). Si la condición se cumple, ejecuta los bloques que están dentro (por ejemplo, encender la bomba).',
-    physicalComponent: 'Unidad lógica del ESP32 + Sensor seleccionado',
+      'Este bloque lee el valor de un sensor y compara si cumple la condición (por ejemplo, menor que un umbral). Si la condición se cumple, ejecuta los bloques que están dentro.',
+    physicalComponent: 'Unidad lógica del microcontrolador + Sensor seleccionado',
     dataUsed: 'Lectura actual del sensor comparada contra un valor umbral numérico',
     dataType: 'Booleano (verdadero / falso)',
     behavior:
-      'Sirve para tomar decisiones automáticas según los datos de los sensores o para controlar actuadores cuando se supera o baja de un umbral.',
-    arduinoCode: 'int suelo = leerHumedadSuelo();\nif (suelo < 30) {\n  // acciones si se cumple\n}',
+      'Sirve para tomar decisiones automáticas según los datos de los sensores o para controlar actuadores.',
+    arduinoCode:
+      'int suelo = leerHumedadSuelo();\nif (suelo < 30) {\n  // acciones si se cumple\n}',
     technicalNotes:
       'Expresa de forma visible la cadena pedagógica: sensor → dato → comparación → decisión → actuación.',
+    deviceNotes: {
+      'nodemcu-esp8266':
+        'NodeMCU dispone de recursos diferentes a ESP32: posee solo 1 entrada analógica (A0). Si combinas dos sensores analógicos distintos en tus condicionales, el entorno te mostrará una advertencia de hardware.',
+    },
   },
 
   bitech_if_else: {
@@ -81,14 +92,15 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewColor: '#2e8af7',
     description:
       'Evalúa una condición lógica: si resulta verdadera ejecuta el primer grupo de bloques ("entonces"); si resulta falsa ejecuta el segundo grupo ("si no").',
-    physicalComponent: 'Procesador lógico del ESP32',
+    physicalComponent: 'Procesador lógico del microcontrolador',
     dataUsed: 'Resultado de una comparación o combinación lógica (Y / O)',
     dataType: 'Booleano (true / false)',
     behavior:
       'Permite definir qué hacer tanto cuando se necesita activar un actuador como cuando debe apagarse.',
-    arduinoCode: 'if (condicion) {\n  // rama verdadera\n} else {\n  // rama falsa\n}',
+    arduinoCode:
+      'if (condicion) {\n  // rama verdadera\n} else {\n  // rama falsa\n}',
     technicalNotes:
-      'Muy útil para apagar la iluminación automáticamente cuando el nivel de luz ambiental vuelve a ser suficiente.',
+      'Muy útil para apagar un relay o iluminación automáticamente cuando la variable ambiental vuelve a su rango normal.',
   },
 
   bitech_compare: {
@@ -99,12 +111,12 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewColor: '#d97706',
     description:
       'Compara la lectura numérica de un sensor con un número de referencia (umbral) y devuelve verdadero o falso.',
-    physicalComponent: 'ALU (Unidad Aritmético-Lógica) del ESP32',
+    physicalComponent: 'ALU (Unidad Aritmético-Lógica)',
     dataUsed: 'Dos valores numéricos (lectura de sensor y umbral)',
     dataType: 'Booleano (bool)',
     behavior:
       'Se encastra dentro de un bloque "si / entonces" para decidir cuándo actuar.',
-    arduinoCode: '(leerHumedadSuelo() < 30)',
+    arduinoCode: '(leerEntradaAnalogicaA0() < 400)',
     technicalNotes:
       'En C/C++, para comparar igualdad se utiliza doble signo igual (==), mientras que un solo igual (=) asigna un valor.',
   },
@@ -117,14 +129,68 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewColor: '#d97706',
     description:
       'Combina dos condiciones. Con "Y" (&&) ambas deben cumplirse al mismo tiempo; con "O" (||) basta con que se cumpla al menos una.',
-    physicalComponent: 'Procesador lógico del ESP32',
+    physicalComponent: 'Procesador lógico del microcontrolador',
     dataUsed: 'Dos expresiones booleanas',
     dataType: 'Booleano (bool)',
     behavior:
-      'Permite reglas avanzadas, por ejemplo: regar solo si la humedad del suelo es baja Y además la temperatura supera cierto valor.',
-    arduinoCode: '(suelo < 30 && temp > 20)',
+      'Permite reglas compuestas, como activar un actuador solo si hay poca luz Y además la entrada digital está activa.',
+    arduinoCode: '(valorA0 < 400 && estadoDigital == 1)',
     technicalNotes:
       'En Arduino C/C++, el operador lógico Y se escribe && y el operador lógico O se escribe ||.',
+  },
+
+  bitech_math_op: {
+    blockType: 'bitech_math_op',
+    title: 'Operación matemática (+, -, *, /)',
+    category: 'control',
+    previewLabel: '➗ [ sensor ] + [ 10 ]',
+    previewColor: '#d97706',
+    description:
+      'Aplica una operación aritmética (suma, resta, multiplicación o división) al valor leído de un sensor para escalarlo o ajustarlo.',
+    physicalComponent: 'ALU del microcontrolador',
+    dataUsed: 'Lectura numérica de un sensor y constante numérica',
+    dataType: 'Numérico (int / float)',
+    behavior:
+      'Permite compensar lecturas o ajustar escalas antes de compararlas con un umbral.',
+    arduinoCode: '(valorA0 + 10)',
+    technicalNotes:
+      'Útil para aplicar correcciones simples de calibración sobre la lectura cruda de un sensor.',
+  },
+
+  bitech_sensor_analog_a0: {
+    blockType: 'bitech_sensor_analog_a0',
+    title: 'Entrada analógica A0 (NodeMCU ESP8266)',
+    category: 'sensores',
+    previewLabel: '📈 entrada analógica A0',
+    previewColor: '#0284c7',
+    description:
+      'Lee el valor del único canal conversor analógico-digital (pin A0) disponible en la placa NodeMCU ESP8266, entregando un número entre 0 y 1023.',
+    physicalComponent: 'Pin analógico único A0 (ADC de 10 bits en ESP8266)',
+    dataUsed: 'Tensión analógica convertida a escala entera de 0 a 1023',
+    dataType: 'Numérico entero (int)',
+    behavior:
+      'Permite conectar un sensor analógico (por ejemplo, un LDR de luz o una sonda de humedad de suelo) y leer su magnitud.',
+    arduinoCode: 'leerEntradaAnalogicaA0()',
+    technicalNotes:
+      'NodeMCU dispone de recursos diferentes a ESP32: solo cuenta con 1 entrada analógica (A0). La selección del hardware condiciona qué sensores pueden utilizarse simultáneamente.',
+  },
+
+  bitech_sensor_digital_in: {
+    blockType: 'bitech_sensor_digital_in',
+    title: 'Entrada digital (HIGH / LOW)',
+    category: 'sensores',
+    previewLabel: '🔘 entrada digital',
+    previewColor: '#0284c7',
+    description:
+      'Lee el estado lógico de un pin digital de entrada: devuelve 1 (HIGH) cuando está activo o 0 (LOW) cuando está inactivo.',
+    physicalComponent: 'Pin GPIO digital configurado como INPUT (ENTRADA_DIG_PIN)',
+    dataUsed: 'Nivel lógico digital binario (0 o 1)',
+    dataType: 'Numérico entero / Booleano (0 o 1)',
+    behavior:
+      'Permite detectar pulsadores, sensores digitales de nivel de agua o llaves de modo manual/automático.',
+    arduinoCode: 'leerEntradaDigital()',
+    technicalNotes:
+      'A diferencia de una entrada analógica, una entrada digital solo distingue dos estados: presencia o ausencia de tensión (3.3V vs 0V).',
   },
 
   bitech_sensor_soil: {
@@ -134,15 +200,20 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewLabel: '🌱 humedad del suelo',
     previewColor: '#0284c7',
     description:
-      'Lee el sensor de humedad del suelo conectado al Garden Node para saber si la tierra está seca o húmeda.',
-    physicalComponent: 'Sonda de humedad de suelo conectada a entrada analógica (SUELO_PIN)',
-    dataUsed: 'Lectura analógica del conversor ADC del ESP32',
+      'Lee el sensor de humedad del suelo para saber si la tierra está seca o húmeda.',
+    physicalComponent:
+      'Sonda de humedad de suelo conectada a entrada analógica (SUELO_PIN / A0)',
+    dataUsed: 'Lectura analógica del conversor ADC',
     dataType: 'Numérico entero (int)',
     behavior:
       'Entrega un valor numérico que disminuye cuando la tierra se seca y aumenta cuando el suelo está húmedo.',
     arduinoCode: 'leerHumedadSuelo()',
     technicalNotes:
       'IMPORTANTE: No debe asumirse automáticamente como un porcentaje real si antes no se calibró el sensor midiendo sus valores en tierra seca y húmeda (SP-06).',
+    deviceNotes: {
+      'nodemcu-esp8266':
+        'En NodeMCU ESP8266 este sensor ocupa el único pin analógico disponible (A0), por lo que no puede usarse simultáneamente junto con otro sensor analógico como el LDR.',
+    },
   },
 
   bitech_sensor_temp: {
@@ -152,15 +223,15 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewLabel: '🌡️ temperatura (°C)',
     previewColor: '#0284c7',
     description:
-      'Obtiene la temperatura del aire alrededor de la huerta medida en grados Celsius (°C).',
+      'Obtiene la temperatura del aire medida en grados Celsius (°C) a través del sensor digital DHT11.',
     physicalComponent: 'Sensor digital DHT11 conectado a DHT_PIN',
     dataUsed: 'Magnitud térmica ambiental en °C',
     dataType: 'Numérico decimal (float)',
     behavior:
-      'Devuelve la temperatura actual para poder compararla con un umbral (por ejemplo, alerta de calor > 30 °C).',
+      'Devuelve la temperatura actual sin consumir entradas analógicas (usa un pin digital).',
     arduinoCode: 'leerTemperatura()',
     technicalNotes:
-      'El sensor DHT11 utiliza un protocolo digital propio en un solo pin de datos y requiere al menos 1 segundo entre lecturas reales.',
+      'Como el DHT11 es un sensor digital, en NodeMCU deja libre la entrada analógica A0 para otro sensor.',
   },
 
   bitech_sensor_humidity: {
@@ -170,15 +241,15 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewLabel: '💧 humedad ambiente (%)',
     previewColor: '#0284c7',
     description:
-      'Mide el porcentaje de humedad relativa presente en el aire del invernadero o aula.',
+      'Mide el porcentaje de humedad relativa presente en el aire mediante el sensor digital DHT11.',
     physicalComponent: 'Sensor digital DHT11 conectado a DHT_PIN',
     dataUsed: 'Humedad relativa del aire (0 a 100 %)',
     dataType: 'Numérico decimal (float)',
     behavior:
-      'Permite evaluar si el ambiente está demasiado seco o húmedo junto con la temperatura.',
+      'Permite evaluar si el ambiente está seco o húmedo usando el mismo pin digital del DHT11.',
     arduinoCode: 'leerHumedadAmbiente()',
     technicalNotes:
-      'El mismo encapsulado físico DHT11 entrega tanto temperatura como humedad ambiente.',
+      'El mismo encapsulado físico DHT11 entrega tanto temperatura como humedad ambiente por un único pin digital.',
   },
 
   bitech_sensor_light: {
@@ -188,15 +259,15 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewLabel: '☀️ nivel de luz',
     previewColor: '#0284c7',
     description:
-      'Lee cuánta luz recibe la planta mediante una fotorresistencia (LDR).',
-    physicalComponent: 'Sensor LDR (fotorresistor) en divisor resistivo conectado a LDR_PIN',
+      'Lee cuánta luz recibe el entorno mediante una fotorresistencia (LDR) conectada a una entrada analógica.',
+    physicalComponent: 'Sensor LDR en divisor resistivo conectado a ADC (LDR_PIN / A0)',
     dataUsed: 'Nivel de intensidad lumínica (escala 0 a 1023)',
     dataType: 'Numérico entero (int)',
     behavior:
-      'Cuando hay poca luz el valor baja, permitiendo decidir cuándo encender la iluminación artificial de cultivo.',
+      'Cuando hay poca luz el valor baja, permitiendo decidir cuándo encender la iluminación artificial.',
     arduinoCode: 'leerNivelLuz()',
     technicalNotes:
-      'La resistencia eléctrica de un LDR varía según la cantidad de fotones que inciden sobre su superficie.',
+      'En NodeMCU ESP8266 este sensor utiliza el canal analógico A0. Si intentas combinarlo con otro sensor analógico a la vez, se superará el límite físico de 1 ADC de la placa.',
   },
 
   bitech_actuator_pump_on: {
@@ -206,15 +277,15 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewLabel: '⚙️ encender bomba',
     previewColor: '#0d8a52',
     description:
-      'Activa el Canal 1 del módulo relay para encender la bomba sumergible e impulsar agua hacia la planta.',
+      'Activa el Canal 1 del módulo relay del Garden Node para encender la bomba de agua.',
     physicalComponent: 'Relay Canal 1 (BOMBA_PIN) → Mini bomba de agua',
     dataUsed: 'Señal digital de control hacia el módulo relay',
     dataType: 'Acción de salida (void)',
     behavior:
-      'Cierra el circuito de la bomba de riego. Debe combinarse con una espera o condición de corte para no inundar la maceta.',
+      'Cierra el circuito de la bomba de riego. Debe combinarse con una espera o condición de corte.',
     arduinoCode: 'bombaOn();',
     technicalNotes:
-      'La función bombaOn() abstrae si el relay físico se activa con nivel LOW o HIGH (configurable en gardenNodeConfig.ts).',
+      'La función bombaOn() abstrae si el relay físico se activa con nivel LOW o HIGH.',
   },
 
   bitech_actuator_pump_off: {
@@ -228,11 +299,80 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     physicalComponent: 'Relay Canal 1 (BOMBA_PIN) → Mini bomba de agua',
     dataUsed: 'Señal digital de estado seguro OFF',
     dataType: 'Acción de salida (void)',
-    behavior:
-      'Abre el contacto del relé deteniendo inmediatamente el riego.',
+    behavior: 'Abre el contacto del relé deteniendo inmediatamente el riego.',
     arduinoCode: 'bombaOff();',
     technicalNotes:
       'Al iniciar el sistema, el estado seguro predeterminado de la bomba es siempre OFF.',
+  },
+
+  bitech_actuator_relay_on: {
+    blockType: 'bitech_actuator_relay_on',
+    title: 'Encender relay (NodeMCU)',
+    category: 'actuadores',
+    previewLabel: '🔌 encender relay',
+    previewColor: '#0d8a52',
+    description:
+      'Activa el módulo de relé conectado a la salida digital simbólica RELAY_PIN de la placa NodeMCU.',
+    physicalComponent: 'Módulo Relay de 1 canal conectado a RELAY_PIN',
+    dataUsed: 'Señal digital de salida desde GPIO de NodeMCU',
+    dataType: 'Acción de salida (void)',
+    behavior:
+      'Conmuta el contacto del relé a estado ON para accionar una carga externa (como un ventilador, electroválvula o bomba).',
+    arduinoCode: 'relayOn();',
+    technicalNotes:
+      'Encapsula la polaridad activa (ACTIVE_LOW / ACTIVE_HIGH) en la configuración centralizada de hardware.',
+  },
+
+  bitech_actuator_relay_off: {
+    blockType: 'bitech_actuator_relay_off',
+    title: 'Apagar relay (NodeMCU)',
+    category: 'actuadores',
+    previewLabel: '🔌 apagar relay',
+    previewColor: '#0d8a52',
+    description:
+      'Desactiva el módulo de relé conectado a RELAY_PIN, regresándolo a su estado seguro OFF.',
+    physicalComponent: 'Módulo Relay de 1 canal conectado a RELAY_PIN',
+    dataUsed: 'Señal digital de estado seguro OFF',
+    dataType: 'Acción de salida (void)',
+    behavior: 'Abre el circuito del relé deteniendo el actuador conectado.',
+    arduinoCode: 'relayOff();',
+    technicalNotes:
+      'Siempre inicializa y deja el relé en estado OFF cuando la condición deja de cumplirse.',
+  },
+
+  bitech_actuator_digital_out_on: {
+    blockType: 'bitech_actuator_digital_out_on',
+    title: 'Activar salida digital (HIGH)',
+    category: 'actuadores',
+    previewLabel: '⚡ activar salida digital',
+    previewColor: '#0284c7',
+    description:
+      'Coloca en estado alto (HIGH / 3.3V) el pin de salida digital SALIDA_DIG_PIN.',
+    physicalComponent: 'Pin GPIO digital configurado como OUTPUT (SALIDA_DIG_PIN)',
+    dataUsed: 'Nivel lógico digital HIGH (1)',
+    dataType: 'Acción de salida (void)',
+    behavior:
+      'Enciende un indicador LED, buzzer activo o señal de control digital.',
+    arduinoCode: 'activarSalidaDigital();',
+    technicalNotes:
+      'Las salidas digitales del ESP8266 y ESP32 entregan niveles lógicos de 3.3V (no 5V).',
+  },
+
+  bitech_actuator_digital_out_off: {
+    blockType: 'bitech_actuator_digital_out_off',
+    title: 'Desactivar salida digital (LOW)',
+    category: 'actuadores',
+    previewLabel: '⚡ desactivar salida digital',
+    previewColor: '#0284c7',
+    description:
+      'Coloca en estado bajo (LOW / 0V) el pin de salida digital SALIDA_DIG_PIN.',
+    physicalComponent: 'Pin GPIO digital configurado como OUTPUT (SALIDA_DIG_PIN)',
+    dataUsed: 'Nivel lógico digital LOW (0)',
+    dataType: 'Acción de salida (void)',
+    behavior: 'Apaga el indicador o señal conectada a la salida digital.',
+    arduinoCode: 'desactivarSalidaDigital();',
+    technicalNotes:
+      'En el arranque del sistema, SALIDA_DIG_PIN comienza siempre en estado LOW.',
   },
 
   bitech_actuator_light_on: {
@@ -242,15 +382,15 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewLabel: '💡 encender iluminación',
     previewColor: '#7c3aed',
     description:
-      'Activa el Canal 2 del módulo relay para encender la luz LED de crecimiento de la huerta.',
-    physicalComponent: 'Relay Canal 2 (LUZ_PIN) → Panel/tira de iluminación LED',
-    dataUsed: 'Señal digital de salida hacia el Canal 2 del relay',
+      'Activa la salida de iluminación LED del sistema (LUZ_PIN).',
+    physicalComponent: 'Canal de iluminación LED conectado a LUZ_PIN',
+    dataUsed: 'Señal digital de salida hacia el circuito de iluminación',
     dataType: 'Acción de salida (void)',
     behavior:
-      'Enciende la iluminación artificial cuando el programa detecta que el nivel de luz natural es bajo.',
+      'Enciende la iluminación artificial cuando el programa detecta que el nivel de luz es bajo.',
     arduinoCode: 'luzOn();',
     technicalNotes:
-      'El relay permite que el ESP32 (que trabaja a 3.3V) controle de forma aislada circuitos de mayor potencia.',
+      'Permite controlar tiras o paneles LED tanto en Garden Node (ESP32) como en NodeMCU (ESP8266).',
   },
 
   bitech_actuator_light_off: {
@@ -259,16 +399,15 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     category: 'actuadores',
     previewLabel: '💡 apagar iluminación',
     previewColor: '#7c3aed',
-    description:
-      'Desactiva el Canal 2 del módulo relay para apagar la iluminación artificial.',
-    physicalComponent: 'Relay Canal 2 (LUZ_PIN) → Panel/tira de iluminación LED',
+    description: 'Desactiva la salida de iluminación LED (LUZ_PIN).',
+    physicalComponent: 'Canal de iluminación LED conectado a LUZ_PIN',
     dataUsed: 'Señal digital de estado seguro OFF',
     dataType: 'Acción de salida (void)',
     behavior:
-      'Apaga las luces de cultivo para ahorrar energía cuando la luz ambiental es suficiente.',
+      'Apaga las luces para ahorrar energía cuando la iluminación ambiental es suficiente.',
     arduinoCode: 'luzOff();',
     technicalNotes:
-      'Al igual que la bomba, el Canal 2 inicia siempre en estado seguro OFF.',
+      'El canal de iluminación se inicializa siempre en estado seguro OFF.',
   },
 
   bitech_cam_config: {
@@ -301,7 +440,7 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     dataUsed: 'Constante de resolución (QVGA, VGA, SVGA, XGA)',
     dataType: 'Parámetro enumerado (framesize_t)',
     behavior:
-      'Resoluciones intermedias como SVGA (800×600) logran un buen equilibrio entre nitidez de la planta y fluidez por Wi-Fi.',
+      'Resoluciones intermedias como SVGA (800×600) logran un buen equilibrio entre nitidez y fluidez por Wi-Fi.',
     arduinoCode: 'seleccionarResolucion("SVGA (800x600)");',
     technicalNotes:
       'A mayor resolución, cada fotograma ocupa más memoria RAM (PSRAM) y ancho de banda Wi-Fi.',
@@ -316,7 +455,8 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     description:
       'Ajusta el nivel de compresión JPEG de la cámara (valores entre 10 y 63).',
     physicalComponent: 'Compresor JPEG por hardware del sensor OV2640',
-    dataUsed: 'Índice de compresión entero (10 = alta calidad, 63 = menor calidad)',
+    dataUsed:
+      'Índice de compresión entero (10 = alta calidad, 63 = menor calidad)',
     dataType: 'Numérico entero (int)',
     behavior:
       'Actualiza la calidad de imagen tanto para el streaming como para las capturas fotográficas.',
@@ -345,17 +485,18 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
 
   bitech_cam_wifi: {
     blockType: 'bitech_cam_wifi',
-    title: 'Conectar Camera Node a Wi-Fi',
+    title: 'Conectar dispositivo a Wi-Fi',
     category: 'camara',
     previewLabel: '📶 conectar Wi-Fi red escolar',
     previewColor: '#2563eb',
     description:
-      'Conecta la ESP32-CAM a la red Wi-Fi del laboratorio para permitir el acceso al streaming y capturas.',
-    physicalComponent: 'Módulo de radio Wi-Fi 2.4 GHz del ESP32-CAM',
-    dataUsed: 'Identificador de red simbólico (WIFI_SSID / WIFI_PASS desde configuración local)',
+      'Conecta el microcontrolador (ESP32, ESP32-CAM o NodeMCU ESP8266) a la red Wi-Fi del laboratorio.',
+    physicalComponent: 'Módulo de radio Wi-Fi 2.4 GHz integrado',
+    dataUsed:
+      'Identificador de red simbólico (WIFI_SSID / WIFI_PASS desde configuración local)',
     dataType: 'Acción de conectividad (void)',
     behavior:
-      'Habilita el canal de comunicación inalámbrico necesario para transmitir video.',
+      'Habilita el canal de comunicación inalámbrico necesario para streaming o telemetría IoT.',
     arduinoCode: 'conectarWiFi(WIFI_SSID, WIFI_PASS);',
     technicalNotes:
       'Por seguridad y privacidad, nunca se escriben contraseñas Wi-Fi reales dentro del código subido a Git.',
@@ -423,12 +564,12 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewColor: '#db2777',
     description:
       'Envía por el puerto serie el nombre y el valor actual de un sensor para observar sus mediciones.',
-    physicalComponent: 'UART / Puerto Serie del ESP32',
+    physicalComponent: 'UART / Puerto Serie del microcontrolador',
     dataUsed: 'Etiqueta de texto y lectura actual del sensor',
     dataType: 'Salida de datos (Serial.println)',
     behavior:
       'Imprime en el registro del sistema el valor medido en cada ciclo.',
-    arduinoCode: 'registrarDato("Humedad suelo", leerHumedadSuelo());',
+    arduinoCode: 'registrarDato("Lectura", leerEntradaAnalogicaA0());',
     technicalNotes:
       'Preparado como base conceptual de la categoría Datos para las bitácoras históricas de V0.4.',
   },
@@ -440,17 +581,41 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewLabel: '☁️ enviar a IoT [canal] [sensor]',
     previewColor: '#0284c7',
     description:
-      'Bloque conceptual que representa el envío de una medición del jardín hacia un panel IoT en red.',
-    physicalComponent: 'Módulo Wi-Fi del ESP32',
+      'Bloque conceptual que representa el envío de una medición hacia un panel IoT en red mediante Wi-Fi.',
+    physicalComponent: 'Módulo Wi-Fi del ESP32 / NodeMCU ESP8266',
     dataUsed: 'Tópico o canal IoT y valor del sensor seleccionado',
     dataType: 'Mensaje de telemetría (void)',
     behavior:
       'Muestra en el código C/C++ cómo se estructura una llamada de publicación IoT que se conectará en V0.4.',
-    arduinoCode: 'enviarDatoIoT("huerta/suelo", leerHumedadSuelo());',
+    arduinoCode: 'enviarDatoIoT("bitech/nodo1", leerTemperatura());',
     technicalNotes:
-      'En V0.1 este bloque prepara la comprensión conceptual de IoT antes de activar la infraestructura de red en V0.4.',
+      'Tanto ESP32 como NodeMCU ESP8266 cuentan con conectividad Wi-Fi integrada para proyectos de Internet de las Cosas.',
   },
 };
 
 export const DEFAULT_MANUAL_ENTRY: ContextualManualEntry =
   CONTEXTUAL_MANUAL_ENTRIES.bitech_if_sensor_compare;
+
+/**
+ * Obtiene la ficha del manual contextual adaptada a las capacidades y
+ * particularidades del perfil de hardware seleccionado.
+ */
+export function getManualEntryForDevice(
+  blockType: string,
+  deviceId: DeviceProfileId
+): ContextualManualEntry {
+  const base = CONTEXTUAL_MANUAL_ENTRIES[blockType] ?? DEFAULT_MANUAL_ENTRY;
+  const profile = getDeviceProfile(deviceId);
+  const specificNote = base.deviceNotes?.[deviceId];
+
+  if (!specificNote && deviceId !== 'nodemcu-esp8266') {
+    return base;
+  }
+
+  return {
+    ...base,
+    technicalNotes: specificNote
+      ? `${specificNote} (${base.technicalNotes})`
+      : `${base.technicalNotes} · Nota de hardware (${profile.shortBadge}): ${profile.capabilities.pedagogicalResourceNote}`,
+  };
+}

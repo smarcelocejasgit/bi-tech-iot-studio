@@ -1,4 +1,8 @@
-import { CameraResolutionOption, DeviceProfileId } from './hardware';
+import {
+  CameraResolutionOption,
+  DeviceProfileId,
+  HardwareValidationIssue,
+} from './hardware';
 
 export type BlockCategoryId =
   | 'inicio'
@@ -10,15 +14,32 @@ export type BlockCategoryId =
   | 'iot';
 
 export interface GardenSensorState {
-  temperatura: number;      // °C (0 - 50)
-  humedadAmbiente: number;  // % (0 - 100)
-  humedadSuelo: number;     // Lectura analógica escalada 0 - 100 (o 0 - 1023, sin asumir % calibrado real)
-  nivelLuz: number;         // Lectura LDR (0 - 1023)
+  temperatura: number; // °C (0 - 50)
+  humedadAmbiente: number; // % (0 - 100)
+  humedadSuelo: number; // Lectura analógica (sin asumir % calibrado real)
+  nivelLuz: number; // Lectura LDR (0 - 1023)
 }
 
 export interface GardenActuatorState {
   bomba: boolean;
   iluminacion: boolean;
+  lastDelaySeconds: number | null;
+  explanation: string;
+  triggeredConditions: string[];
+}
+
+export interface NodeMcuSensorState {
+  temperatura: number; // DHT11 °C (0 - 50)
+  humedadAmbiente: number; // DHT11 % (0 - 100)
+  entradaAnalogicaA0: number; // Canal único A0 (0 - 1023)
+  analogSensorLabel: 'LDR (Luz)' | 'Humedad de suelo' | 'Potenciómetro / Genérico';
+  entradaDigital: 0 | 1; // LOW (0) o HIGH (1)
+}
+
+export interface NodeMcuActuatorState {
+  relay: boolean;
+  iluminacion: boolean;
+  salidaDigital: boolean;
   lastDelaySeconds: number | null;
   explanation: string;
   triggeredConditions: string[];
@@ -36,15 +57,34 @@ export interface CameraSimulationState {
   explanation: string;
 }
 
-export type SensorKey = 'temperatura' | 'humedadAmbiente' | 'humedadSuelo' | 'nivelLuz';
+export type SensorKey =
+  | 'temperatura'
+  | 'humedadAmbiente'
+  | 'humedadSuelo'
+  | 'nivelLuz'
+  | 'entradaAnalogicaA0'
+  | 'entradaDigital';
+
 export type ComparisonOperator = '<' | '<=' | '>' | '>=' | '==' | '!=';
 export type LogicalOperator = 'AND' | 'OR';
+export type MathOperator = '+' | '-' | '*' | '/';
+
+export type NumericExpressionNode =
+  | { kind: 'sensor_read'; sensor: SensorKey }
+  | { kind: 'number_literal'; value: number }
+  | {
+      kind: 'math_op';
+      operator: MathOperator;
+      left: NumericExpressionNode;
+      rightNumber: number;
+    };
 
 export type ConditionNode =
   | {
       kind: 'comparison';
       blockId?: string;
       leftSensor?: SensorKey;
+      leftExpr?: NumericExpressionNode;
       leftNumber?: number;
       operator: ComparisonOperator;
       rightNumber: number;
@@ -67,6 +107,10 @@ export type StatementNode =
   | { kind: 'bomba_off'; blockId?: string }
   | { kind: 'luz_on'; blockId?: string }
   | { kind: 'luz_off'; blockId?: string }
+  | { kind: 'relay_on'; blockId?: string }
+  | { kind: 'relay_off'; blockId?: string }
+  | { kind: 'digital_out_on'; blockId?: string }
+  | { kind: 'digital_out_off'; blockId?: string }
   | { kind: 'wait'; seconds: number; blockId?: string }
   | {
       kind: 'if';
@@ -76,7 +120,11 @@ export type StatementNode =
       elseBranch?: StatementNode[];
     }
   | { kind: 'cam_config'; blockId?: string }
-  | { kind: 'cam_resolution'; resolution: CameraResolutionOption; blockId?: string }
+  | {
+      kind: 'cam_resolution';
+      resolution: CameraResolutionOption;
+      blockId?: string;
+    }
   | { kind: 'cam_quality'; quality: number; blockId?: string }
   | { kind: 'cam_init'; blockId?: string }
   | { kind: 'cam_wifi'; ssid: string; blockId?: string }
@@ -90,6 +138,8 @@ export interface ParsedProgram {
   device: DeviceProfileId;
   setupStatements: StatementNode[];
   loopStatements: StatementNode[];
+  looseAnalogsCount?: number;
+  usedSensors?: SensorKey[];
 }
 
 export interface CodeLineMapping {
@@ -102,6 +152,7 @@ export interface GeneratedArduinoOutput {
   fullCode: string;
   compactCode: string;
   lines: CodeLineMapping[];
+  validationIssues: HardwareValidationIssue[];
 }
 
 export interface ContextualManualEntry {
@@ -117,4 +168,5 @@ export interface ContextualManualEntry {
   behavior: string;
   arduinoCode: string;
   technicalNotes: string;
+  deviceNotes?: Partial<Record<DeviceProfileId, string>>;
 }

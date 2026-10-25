@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import {
+  Camera,
+  Check,
   Code2,
   Cpu,
   GraduationCap,
+  Info,
   Pencil,
   Play,
   Settings,
   Sprout,
   User,
-  Camera,
-  Check,
-  Info,
 } from 'lucide-react';
+import {
+  ALL_DEVICE_PROFILES,
+  getDeviceProfile,
+} from '../hardware/hardwareCapabilities';
 import { DeviceProfileId, WorkMode } from '../types/hardware';
 
 interface HeaderBarProps {
@@ -36,6 +40,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const [editingTitle, setEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(projectName);
   const [showBoardNotice, setShowBoardNotice] = useState(false);
+
+  const profile = getDeviceProfile(activeDevice);
+  const { capabilities } = profile;
 
   const commitTitle = () => {
     const trimmed = tempTitle.trim() || 'Riego inteligente';
@@ -74,7 +81,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             type="button"
             onClick={onOpenHardwareModal}
             className="p-2 rounded-full bg-white/70 hover:bg-white text-slate-700 border border-emerald-300/60 transition cursor-pointer"
-            title="Configuración de pines y supuestos de hardware"
+            title="Capacidades de hardware y configuración de pines"
             aria-label="Configuración de hardware"
           >
             <Settings className="w-4 h-4" />
@@ -86,22 +93,26 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         </div>
       </div>
 
-      {/* Sub-barra de proyecto, selector de dispositivo y modos de trabajo */}
+      {/* Sub-barra de proyecto, selector de los 3 perfiles de dispositivo y modos de trabajo */}
       <div className="max-w-[1600px] mx-auto px-3 pt-2.5">
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
           {/* Izquierda: Proyecto y selector de dispositivo */}
           <div className="flex items-center gap-3 flex-wrap">
             <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200/80 flex items-center justify-center text-emerald-700 shadow-2xs">
-              {activeDevice === 'garden-node' ? (
-                <Sprout className="w-6 h-6 text-emerald-600" />
-              ) : (
+              {profile.simulatorKind === 'camera-system' ? (
                 <Camera className="w-6 h-6 text-cyan-600" />
+              ) : profile.simulatorKind === 'nodemcu-system' ? (
+                <Cpu className="w-6 h-6 text-indigo-600" />
+              ) : (
+                <Sprout className="w-6 h-6 text-emerald-600" />
               )}
             </div>
 
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-600 font-medium text-base">Proyecto:</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-slate-600 font-medium text-base">
+                  Proyecto:
+                </span>
                 {editingTitle ? (
                   <div className="flex items-center gap-1">
                     <input
@@ -122,7 +133,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   </div>
                 ) : (
                   <>
-                    <h1 className="text-lg font-bold text-slate-900">{projectName}</h1>
+                    <h1 className="text-lg font-bold text-slate-900">
+                      {projectName}
+                    </h1>
                     <button
                       type="button"
                       onClick={() => {
@@ -136,47 +149,62 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     </button>
                   </>
                 )}
+
+                {/* Resumen de capacidades físicas del dispositivo activo */}
+                <span
+                  data-testid="device-capabilities-pill"
+                  className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200"
+                >
+                  MCU: {profile.mcu} · ADC: {capabilities.analogInputs} · E/S Dig:{' '}
+                  {capabilities.digitalInputs}/{capabilities.digitalOutputs} · Relay:{' '}
+                  {capabilities.relayChannels}
+                </span>
               </div>
 
-              {/* Selector de Dispositivo */}
-              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              {/* Selector de Dispositivo basado en el registro central de perfiles */}
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
                   <Cpu className="w-3.5 h-3.5 text-emerald-600" />
                   Dispositivo:
                 </span>
 
                 <div
-                  className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200"
+                  className="inline-flex flex-wrap rounded-lg bg-slate-100 p-0.5 border border-slate-200 gap-0.5"
                   role="group"
                   aria-label="Selector de dispositivo Bi-Tech"
                 >
-                  <button
-                    type="button"
-                    data-testid="select-garden-node"
-                    onClick={() => onSelectDevice('garden-node')}
-                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                      activeDevice === 'garden-node'
-                        ? 'bg-emerald-700 text-white shadow-2xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    <Sprout className="w-3.5 h-3.5" />
-                    Garden Node Bi-Tech · ESP32
-                  </button>
-
-                  <button
-                    type="button"
-                    data-testid="select-camera-node"
-                    onClick={() => onSelectDevice('camera-node')}
-                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                      activeDevice === 'camera-node'
+                  {ALL_DEVICE_PROFILES.map((item) => {
+                    const isSelected = activeDevice === item.id;
+                    const activeColor =
+                      item.simulatorKind === 'camera-system'
                         ? 'bg-cyan-700 text-white shadow-2xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                    Camera Node Bi-Tech · ESP32-CAM
-                  </button>
+                        : item.simulatorKind === 'nodemcu-system'
+                        ? 'bg-indigo-700 text-white shadow-2xs'
+                        : 'bg-emerald-700 text-white shadow-2xs';
+
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        data-testid={`select-${item.id}`}
+                        onClick={() => onSelectDevice(item.id)}
+                        className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                          isSelected
+                            ? activeColor
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        {item.simulatorKind === 'camera-system' ? (
+                          <Camera className="w-3.5 h-3.5" />
+                        ) : item.simulatorKind === 'nodemcu-system' ? (
+                          <Cpu className="w-3.5 h-3.5" />
+                        ) : (
+                          <Sprout className="w-3.5 h-3.5" />
+                        )}
+                        <span>{item.shortBadge}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -224,7 +252,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 data-testid="mode-board"
                 onClick={() => setShowBoardNotice((prev) => !prev)}
                 className="px-3.5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 transition cursor-pointer"
-                title="Disponible en V0.2 (Compilación y carga sobre ESP32 físico)"
+                title="Disponible en V0.2 (Compilación y carga sobre placa física)"
               >
                 <Cpu className="w-4 h-4 text-slate-500" />
                 <span>Placa real</span>
@@ -242,10 +270,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                         Modo Placa Real — Planificado para V0.2
                       </p>
                       <p className="mt-1 leading-relaxed">
-                        En <strong>V0.1</strong> priorizamos el ciclo{' '}
-                        <strong>Programar → Ver Código → Simular → Comprender</strong>. La
-                        compilación y transferencia por USB hacia ESP32 y ESP32-CAM se
-                        habilitará una vez verificados los pines GPIO en el laboratorio.
+                        En <strong>V0.1.1</strong> consolidamos los perfiles{' '}
+                        <strong>ESP32</strong>, <strong>ESP32-CAM</strong> y{' '}
+                        <strong>NodeMCU ESP8266</strong>. La primera validación de
+                        carga física por USB se realizará en <strong>V0.2</strong>{' '}
+                        iniciando con la placa física NodeMCU ESP8266 disponible.
                       </p>
                     </div>
                   </div>

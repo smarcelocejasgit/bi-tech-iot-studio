@@ -11,7 +11,29 @@ import { GardenNodeHardwareConfig } from '../types/hardware';
 export const GARDEN_NODE_CONFIG: GardenNodeHardwareConfig = {
   id: 'garden-node',
   name: 'Garden Node Bi-Tech',
+  shortBadge: 'Garden Node Bi-Tech — ESP32',
   mcu: 'ESP32',
+  simulatorKind: 'garden-system',
+  capabilities: {
+    digitalInputs: 6,
+    digitalOutputs: 6,
+    analogInputs: 4, // Múltiples canales en ADC1 compatibles con Wi-Fi
+    analogResolutionBits: 12,
+    analogMaxValue: 4095,
+    pwmChannels: 8,
+    wifi: true,
+    camera: false,
+    relayChannels: 2,
+    compatibleSensors: [
+      'temperatura',
+      'humedadAmbiente',
+      'humedadSuelo',
+      'nivelLuz',
+    ],
+    compatibleActuators: ['water_pump', 'led_lighting'],
+    pedagogicalResourceNote:
+      'El ESP32 del Garden Node dispone de múltiples canales analógicos (ADC1) que permiten leer humedad del suelo y nivel de luz simultáneamente, además de controlar un relay de 2 canales.',
+  },
   pins: {
     dht11: {
       symbolicName: 'DHT_PIN',
@@ -25,7 +47,8 @@ export const GARDEN_NODE_CONFIG: GardenNodeHardwareConfig = {
       verifiedGpio: null,
       mode: 'ADC',
       component: 'Sensor de Humedad del Suelo',
-      verificationNote: 'Pendiente verificar canal ADC1 compatible con Wi-Fi y calibración en seco/húmedo (SP-02, SP-06).',
+      verificationNote:
+        'Pendiente verificar canal ADC1 compatible con Wi-Fi y calibración en seco/húmedo (SP-02, SP-06).',
     },
     ldr: {
       symbolicName: 'LDR_PIN',

@@ -8,12 +8,11 @@ import { HeaderBar } from './components/HeaderBar';
 import { SimulatorControlsPanel } from './components/SimulatorControlsPanel';
 import { VirtualSystemPanel } from './components/VirtualSystemPanel';
 import { generateArduinoCode } from './generators/arduinoGenerator';
-import {
-  CONTEXTUAL_MANUAL_ENTRIES,
-  DEFAULT_MANUAL_ENTRY,
-} from './manual/contextualManualData';
+import { getDeviceCapabilities } from './hardware/hardwareCapabilities';
+import { getManualEntryForDevice } from './manual/contextualManualData';
 import {
   INITIAL_GARDEN_SENSORS,
+  INITIAL_NODEMCU_SENSORS,
   loadActiveDevice,
   loadProjectName,
   loadWorkspaceXml,
@@ -25,16 +24,20 @@ import {
 import {
   evaluateCameraProgram,
   evaluateGardenProgram,
+  evaluateNodeMcuProgram,
 } from './simulator/programEvaluator';
 import { DeviceProfileId, WorkMode } from './types/hardware';
 import {
   BlockCategoryId,
   GardenSensorState,
+  NodeMcuSensorState,
   ParsedProgram,
 } from './types/studio';
 
 export const App: React.FC = () => {
-  const [projectName, setProjectName] = useState<string>(() => loadProjectName());
+  const [projectName, setProjectName] = useState<string>(() =>
+    loadProjectName()
+  );
   const [activeDevice, setActiveDevice] = useState<DeviceProfileId>(() =>
     loadActiveDevice()
   );
@@ -73,9 +76,14 @@ export const App: React.FC = () => {
     ],
   });
 
-  // Estado de sensores virtuales del Garden Node
+  // Estado de sensores virtuales para Garden Node (ESP32)
   const [sensors, setSensors] = useState<GardenSensorState>(
     INITIAL_GARDEN_SENSORS
+  );
+
+  // Estado de sensores virtuales para NodeMCU (ESP8266)
+  const [nodeMcuSensors, setNodeMcuSensors] = useState<NodeMcuSensorState>(
+    INITIAL_NODEMCU_SENSORS
   );
 
   // Estado adicional de ciclos manuales para Camera Node
@@ -91,7 +99,8 @@ export const App: React.FC = () => {
   const [selectedBlockId, setSelectedBlockId] = useState<string | undefined>(
     'block_if_soil'
   );
-  const [isHardwareModalOpen, setIsHardwareModalOpen] = useState<boolean>(false);
+  const [isHardwareModalOpen, setIsHardwareModalOpen] =
+    useState<boolean>(false);
 
   const handleProjectNameChange = (name: string) => {
     setProjectName(name);
@@ -104,9 +113,13 @@ export const App: React.FC = () => {
     const nextXml = loadWorkspaceXml(device);
     setWorkspaceXml(nextXml);
 
-    if (device === 'camera-node') {
+    const caps = getDeviceCapabilities(device);
+    if (caps.camera) {
       setSelectedCategory('camara');
       setSelectedBlockType('bitech_cam_config');
+    } else if (caps.analogInputs === 1) {
+      setSelectedCategory('sensores');
+      setSelectedBlockType('bitech_sensor_analog_a0');
     } else {
       setSelectedCategory('inicio');
       setSelectedBlockType('bitech_if_sensor_compare');
@@ -121,10 +134,13 @@ export const App: React.FC = () => {
     []
   );
 
-  const handleSelectBlock = useCallback((blockType: string, blockId?: string) => {
-    setSelectedBlockType(blockType);
-    setSelectedBlockId(blockId);
-  }, []);
+  const handleSelectBlock = useCallback(
+    (blockType: string, blockId?: string) => {
+      setSelectedBlockType(blockType);
+      setSelectedBlockId(blockId);
+    },
+    []
+  );
 
   const handleInsertBlock = (blockType: string) => {
     setSelectedBlockType(blockType);
@@ -134,6 +150,16 @@ export const App: React.FC = () => {
   const handleResetDefaultProgram = () => {
     const freshXml = resetWorkspaceXmlToDefault(activeDevice);
     setWorkspaceXml(freshXml);
+  };
+
+  const handleInsertSecondAnalogSensorDemo = () => {
+    // Inserta un segundo sensor analógico (humedad del suelo o luz) para hacer visible
+    // la restricción física de 1 solo canal analógico (A0) en NodeMCU ESP8266.
+    setSelectedBlockType('bitech_sensor_soil');
+    setPendingInsertBlock({
+      type: 'bitech_if_sensor_compare',
+      nonce: Date.now(),
+    });
   };
 
   const handleTriggerManualCapture = () => {
@@ -148,19 +174,25 @@ export const App: React.FC = () => {
     setManualCaptureTimestamp('14:32:15');
   };
 
-  // Generación en vivo del código Arduino C/C++
+  // Generación en vivo del código Arduino C/C++ + validación de capacidades
   const generatedCode = useMemo(
     () => generateArduinoCode(parsedProgram),
     [parsedProgram]
   );
 
-  // Evaluación reactiva del simulador para Garden Node
+  // Evaluación reactiva del simulador para Garden Node (ESP32)
   const gardenActuators = useMemo(
     () => evaluateGardenProgram(parsedProgram, sensors),
     [parsedProgram, sensors]
   );
 
-  // Evaluación reactiva del simulador para Camera Node
+  // Evaluación reactiva del simulador para NodeMCU (ESP8266)
+  const nodeMcuActuators = useMemo(
+    () => evaluateNodeMcuProgram(parsedProgram, nodeMcuSensors),
+    [parsedProgram, nodeMcuSensors]
+  );
+
+  // Evaluación reactiva del simulador para Camera Node (ESP32-CAM)
   const cameraSimulation = useMemo(
     () =>
       evaluateCameraProgram(
@@ -171,9 +203,11 @@ export const App: React.FC = () => {
     [parsedProgram, extraCameraCaptures, manualCaptureTimestamp]
   );
 
-  // Entrada activa del Manual Contextual
-  const manualEntry =
-    CONTEXTUAL_MANUAL_ENTRIES[selectedBlockType] ?? DEFAULT_MANUAL_ENTRY;
+  // Entrada activa del Manual Contextual adaptada al hardware seleccionado
+  const manualEntry = useMemo(
+    () => getManualEntryForDevice(selectedBlockType, activeDevice),
+    [selectedBlockType, activeDevice]
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-[#eaf3ec] text-slate-800 pb-4">
@@ -224,7 +258,7 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Fila Inferior: SIMULADOR | SISTEMA VIRTUAL (SMART GARDEN / CAMERA NODE) */}
+        {/* Fila Inferior: SIMULADOR | SISTEMA VIRTUAL */}
         <div
           className={`grid grid-cols-1 lg:grid-cols-12 gap-2.5 rounded-2xl transition ${
             workMode === 'simulate'
@@ -237,6 +271,11 @@ export const App: React.FC = () => {
               activeDevice={activeDevice}
               sensors={sensors}
               onChangeSensors={setSensors}
+              nodeMcuSensors={nodeMcuSensors}
+              onChangeNodeMcuSensors={setNodeMcuSensors}
+              onInsertSecondAnalogSensorDemo={
+                handleInsertSecondAnalogSensorDemo
+              }
               cameraState={cameraSimulation}
               onTriggerManualCapture={handleTriggerManualCapture}
               onResetCameraSimulation={handleResetCameraSimulation}
@@ -248,6 +287,8 @@ export const App: React.FC = () => {
               activeDevice={activeDevice}
               sensors={sensors}
               actuators={gardenActuators}
+              nodeMcuSensors={nodeMcuSensors}
+              nodeMcuActuators={nodeMcuActuators}
               cameraState={cameraSimulation}
             />
           </div>
