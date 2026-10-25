@@ -256,7 +256,9 @@ function buildNodeMcuCompilableSketch(
   const lightGpio =
     pins.lighting.verifiedGpio ?? pins.lighting.candidateGpio ?? 4;
   const doutGpio =
-    pins.digitalOutput.verifiedGpio ?? pins.digitalOutput.candidateGpio ?? 13;
+    pins.digitalOutput.verifiedGpio ??
+    pins.digitalOutput.candidateGpio ??
+    'LED_BUILTIN';
   const dinGpio =
     pins.digitalInput.verifiedGpio ?? pins.digitalInput.candidateGpio ?? 12;
   const dhtGpio = pins.dht11.verifiedGpio ?? pins.dht11.candidateGpio ?? 14;
@@ -298,11 +300,14 @@ function buildNodeMcuCompilableSketch(
     '}',
     '',
     'void activarSalidaDigital() {',
-    '  digitalWrite(SALIDA_DIG_PIN, HIGH);',
+    '  // En NodeMCU ESP8266, LED_BUILTIN es activo en nivel bajo (LOW enciende el LED integrado)',
+    '  digitalWrite(SALIDA_DIG_PIN, LOW);',
+    '  Serial.println("Salida ON");',
     '}',
     '',
     'void desactivarSalidaDigital() {',
-    '  digitalWrite(SALIDA_DIG_PIN, LOW);',
+    '  digitalWrite(SALIDA_DIG_PIN, HIGH);',
+    '  Serial.println("Salida OFF");',
     '}',
   ];
 
@@ -372,7 +377,7 @@ function buildNodeMcuCompilableSketch(
     `#define DHT_PIN         ${dhtGpio}  // ${pins.dht11.candidateBoardLabel} -> GPIO${dhtGpio} (${pins.dht11.component})`,
     `#define ENTRADA_DIG_PIN ${dinGpio}  // ${pins.digitalInput.candidateBoardLabel} -> GPIO${dinGpio} (${pins.digitalInput.component})`,
     `#define LUZ_PIN         ${lightGpio}   // ${pins.lighting.candidateBoardLabel} -> GPIO${lightGpio} (${pins.lighting.component})`,
-    `#define SALIDA_DIG_PIN  ${doutGpio}  // ${pins.digitalOutput.candidateBoardLabel} -> GPIO${doutGpio} (${pins.digitalOutput.component})`,
+    `#define SALIDA_DIG_PIN  ${doutGpio}  // ${pins.digitalOutput.candidateBoardLabel} (${pins.digitalOutput.component})`,
     '',
     '// --- Prototipos de funciones ---',
     'int leerEntradaAnalogicaA0();',
@@ -567,6 +572,9 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
     rawLines.push({ code: `  pinMode(${lighting.symbolicName}, OUTPUT);` });
     rawLines.push({ code: `  pinMode(${digitalOutput.symbolicName}, OUTPUT);` });
     rawLines.push({ code: `  pinMode(${digitalInput.symbolicName}, INPUT);` });
+    rawLines.push({ code: '  Serial.println();' });
+    rawLines.push({ code: '  Serial.println("Bi-Tech IoT Studio");' });
+    rawLines.push({ code: '  Serial.println("NodeMCU conectada");' });
     if (program.setupStatements.length > 0) {
       emitStatementsC(program.setupStatements, '  ', false, rawLines);
     } else {

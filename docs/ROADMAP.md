@@ -23,20 +23,25 @@ flowchart LR
 
 ---
 
-## 🟢 V0.1.2 — Hardware Readiness y Validación de Compilación Real (Actual)
+## ✅ V0.1.2 — Hardware Readiness y Validación de Compilación Real (Completado)
 - Distinción explícita entre **capacidades físicas del hardware** (`9` GPIOs `D0–D8` en NodeMCU) y **recursos habilitados por el perfil educativo**.
 - Mapeo explícito entre **etiquetas serigrafiadas en placa (`D0–D8`, `A0`)** y **GPIOs reales del ESP8266 (`D1 → GPIO5`, etc.)**, manteniendo abierto el cableado definitivo de aula (`verifiedGpio: null`).
 - Configuración de `A0` en escala bruta (`0–1023`) con parámetro verificable `adcInputVoltageRange: 'unverified'`.
 - Separación en la interfaz y en el generador entre **Vista educativa** y **Sketch compilable (`.ino`)**.
 - Verificación de compilación real con **Arduino CLI (`1.5.1`)** y core **`esp8266:esp8266@3.1.2`** bajo el FQBN **`esp8266:esp8266:nodemcuv2`**.
-- Estado de preparación transparente en **`Placa real`** con las 5 etapas hacia el hardware físico (sin simular flasheo falso).
 
 ---
 
-## 🟡 V0.2 — Conexión USB y Flasheo en Placa Física (Próxima Etapa)
+## ✅ V0.2A — Primera Transferencia a Hardware Real con NodeMCU ESP8266 (Completado)
+- **Hito alcanzado:** Primera transferencia real de un programa originado en Bi-Tech IoT Studio hacia hardware físico NodeMCU ESP8266.
+- Validación física real del flujo completo: **Blockly → Arduino C/C++ → Compilación → USB (`COM15`) → NodeMCU ESP8266 (`ESP8266EX` 4MB) → Ejecución física (`LED_BUILTIN` + Monitor Serie @ `115200` baudios)**.
+- Evidencia sanitizada registrada en [`evidence/hardware/nodemcu-first-flash/`](file:///j:/Bi-Tech-IoT-Studio/evidence/hardware/nodemcu-first-flash/README.md).
+
+---
+
+## 🟡 V0.2B — Integración de Sensores/Actuadores Físicos y Flasheo desde Entorno (Próxima Etapa)
 - Relevamiento físico final de la placa **NodeMCU ESP8266** (divisor de tensión en `A0`, polaridad de relay y pines definitivos).
-- Implementación de las etapas 4 y 5: **compilación → conexión USB → carga de firmware (flasheo)** sobre la placa física NodeMCU ESP8266 y posteriormente ESP32.
-- Monitor serie educativo en vivo.
+- Integración de transferencia y monitor serie educativo para NodeMCU ESP8266 y ESP32.
 
 ---
 

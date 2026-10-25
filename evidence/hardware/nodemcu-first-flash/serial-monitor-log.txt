@@ -1,0 +1,10 @@
+Bi-Tech IoT Studio
+NodeMCU conectada
+Salida OFF
+Salida ON
+Salida OFF
+Salida ON
+Salida OFF
+Salida ON
+Salida OFF
+Salida ON

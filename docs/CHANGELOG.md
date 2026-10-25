@@ -4,6 +4,17 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 
 ---
 
+## [0.2.0-alpha.1 (V0.2A)] — 2026-10-25
+### Hito: Primera transferencia real de un programa originado en Bi-Tech IoT Studio hacia hardware físico NodeMCU ESP8266
+- **Validación física extremo a extremo (`Blockly → Arduino C/C++ → Compilación → USB → NodeMCU ESP8266 → Ejecución física`):**
+  - Detección del puente USB-UART `Silicon Labs CP210x USB to UART Bridge` en el puerto **`COM15`**.
+  - Identificación del microcontrolador real mediante `esptool.py`: `ESP8266EX` (`Crystal 26MHz`, `Flash 4MB`, `MAC [REDACTED]`).
+  - Generación y compilación del programa mínimo de validación ([`nodemcu-first-flash.ino`](file:///j:/Bi-Tech-IoT-Studio/evidence/hardware/nodemcu-first-flash/nodemcu-first-flash.ino)) bajo el FQBN `esp8266:esp8266:nodemcuv2`, empleando `LED_BUILTIN` para `SALIDA_DIG_PIN` y telemetría serie a `115200` baudios.
+  - Transferencia exitosa a flash (`270432 bytes` en `17.7 s`, hash verificado) y comprobación física mediante Monitor Serie (`Bi-Tech IoT Studio`, `NodeMCU conectada`, `Salida ON`, `Salida OFF`) y confirmación visual del parpadeo del LED azul integrado cada 1 segundo.
+  - Registro sanitizado de evidencias en [`evidence/hardware/nodemcu-first-flash/`](file:///j:/Bi-Tech-IoT-Studio/evidence/hardware/nodemcu-first-flash/README.md).
+
+---
+
 ## [0.1.2] — 2026-10-25
 ### Hardware Readiness: Refinamiento de NodeMCU ESP8266, Sketch Compilable (`.ino`) y Validación con Arduino CLI
 - **Refinamiento del Perfil NodeMCU (`src/types/hardware.ts`, `src/hardware/nodeMcuConfig.ts`):**

@@ -181,14 +181,14 @@ export const NODEMCU_ESP8266_CONFIG: NodeMcuHardwareConfig = {
     },
     digitalOutput: {
       symbolicName: 'SALIDA_DIG_PIN',
-      boardLabel: null,
+      boardLabel: 'LED_BUILTIN',
       verifiedGpio: null,
-      candidateBoardLabel: 'D7',
-      candidateGpio: 13,
+      candidateBoardLabel: 'LED_BUILTIN',
+      candidateGpio: 'LED_BUILTIN',
       mode: 'OUTPUT',
-      component: 'Salida Digital de Propósito General (Indicador)',
+      component: 'Salida Digital / LED Integrado de Placa (LED_BUILTIN)',
       verificationNote:
-        'Cableado definitivo pendiente. Candidato seguro para compilación: D7 → GPIO13 (SP-12).',
+        'Utiliza la definición oficial de placa LED_BUILTIN para validación física inicial sin inventar GPIO (SP-12).',
     },
     relay: {
       symbolicName: 'RELAY_PIN',
