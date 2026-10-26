@@ -15,6 +15,11 @@ import {
   STORAGE_KEYS,
   updateStudioProjectInList,
 } from '../services/localPersistence';
+import {
+  DEMO_LIVE_STATE,
+  DemoGardenLabDataSource,
+} from '../lab/smartGardenLive';
+import { resolveRoute } from '../routing/appRoute';
 import { CAMERA_NODE_CONFIG } from '../hardware/cameraNodeConfig';
 import {
   parseCameraSerialOutput,
@@ -588,5 +593,41 @@ describe('Bi-Tech IoT Studio — Gestión de Nuevo Proyecto y Multi-Proyecto Loc
     expect(emptyCode.compactCode).toContain(
       '// Construye tu programa arrastrando bloques aquí'
     );
+  });
+});
+
+describe('Bi-Tech IoT Studio V0.5A — Rutas y Smart Garden Lab (demostración)', () => {
+  it('resuelve /studio y /lab y redirige la raíz y rutas desconocidas a /studio', () => {
+    expect(resolveRoute('/studio')).toEqual({ route: 'studio', needsRedirect: false });
+    expect(resolveRoute('/studio/')).toEqual({ route: 'studio', needsRedirect: false });
+    expect(resolveRoute('/lab')).toEqual({ route: 'lab', needsRedirect: false });
+    expect(resolveRoute('/lab/')).toEqual({ route: 'lab', needsRedirect: false });
+    expect(resolveRoute('/')).toEqual({ route: 'studio', needsRedirect: true });
+    expect(resolveRoute('/otra-ruta')).toEqual({ route: 'studio', needsRedirect: true });
+    expect(resolveRoute('/laboratorio')).toEqual({ route: 'studio', needsRedirect: true });
+  });
+
+  it('DemoGardenLabDataSource entrega datos simulados y NUNCA reporta hardware conectado', () => {
+    const ds = new DemoGardenLabDataSource();
+    const snap = ds.getSnapshot();
+    expect(ds.isDemo).toBe(true);
+    expect(snap.temperature).toBe(24.0);
+    expect(snap.ambientHumidity).toBe(60);
+    expect(snap.soilMoisture).toBe(650);
+    expect(snap.lightLevel).toBe(720);
+    expect(snap.pump).toBe(false);
+    expect(snap.lighting).toBe(false);
+    expect(snap.gardenNodeConnected).toBe(false);
+    expect(snap.cameraNodeConnected).toBe(false);
+    expect(snap.networkConnected).toBe(false);
+    expect(snap.cameraStreamUrl).toBeUndefined();
+    expect(DEMO_LIVE_STATE.cameraStreamUrl).toBeUndefined();
+
+    let received: number | null = null;
+    const unsubscribe = ds.subscribe((s) => {
+      received = s.soilMoisture;
+    });
+    expect(received).toBe(650);
+    expect(typeof unsubscribe).toBe('function');
   });
 });
