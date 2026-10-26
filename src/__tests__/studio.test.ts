@@ -3,8 +3,18 @@ import {
   BITECH_ASSISTANT_SUGGESTIONS,
   buildBiTechAssistantContext,
 } from '../assistant/bitechAssistantContext';
-import { getCatalogForDevice } from '../blocks/bitechBlocks';
+import {
+  EMPTY_WORKSPACE_XML,
+  getCatalogForDevice,
+} from '../blocks/bitechBlocks';
 import { generateArduinoCode } from '../generators/arduinoGenerator';
+import {
+  createStudioProject,
+  loadActiveProjectId,
+  loadStudioProjects,
+  STORAGE_KEYS,
+  updateStudioProjectInList,
+} from '../services/localPersistence';
 import { CAMERA_NODE_CONFIG } from '../hardware/cameraNodeConfig';
 import {
   parseCameraSerialOutput,
@@ -505,5 +515,78 @@ describe('Bi-Tech IoT Studio — Contexto estructurado para Asistente Bi-Tech', 
       '¿Qué significa esta condición?',
       'Explicame el código Arduino generado.',
     ]);
+  });
+});
+
+describe('Bi-Tech IoT Studio — Gestión de Nuevo Proyecto y Multi-Proyecto Local', () => {
+  it('migra Riego inteligente como primer StudioProject sin borrar claves previas y permite crear proyectos nuevos con Blockly vacío', () => {
+    const store = new Map<string, string>();
+    const fakeLocalStorage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        store.set(k, v);
+      },
+      removeItem: (k: string) => {
+        store.delete(k);
+      },
+    };
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: fakeLocalStorage,
+      configurable: true,
+      writable: true,
+    });
+
+    // Simular usuario existente con Riego inteligente guardado en el formato previo
+    store.set(STORAGE_KEYS.projectName, 'Riego inteligente');
+    store.set(STORAGE_KEYS.activeDevice, 'garden-node');
+    store.set(
+      STORAGE_KEYS.gardenXml,
+      '<xml xmlns="https://developers.google.com/blockly/xml"><block type="bitech_on_start"></block></xml>'
+    );
+
+    const initialProjects = loadStudioProjects();
+    expect(initialProjects).toHaveLength(1);
+    expect(initialProjects[0].name).toBe('Riego inteligente');
+    expect(initialProjects[0].device).toBe('garden-node');
+    expect(initialProjects[0].workspaceXml).toContain('bitech_on_start');
+    // No se borran las claves previas durante la migración
+    expect(store.get(STORAGE_KEYS.projectName)).toBe('Riego inteligente');
+
+    // Crear un segundo proyecto nuevo ("Proyecto prueba") -> abre con Blockly vacío
+    const { projects: afterCreate, created } = createStudioProject(
+      'Proyecto prueba',
+      'garden-node',
+      initialProjects
+    );
+    expect(afterCreate).toHaveLength(2);
+    expect(created.name).toBe('Proyecto prueba');
+    expect(created.workspaceXml).toBe(EMPTY_WORKSPACE_XML);
+    expect(loadActiveProjectId(afterCreate)).toBe(created.id);
+
+    // Modificar únicamente "Proyecto prueba" y verificar que "Riego inteligente" permanece intacto
+    const customXml =
+      '<xml xmlns="https://developers.google.com/blockly/xml"><block type="bitech_actuator_pump_on"></block></xml>';
+    const afterUpdate = updateStudioProjectInList(
+      afterCreate,
+      created.id,
+      { workspaceXml: customXml }
+    );
+
+    const riego = afterUpdate.find((p) => p.name === 'Riego inteligente')!;
+    const prueba = afterUpdate.find((p) => p.name === 'Proyecto prueba')!;
+    expect(riego.workspaceXml).toContain('bitech_on_start');
+    expect(riego.workspaceXml).not.toContain('bitech_actuator_pump_on');
+    expect(prueba.workspaceXml).toContain('bitech_actuator_pump_on');
+
+    // Verificar que un proyecto vacío genera sólo la estructura mínima del dispositivo
+    const emptyCode = generateArduinoCode({
+      device: 'garden-node',
+      setupStatements: [],
+      loopStatements: [],
+    });
+    expect(emptyCode.compactCode).toContain('void setup() {');
+    expect(emptyCode.compactCode).toContain(
+      '// Construye tu programa arrastrando bloques aquí'
+    );
   });
 });

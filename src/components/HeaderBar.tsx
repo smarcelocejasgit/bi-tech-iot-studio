@@ -4,9 +4,11 @@ import {
   Check,
   Code2,
   Cpu,
+  FolderOpen,
   GraduationCap,
   Pencil,
   Play,
+  Plus,
   Settings,
   Sprout,
   User,
@@ -25,6 +27,9 @@ interface HeaderBarProps {
   workMode: WorkMode;
   onSelectWorkMode: (mode: WorkMode) => void;
   onOpenHardwareModal: () => void;
+  onOpenNewProjectModal?: () => void;
+  onOpenMyProjectsModal?: () => void;
+  projectsCount?: number;
   hasValidationIssues?: boolean;
 }
 
@@ -36,6 +41,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   workMode,
   onSelectWorkMode,
   onOpenHardwareModal,
+  onOpenNewProjectModal,
+  onOpenMyProjectsModal,
+  projectsCount = 1,
 }) => {
   const [editingTitle, setEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(projectName);
@@ -133,7 +141,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   </div>
                 ) : (
                   <>
-                    <h1 className="text-lg font-bold text-slate-900">
+                    <h1
+                      data-testid="active-project-title"
+                      className="text-lg font-bold text-slate-900"
+                    >
                       {projectName}
                     </h1>
                     <button
@@ -149,6 +160,36 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     </button>
                   </>
                 )}
+
+                {/* Acciones de proyecto: + Nuevo y Mis proyectos */}
+                <div className="inline-flex items-center gap-1.5 ml-1">
+                  <button
+                    type="button"
+                    data-testid="new-project-btn"
+                    onClick={onOpenNewProjectModal}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1 transition cursor-pointer shadow-2xs"
+                    title="Crear un proyecto o sketch nuevo desde cero"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Nuevo</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-testid="my-projects-btn"
+                    onClick={onOpenMyProjectsModal}
+                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-700 border border-slate-200 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                    title="Abrir o cambiar entre tus proyectos guardados"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Mis proyectos</span>
+                    {projectsCount > 1 && (
+                      <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-900 text-[10px] font-bold">
+                        {projectsCount}
+                      </span>
+                    )}
+                  </button>
+                </div>
 
                 {/* Resumen que distingue capacidades físicas vs asignación educativa */}
                 <span

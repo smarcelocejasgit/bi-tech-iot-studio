@@ -175,6 +175,15 @@ export interface ContextualManualEntry {
   deviceNotes?: Partial<Record<DeviceProfileId, string>>;
 }
 
+export interface StudioProject {
+  id: string;
+  name: string;
+  device: DeviceProfileId;
+  workspaceXml: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BiTechAssistantContext {
   activeDevice: DeviceProfileId;
   projectName: string;

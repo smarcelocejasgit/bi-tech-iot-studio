@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { buildBiTechAssistantContext } from './assistant/bitechAssistantContext';
 import { ArduinoCodePanel } from './components/ArduinoCodePanel';
 import { BiTechAssistantPanel } from './components/BiTechAssistantPanel';
@@ -7,6 +7,10 @@ import { BlocklyWorkspacePanel } from './components/BlocklyWorkspacePanel';
 import { ContextualManualPanel } from './components/ContextualManualPanel';
 import { HardwareConfigModal } from './components/HardwareConfigModal';
 import { HeaderBar } from './components/HeaderBar';
+import {
+  MyProjectsModal,
+  NewProjectModal,
+} from './components/ProjectManagerModals';
 import { RealBoardPanel } from './components/RealBoardPanel';
 import { SimulatorControlsPanel } from './components/SimulatorControlsPanel';
 import { VirtualSystemPanel } from './components/VirtualSystemPanel';
@@ -18,15 +22,18 @@ import {
 import { getDeviceCapabilities } from './hardware/hardwareCapabilities';
 import { getManualEntryForDevice } from './manual/contextualManualData';
 import {
+  createStudioProject,
+  deleteStudioProjectFromList,
+  getDefaultXmlForDevice,
   INITIAL_GARDEN_SENSORS,
   INITIAL_NODEMCU_SENSORS,
-  loadActiveDevice,
-  loadProjectName,
-  loadWorkspaceXml,
-  resetWorkspaceXmlToDefault,
+  loadActiveProjectId,
+  loadStudioProjects,
   saveActiveDevice,
+  saveActiveProjectId,
   saveProjectName,
   saveWorkspaceXml,
+  updateStudioProjectInList,
 } from './services/localPersistence';
 import {
   evaluateCameraProgram,
@@ -39,49 +46,49 @@ import {
   GardenSensorState,
   NodeMcuSensorState,
   ParsedProgram,
+  StudioProject,
 } from './types/studio';
 
 export const App: React.FC = () => {
-  const [projectName, setProjectName] = useState<string>(() =>
-    loadProjectName()
+  const [projects, setProjects] = useState<StudioProject[]>(() =>
+    loadStudioProjects()
   );
-  const [activeDevice, setActiveDevice] = useState<DeviceProfileId>(() =>
-    loadActiveDevice()
+  const [activeProjectId, setActiveProjectId] = useState<string>(() => {
+    const initialList = loadStudioProjects();
+    return loadActiveProjectId(initialList);
+  });
+
+  const activeProject = useMemo(
+    () => projects.find((p) => p.id === activeProjectId) ?? projects[0],
+    [projects, activeProjectId]
   );
+
+  const activeProjectIdRef = useRef<string>(activeProject.id);
+  activeProjectIdRef.current = activeProject.id;
+
+  const projectName = activeProject.name;
+  const activeDevice = activeProject.device;
+  const workspaceXml = activeProject.workspaceXml;
+
   const [workMode, setWorkMode] = useState<WorkMode>('program');
   const [selectedCategory, setSelectedCategory] =
     useState<BlockCategoryId>('inicio');
-  const [workspaceXml, setWorkspaceXml] = useState<string>(() =>
-    loadWorkspaceXml(loadActiveDevice())
-  );
   const [pendingInsertBlock, setPendingInsertBlock] = useState<{
     type: string;
     nonce: number;
   } | null>(null);
 
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] =
+    useState<boolean>(false);
+  const [isMyProjectsModalOpen, setIsMyProjectsModalOpen] =
+    useState<boolean>(false);
+
   // Programa lógico extraído del lienzo Blockly
-  const [parsedProgram, setParsedProgram] = useState<ParsedProgram>({
-    device: activeDevice,
+  const [parsedProgram, setParsedProgram] = useState<ParsedProgram>(() => ({
+    device: activeProject.device,
     setupStatements: [],
-    loopStatements: [
-      {
-        kind: 'if',
-        blockId: 'block_if_soil',
-        condition: {
-          kind: 'comparison',
-          blockId: 'block_if_soil',
-          leftSensor: 'humedadSuelo',
-          operator: '<',
-          rightNumber: 30,
-        },
-        thenBranch: [
-          { kind: 'bomba_on', blockId: 'block_pump_on' },
-          { kind: 'wait', seconds: 5, blockId: 'block_wait_5' },
-          { kind: 'bomba_off', blockId: 'block_pump_off' },
-        ],
-      },
-    ],
-  });
+    loopStatements: [],
+  }));
 
   // Estado de sensores virtuales para Garden Node (ESP32)
   const [sensors, setSensors] = useState<GardenSensorState>(
@@ -121,17 +128,7 @@ export const App: React.FC = () => {
     [cameraStreamConfig]
   );
 
-  const handleProjectNameChange = (name: string) => {
-    setProjectName(name);
-    saveProjectName(name);
-  };
-
-  const handleSelectDevice = (device: DeviceProfileId) => {
-    setActiveDevice(device);
-    saveActiveDevice(device);
-    const nextXml = loadWorkspaceXml(device);
-    setWorkspaceXml(nextXml);
-
+  const syncDefaultCategoryForDevice = (device: DeviceProfileId) => {
     const caps = getDeviceCapabilities(device);
     if (caps.camera) {
       setSelectedCategory('camara');
@@ -145,11 +142,86 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleProjectNameChange = (name: string) => {
+    saveProjectName(name);
+    setProjects((prev) =>
+      updateStudioProjectInList(prev, activeProjectIdRef.current, { name })
+    );
+  };
+
+  const handleSelectDevice = (device: DeviceProfileId) => {
+    saveActiveDevice(device);
+    setProjects((prev) => {
+      const current = prev.find((p) => p.id === activeProjectIdRef.current);
+      const isDefaultPrev =
+        current &&
+        current.workspaceXml.trim() ===
+          getDefaultXmlForDevice(current.device).trim();
+      const nextXml = isDefaultPrev
+        ? getDefaultXmlForDevice(device)
+        : current?.workspaceXml ?? getDefaultXmlForDevice(device);
+
+      return updateStudioProjectInList(prev, activeProjectIdRef.current, {
+        device,
+        workspaceXml: nextXml,
+      });
+    });
+    syncDefaultCategoryForDevice(device);
+  };
+
+  const handleCreateProject = (name: string, device: DeviceProfileId) => {
+    const { projects: nextProjects, created } = createStudioProject(
+      name,
+      device,
+      projects
+    );
+    activeProjectIdRef.current = created.id;
+    setProjects(nextProjects);
+    setActiveProjectId(created.id);
+    setPendingInsertBlock(null);
+    setParsedProgram({
+      device: created.device,
+      setupStatements: [],
+      loopStatements: [],
+    });
+    syncDefaultCategoryForDevice(created.device);
+    setWorkMode('program');
+    setIsNewProjectModalOpen(false);
+    setIsMyProjectsModalOpen(false);
+  };
+
+  const handleSelectExistingProject = (projectId: string) => {
+    const target = projects.find((p) => p.id === projectId);
+    if (!target) return;
+    activeProjectIdRef.current = target.id;
+    saveActiveProjectId(target.id);
+    setActiveProjectId(target.id);
+    setPendingInsertBlock(null);
+    syncDefaultCategoryForDevice(target.device);
+    setWorkMode('program');
+    setIsMyProjectsModalOpen(false);
+  };
+
+  const handleDeleteProject = (projectId: string) => {
+    const { projects: remaining, nextActiveId } = deleteStudioProjectFromList(
+      projects,
+      projectId,
+      activeProject.id
+    );
+    activeProjectIdRef.current = nextActiveId;
+    setProjects(remaining);
+    setActiveProjectId(nextActiveId);
+  };
+
   const handleWorkspaceChange = useCallback(
     (program: ParsedProgram, serializedXml: string) => {
       setParsedProgram(program);
-      setWorkspaceXml(serializedXml);
       saveWorkspaceXml(program.device, serializedXml);
+      setProjects((prev) =>
+        updateStudioProjectInList(prev, activeProjectIdRef.current, {
+          workspaceXml: serializedXml,
+        })
+      );
     },
     []
   );
@@ -168,13 +240,16 @@ export const App: React.FC = () => {
   };
 
   const handleResetDefaultProgram = () => {
-    const freshXml = resetWorkspaceXmlToDefault(activeDevice);
-    setWorkspaceXml(freshXml);
+    const exampleXml = getDefaultXmlForDevice(activeDevice);
+    saveWorkspaceXml(activeDevice, exampleXml);
+    setProjects((prev) =>
+      updateStudioProjectInList(prev, activeProjectIdRef.current, {
+        workspaceXml: exampleXml,
+      })
+    );
   };
 
   const handleInsertSecondAnalogSensorDemo = () => {
-    // Inserta un segundo sensor analógico (humedad del suelo o luz) para hacer visible
-    // la restricción física de 1 solo canal analógico (A0) en NodeMCU ESP8266.
     setSelectedBlockType('bitech_sensor_soil');
     setPendingInsertBlock({
       type: 'bitech_if_sensor_compare',
@@ -261,6 +336,9 @@ export const App: React.FC = () => {
         workMode={workMode}
         onSelectWorkMode={setWorkMode}
         onOpenHardwareModal={() => setIsHardwareModalOpen(true)}
+        onOpenNewProjectModal={() => setIsNewProjectModalOpen(true)}
+        onOpenMyProjectsModal={() => setIsMyProjectsModalOpen(true)}
+        projectsCount={projects.length}
         hasValidationIssues={generatedCode.validationIssues.length > 0}
       />
 
@@ -287,6 +365,7 @@ export const App: React.FC = () => {
 
               <div className="lg:col-span-6 h-full overflow-hidden">
                 <BlocklyWorkspacePanel
+                  key={activeProject.id}
                   activeDevice={activeDevice}
                   workspaceXml={workspaceXml}
                   pendingInsertBlockType={pendingInsertBlock}
@@ -410,6 +489,27 @@ export const App: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* Modal para crear un Nuevo proyecto con Blockly vacío */}
+      <NewProjectModal
+        isOpen={isNewProjectModalOpen}
+        onClose={() => setIsNewProjectModalOpen(false)}
+        onCreateProject={handleCreateProject}
+      />
+
+      {/* Modal Mis proyectos para abrir/cambiar entre proyectos locales */}
+      <MyProjectsModal
+        isOpen={isMyProjectsModalOpen}
+        projects={projects}
+        activeProjectId={activeProject.id}
+        onClose={() => setIsMyProjectsModalOpen(false)}
+        onSelectProject={handleSelectExistingProject}
+        onOpenNewProject={() => {
+          setIsMyProjectsModalOpen(false);
+          setIsNewProjectModalOpen(true);
+        }}
+        onDeleteProject={handleDeleteProject}
+      />
 
       {/* Modal de configuración centralizada y supuestos de hardware */}
       <HardwareConfigModal

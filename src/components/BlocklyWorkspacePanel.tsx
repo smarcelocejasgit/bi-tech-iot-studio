@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as Blockly from 'blockly';
 import {
+  AlertTriangle,
   LayoutGrid,
   Maximize2,
   RotateCcw,
@@ -38,6 +39,8 @@ export const BlocklyWorkspacePanel: React.FC<BlocklyWorkspacePanelProps> = ({
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const activeDeviceRef = useRef<DeviceProfileId>(activeDevice);
   const isLoadingXmlRef = useRef<boolean>(false);
+  const [confirmingLoadExample, setConfirmingLoadExample] =
+    useState<boolean>(false);
 
   activeDeviceRef.current = activeDevice;
 
@@ -164,11 +167,24 @@ export const BlocklyWorkspacePanel: React.FC<BlocklyWorkspacePanelProps> = ({
       newBlock.initSvg();
       newBlock.render();
 
-      // Buscar si existe un bloque repetir siempre (bitech_forever) para conectar bloques de acción
-      const allBlocks = ws.getAllBlocks(true);
+      // Buscar si existe un bloque repetir siempre (bitech_forever) o al iniciar (bitech_on_start)
+      const allBlocks = ws
+        .getAllBlocks(true)
+        .filter((b) => b.id !== newBlock.id);
       const foreverBlock = allBlocks.find((b) => b.type === 'bitech_forever');
+      const onStartBlock = allBlocks.find((b) => b.type === 'bitech_on_start');
 
-      if (newBlock.previousConnection && foreverBlock) {
+      if (newBlock.type === 'bitech_on_start') {
+        newBlock.moveBy(38, 24);
+      } else if (
+        newBlock.type === 'bitech_forever' &&
+        onStartBlock &&
+        onStartBlock.nextConnection &&
+        !onStartBlock.getNextBlock() &&
+        newBlock.previousConnection
+      ) {
+        onStartBlock.nextConnection.connect(newBlock.previousConnection);
+      } else if (newBlock.previousConnection && foreverBlock) {
         const loopInput = foreverBlock.getInput('LOOP_DO');
         if (loopInput && loopInput.connection) {
           const targetBlock = foreverBlock.getInputTargetBlock('LOOP_DO');
@@ -179,14 +195,29 @@ export const BlocklyWorkspacePanel: React.FC<BlocklyWorkspacePanelProps> = ({
             while (lastBlock.getNextBlock()) {
               lastBlock = lastBlock.getNextBlock()!;
             }
-            // Si el último bloque es un condicional "si", conectar dentro o debajo
             if (lastBlock.nextConnection) {
               lastBlock.nextConnection.connect(newBlock.previousConnection);
             }
           }
         }
+      } else if (newBlock.previousConnection && allBlocks.length > 0) {
+        // En un proyecto nuevo sin bitech_forever, encadenar al último bloque de sentencia disponible
+        const tailCandidate = [...allBlocks]
+          .reverse()
+          .find((b) => b.nextConnection && !b.getNextBlock());
+        if (tailCandidate && tailCandidate.nextConnection) {
+          tailCandidate.nextConnection.connect(newBlock.previousConnection);
+        } else {
+          newBlock.moveBy(
+            60 + Math.floor(Math.random() * 40),
+            60 + Math.floor(Math.random() * 40)
+          );
+        }
       } else {
-        newBlock.moveBy(80 + Math.floor(Math.random() * 60), 120 + Math.floor(Math.random() * 60));
+        newBlock.moveBy(
+          48 + Math.floor(Math.random() * 30),
+          36 + Math.floor(Math.random() * 30)
+        );
       }
 
       newBlock.select();
@@ -224,16 +255,55 @@ export const BlocklyWorkspacePanel: React.FC<BlocklyWorkspacePanelProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            data-testid="reset-program-button"
-            onClick={onResetDefaultProgram}
-            className="px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-emerald-50 text-slate-600 hover:text-emerald-800 border border-slate-200 text-xs font-medium flex items-center gap-1 transition cursor-pointer"
-            title="Restaurar programa de ejemplo del dispositivo"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Ejemplo base</span>
-          </button>
+          {confirmingLoadExample ? (
+            <div
+              data-testid="confirm-load-example-bar"
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-300 text-[11px] text-amber-950"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+              <span className="font-semibold">
+                ¿Reemplazar bloques por el ejemplo?
+              </span>
+              <button
+                type="button"
+                data-testid="confirm-load-example-btn"
+                onClick={() => {
+                  setConfirmingLoadExample(false);
+                  onResetDefaultProgram();
+                }}
+                className="px-2 py-0.5 rounded bg-amber-700 hover:bg-amber-800 text-white font-bold cursor-pointer"
+              >
+                Sí, cargar ejemplo
+              </button>
+              <button
+                type="button"
+                data-testid="cancel-load-example-btn"
+                onClick={() => setConfirmingLoadExample(false)}
+                className="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-semibold cursor-pointer"
+              >
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              data-testid="reset-program-button"
+              onClick={() => {
+                const ws = workspaceRef.current;
+                const hasBlocks = ws && ws.getAllBlocks(false).length > 0;
+                if (hasBlocks) {
+                  setConfirmingLoadExample(true);
+                } else {
+                  onResetDefaultProgram();
+                }
+              }}
+              className="px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-emerald-50 text-slate-600 hover:text-emerald-800 border border-slate-200 text-xs font-medium flex items-center gap-1 transition cursor-pointer"
+              title="Cargar el programa de ejemplo del dispositivo actual (Ejemplo base)"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Cargar ejemplo</span>
+            </button>
+          )}
 
           <button
             type="button"

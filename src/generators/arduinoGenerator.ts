@@ -831,7 +831,7 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
 
     if (program.loopStatements.length === 0) {
       rawLines.push({
-        code: '  // Construye tu programa para NodeMCU ESP8266 aquí',
+        code: '  // Construye tu programa arrastrando bloques aquí',
       });
     } else {
       emitStatementsC(program.loopStatements, '  ', true, rawLines);
@@ -842,7 +842,9 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
     // Camera Node Bi-Tech (ESP32-CAM)
     rawLines.push({ code: 'void setup() {' });
     rawLines.push({ code: '  Serial.begin(115200);' });
-    if (program.setupStatements.length === 0) {
+    if (program.setupStatements.length > 0) {
+      emitStatementsC(program.setupStatements, '  ', false, rawLines);
+    } else if (program.loopStatements.length > 0) {
       rawLines.push({ code: '  configurarCamara();' });
       rawLines.push({
         code: `  seleccionarResolucion("${CAMERA_NODE_CONFIG.defaultResolution}");`,
@@ -851,14 +853,14 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
         code: `  configurarCalidad(${CAMERA_NODE_CONFIG.defaultQuality});`,
       });
       rawLines.push({ code: '  iniciarCamara();' });
-    } else {
-      emitStatementsC(program.setupStatements, '  ', false, rawLines);
     }
     rawLines.push({ code: '}' });
     rawLines.push({ code: '' });
     rawLines.push({ code: 'void loop() {' });
     if (program.loopStatements.length === 0) {
-      rawLines.push({ code: '  // Bloques repetitivos de Camera Node' });
+      rawLines.push({
+        code: '  // Construye tu programa arrastrando bloques aquí',
+      });
     } else {
       emitStatementsC(program.loopStatements, '  ', false, rawLines);
     }

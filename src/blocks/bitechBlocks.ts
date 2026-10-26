@@ -750,6 +750,12 @@ export function getCatalogForDevice(
 }
 
 /**
+ * XML vacío para proyectos nuevos creados desde cero.
+ */
+export const EMPTY_WORKSPACE_XML =
+  '<xml xmlns="https://developers.google.com/blockly/xml"></xml>';
+
+/**
  * XML inicial para Garden Node Bi-Tech (ESP32).
  */
 export const DEFAULT_GARDEN_WORKSPACE_XML = `
