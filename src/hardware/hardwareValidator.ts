@@ -64,12 +64,48 @@ export function collectAllSensorsInStatements(
   }
 }
 
+const CAMERA_ONLY_STATEMENT_KINDS = new Set<StatementNode['kind']>([
+  'cam_config',
+  'cam_resolution',
+  'cam_quality',
+  'cam_init',
+  'cam_stream_start',
+  'cam_stream_stop',
+  'cam_capture',
+]);
+
+const WIFI_STATEMENT_KINDS = new Set<StatementNode['kind']>([
+  'cam_wifi',
+  'iot_publish',
+]);
+
+function hasCameraCondition(cond: ConditionNode | null): boolean {
+  if (!cond) return false;
+  if (cond.kind === 'camera_state_check') return true;
+  if (cond.kind === 'logical') {
+    return hasCameraCondition(cond.left) || hasCameraCondition(cond.right);
+  }
+  return false;
+}
+
 function hasCameraStatements(stmts: StatementNode[]): boolean {
   for (const st of stmts) {
-    if (st.kind.startsWith('cam_')) return true;
+    if (CAMERA_ONLY_STATEMENT_KINDS.has(st.kind)) return true;
     if (st.kind === 'if') {
+      if (hasCameraCondition(st.condition)) return true;
       if (hasCameraStatements(st.thenBranch)) return true;
       if (st.elseBranch && hasCameraStatements(st.elseBranch)) return true;
+    }
+  }
+  return false;
+}
+
+function hasWifiStatements(stmts: StatementNode[]): boolean {
+  for (const st of stmts) {
+    if (WIFI_STATEMENT_KINDS.has(st.kind)) return true;
+    if (st.kind === 'if') {
+      if (hasWifiStatements(st.thenBranch)) return true;
+      if (st.elseBranch && hasWifiStatements(st.elseBranch)) return true;
     }
   }
   return false;
@@ -119,6 +155,18 @@ export function validateProgramAgainstCapabilities(
       pedagogicalExplanation:
         'Los bloques de cámara requieren el perfil Camera Node Bi-Tech (ESP32-CAM).',
       affectedSensorsOrBlocks: ['Cámara OV2640'],
+    });
+  }
+
+  if (!capabilities.wifi && hasWifiStatements(allStatements)) {
+    issues.push({
+      code: 'UNSUPPORTED_WIFI_ON_DEVICE',
+      severity: 'warning',
+      title: 'Conectividad Wi-Fi no disponible en este perfil',
+      message: `El dispositivo seleccionado (${profile.shortBadge}) no incluye conectividad Wi-Fi.`,
+      pedagogicalExplanation:
+        'Los bloques de conexión Wi-Fi y publicación IoT requieren un dispositivo con interfaz Wi-Fi habilitada.',
+      affectedSensorsOrBlocks: ['Wi-Fi / IoT'],
     });
   }
 

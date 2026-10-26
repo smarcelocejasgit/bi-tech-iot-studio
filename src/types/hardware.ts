@@ -196,6 +196,7 @@ export interface HardwareValidationIssue {
   code:
     | 'ANALOG_INPUTS_EXCEEDED'
     | 'UNSUPPORTED_CAMERA_ON_DEVICE'
+    | 'UNSUPPORTED_WIFI_ON_DEVICE'
     | 'UNSUPPORTED_ACTUATOR_ON_DEVICE';
   severity: 'warning' | 'error';
   title: string;

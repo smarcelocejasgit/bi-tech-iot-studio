@@ -145,6 +145,42 @@ describe('Bi-Tech IoT Studio V0.1.1 — Restricciones de Hardware (NodeMCU A0)',
     const issues = validateProgramAgainstCapabilities(validEsp32Program);
     expect(issues).toHaveLength(0);
   });
+
+  it('Garden Node ESP32 + WiFi + IoT -> sin warning de cámara (evita regresión de cam_wifi)', () => {
+    const gardenWifiIotProgram: ParsedProgram = {
+      device: 'garden-node',
+      setupStatements: [
+        { kind: 'cam_wifi', ssid: 'Red_Escolar_BiTech' },
+      ],
+      loopStatements: [
+        {
+          kind: 'iot_publish',
+          topic: 'bitech/nodo1',
+          sensor: 'humedadSuelo',
+        },
+        { kind: 'wait', seconds: 5 },
+      ],
+    };
+
+    const issues = validateProgramAgainstCapabilities(gardenWifiIotProgram);
+    expect(issues).toHaveLength(0);
+
+    const codeOut = generateArduinoCode(gardenWifiIotProgram);
+    expect(codeOut.validationIssues).toHaveLength(0);
+    expect(codeOut.compactCode).not.toContain('OV2640');
+    expect(codeOut.compactCode).toContain('conectarWiFi(WIFI_SSID, WIFI_PASS); // Red: Red_Escolar_BiTech');
+    expect(codeOut.compactCode).toContain('enviarDatoIoT("bitech/nodo1", suelo);');
+
+    // En cambio, un bloque real de cámara OV2640 en Garden Node sí debe advertir sobre cámara
+    const gardenWithCameraBlock: ParsedProgram = {
+      device: 'garden-node',
+      setupStatements: [{ kind: 'cam_init' }],
+      loopStatements: [],
+    };
+    const cameraIssues = validateProgramAgainstCapabilities(gardenWithCameraBlock);
+    expect(cameraIssues).toHaveLength(1);
+    expect(cameraIssues[0].code).toBe('UNSUPPORTED_CAMERA_ON_DEVICE');
+  });
 });
 
 describe('Bi-Tech IoT Studio V0.1.1 — Generador Arduino C/C++ y Simuladores', () => {
