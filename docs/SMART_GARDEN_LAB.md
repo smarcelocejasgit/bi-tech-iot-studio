@@ -50,6 +50,6 @@ No existe todavía: MQTT, streaming real, backend, múltiples nodos ni autentica
 
 ## Identidad visual
 
-El Lab mantiene una personalidad propia, distinta de IoT Studio: verde oscuro institucional, fondo crema, acentos dorados, aspecto de panel científico y cámara como elemento principal. La navegación global (`IoT Studio | Smart Garden Lab`) es una barra discreta común a ambos entornos ([`GlobalNav.tsx`](../src/components/GlobalNav.tsx)).
+El Lab mantiene una personalidad propia, distinta de IoT Studio, basada en el diseño original de Smart Garden Lab Bi-Tech: títulos en serif verde oscuro, fondo crema, insignia `SG`, pestañas en píldora (`EN VIVO`, `CAPTURAS`, `MONITOREAR`, `CONTROL`), cámara de observación como elemento principal, tarjetas ambientales y tarjeta de estado del sistema. La navegación global (`IoT Studio | Smart Garden Lab`) es una barra discreta común a ambos entornos ([`GlobalNav.tsx`](../src/components/GlobalNav.tsx)).
 
-> Nota: no se encontró en el repositorio el primer diseño de Smart Garden Lab; la identidad visual se construyó a partir de la descripción de esta iteración y puede ajustarse al diseño original si se aporta la referencia.
+Diferencias deliberadas respecto de la referencia original: se muestran valores de demostración (con la etiqueta `Modo demostración`) en lugar de `—`, y el estado del sistema incluye `Garden Node` y `Camera Node` por separado.
