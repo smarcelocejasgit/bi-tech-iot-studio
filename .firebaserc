@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "bi-tech-iot-studio"
-  }
+  },
+  "targets": {
+    "bi-tech-iot-studio": {
+      "hosting": {
+        "iotstudio": [
+          "iotstudio"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
