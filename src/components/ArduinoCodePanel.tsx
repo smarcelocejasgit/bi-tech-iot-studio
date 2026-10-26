@@ -157,7 +157,7 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
       </div>
 
       {/* Selector explícito entre Vista educativa y Sketch compilable (.ino) */}
-      <div className="px-3 py-1.5 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+      <div className="px-3 py-1.5 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between gap-1.5 flex-wrap">
         <div
           className="inline-flex rounded-lg bg-slate-200/80 p-0.5 gap-0.5"
           role="tablist"
@@ -169,13 +169,13 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
             aria-selected={viewMode === 'educational'}
             data-testid="tab-educational-view"
             onClick={() => setViewMode('educational')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer ${
+            className={`px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition cursor-pointer ${
               viewMode === 'educational'
                 ? 'bg-white text-emerald-800 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <BookOpen className="w-3.5 h-3.5" />
+            <BookOpen className="w-3 h-3" />
             <span>Vista educativa</span>
           </button>
 
@@ -185,13 +185,13 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
             aria-selected={viewMode === 'compilable'}
             data-testid="tab-compilable-sketch"
             onClick={() => setViewMode('compilable')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer ${
+            className={`px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition cursor-pointer ${
               viewMode === 'compilable'
                 ? 'bg-white text-indigo-800 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <FileCode2 className="w-3.5 h-3.5" />
+            <FileCode2 className="w-3 h-3" />
             <span>Sketch compilable (.ino)</span>
           </button>
         </div>
@@ -201,11 +201,11 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
             type="button"
             data-testid="download-ino-btn"
             onClick={handleDownloadIno}
-            className="px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold flex items-center gap-1 shadow-2xs transition cursor-pointer"
-            title="Descargar sketch completo (.ino) listo para Arduino CLI / IDE"
+            className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 shadow-2xs transition cursor-pointer"
+            title="Descargar sketch compilable (.ino) listo para Arduino CLI / IDE"
           >
-            <Download className="w-3.5 h-3.5 text-indigo-700" />
-            <span>.ino</span>
+            <Download className="w-3 h-3" />
+            <span>Descargar .ino</span>
           </button>
 
           <button

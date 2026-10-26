@@ -88,9 +88,9 @@ export const BlockCategoriesPanel: React.FC<BlockCategoriesPanelProps> = ({
     visibleCategories[0];
 
   return (
-    <aside className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-3 flex flex-col justify-between h-full">
+    <aside className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-3 flex flex-col justify-between h-full overflow-y-auto">
       <div>
-        <div className="flex items-center gap-2 pb-2.5 mb-2.5 border-b border-slate-100">
+        <div className="flex items-center gap-2 pb-2 mb-2 border-b border-slate-100">
           <LayoutGrid className="w-4 h-4 text-emerald-700" />
           <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
             BLOQUES
@@ -98,7 +98,7 @@ export const BlockCategoriesPanel: React.FC<BlockCategoriesPanelProps> = ({
         </div>
 
         {/* Botones de categorías filtrados según capacidades de hardware */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {visibleCategories.map((cat) => {
             const style = CATEGORY_STYLES[cat.id];
             const IconComponent = style.icon;
@@ -110,7 +110,7 @@ export const BlockCategoriesPanel: React.FC<BlockCategoriesPanelProps> = ({
                 type="button"
                 data-testid={`category-${cat.id}`}
                 onClick={() => onSelectCategory(cat.id)}
-                className={`w-full px-3 py-2.5 rounded-xl flex items-center gap-2.5 text-left font-semibold text-sm text-slate-800 border border-transparent transition cursor-pointer ${
+                className={`w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-left font-semibold text-sm text-slate-800 border border-transparent transition cursor-pointer ${
                   style.bg
                 } ${isSelected ? style.activeBorder : ''}`}
               >
@@ -125,13 +125,13 @@ export const BlockCategoriesPanel: React.FC<BlockCategoriesPanelProps> = ({
       </div>
 
       {/* Paleta rápida de bloques compatibles de la categoría seleccionada */}
-      <div className="mt-3 pt-2.5 border-t border-slate-100">
+      <div className="mt-2.5 pt-2 border-t border-slate-100 flex-1 min-h-[120px] flex flex-col">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
             Agregar de {currentCatalog.label}:
           </span>
         </div>
-        <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
+        <div className="space-y-1.5 flex-1 overflow-y-auto pr-0.5">
           {currentCatalog.blocks.map((b) => (
             <button
               key={b.type}
