@@ -19,6 +19,7 @@ interface BlocklyWorkspacePanelProps {
   activeDevice: DeviceProfileId;
   workspaceXml: string;
   pendingInsertBlockType: { type: string; nonce: number } | null;
+  onConsumePendingInsertBlock?: () => void;
   onWorkspaceChange: (program: ParsedProgram, serializedXml: string) => void;
   onSelectBlock: (blockType: string, blockId?: string) => void;
   onResetDefaultProgram: () => void;
@@ -28,6 +29,7 @@ export const BlocklyWorkspacePanel: React.FC<BlocklyWorkspacePanelProps> = ({
   activeDevice,
   workspaceXml,
   pendingInsertBlockType,
+  onConsumePendingInsertBlock,
   onWorkspaceChange,
   onSelectBlock,
   onResetDefaultProgram,
@@ -193,6 +195,7 @@ export const BlocklyWorkspacePanel: React.FC<BlocklyWorkspacePanelProps> = ({
       const parsed = parseWorkspaceToProgram(ws, activeDeviceRef.current);
       const xmlDom = Blockly.Xml.workspaceToDom(ws);
       onWorkspaceChange(parsed, Blockly.Xml.domToText(xmlDom));
+      onConsumePendingInsertBlock?.();
     } catch (err) {
       console.error('No se pudo insertar el bloque:', err);
     }

@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import {
+  BITECH_ASSISTANT_SUGGESTIONS,
+  buildBiTechAssistantContext,
+} from '../assistant/bitechAssistantContext';
 import { getCatalogForDevice } from '../blocks/bitechBlocks';
 import { generateArduinoCode } from '../generators/arduinoGenerator';
 import { CAMERA_NODE_CONFIG } from '../hardware/cameraNodeConfig';
@@ -418,5 +422,52 @@ describe('Bi-Tech IoT Studio V0.4A — Preparación de Camera Node Bi-Tech (ESP3
     expect(emptyParsed.wifiConnected).toBe(false);
     expect(emptyParsed.detectedIp).toBeNull();
     expect(emptyParsed.streamingStarted).toBe(false);
+  });
+});
+
+describe('Bi-Tech IoT Studio — Contexto estructurado para Asistente Bi-Tech', () => {
+  it('construye BiTechAssistantContext con el dispositivo activo, bloques, código educativo, sketch .ino y validaciones', () => {
+    const sampleProgram: ParsedProgram = {
+      device: 'garden-node',
+      setupStatements: [],
+      loopStatements: [
+        {
+          kind: 'if',
+          blockId: 'block_if_soil',
+          condition: {
+            kind: 'comparison',
+            leftSensor: 'humedadSuelo',
+            operator: '<',
+            rightNumber: 30,
+          },
+          thenBranch: [{ kind: 'bomba_on' }],
+        },
+      ],
+    };
+
+    const generatedCode = generateArduinoCode(sampleProgram);
+    const context = buildBiTechAssistantContext({
+      activeDevice: 'garden-node',
+      projectName: 'Riego inteligente',
+      selectedBlockType: 'bitech_if_sensor_compare',
+      selectedBlockId: 'block_if_soil',
+      parsedProgram: sampleProgram,
+      generatedCode,
+    });
+
+    expect(context.activeDevice).toBe('garden-node');
+    expect(context.projectName).toBe('Riego inteligente');
+    expect(context.selectedBlockType).toBe('bitech_if_sensor_compare');
+    expect(context.selectedBlockId).toBe('block_if_soil');
+    expect(context.generatedEducationalCode).toContain('void setup()');
+    expect(context.generatedSketch).toContain('#include <Arduino.h>');
+    expect(context.validationIssues).toEqual([]);
+    expect(BITECH_ASSISTANT_SUGGESTIONS).toEqual([
+      '¿Qué hace este bloque?',
+      '¿Por qué mi programa no funciona?',
+      '¿Cómo uso el sensor de humedad?',
+      '¿Qué significa esta condición?',
+      'Explicame el código Arduino generado.',
+    ]);
   });
 });

@@ -174,3 +174,26 @@ export interface ContextualManualEntry {
   technicalNotes: string;
   deviceNotes?: Partial<Record<DeviceProfileId, string>>;
 }
+
+export interface BiTechAssistantContext {
+  activeDevice: DeviceProfileId;
+  projectName: string;
+  selectedBlockType?: string;
+  selectedBlockId?: string;
+  parsedProgram: ParsedProgram;
+  generatedEducationalCode: string;
+  generatedSketch: string;
+  validationIssues: string[];
+}
+
+export interface BiTechAssistantMessage {
+  id: string;
+  role: 'user' | 'assistant-status';
+  text: string;
+  statusLabel?: string;
+  contextSnapshot?: {
+    activeDevice: DeviceProfileId;
+    selectedBlockType?: string;
+    statementCount: number;
+  };
+}

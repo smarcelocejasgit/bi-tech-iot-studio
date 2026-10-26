@@ -1,5 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { buildBiTechAssistantContext } from './assistant/bitechAssistantContext';
 import { ArduinoCodePanel } from './components/ArduinoCodePanel';
+import { BiTechAssistantPanel } from './components/BiTechAssistantPanel';
 import { BlockCategoriesPanel } from './components/BlockCategoriesPanel';
 import { BlocklyWorkspacePanel } from './components/BlocklyWorkspacePanel';
 import { ContextualManualPanel } from './components/ContextualManualPanel';
@@ -146,6 +148,7 @@ export const App: React.FC = () => {
   const handleWorkspaceChange = useCallback(
     (program: ParsedProgram, serializedXml: string) => {
       setParsedProgram(program);
+      setWorkspaceXml(serializedXml);
       saveWorkspaceXml(program.device, serializedXml);
     },
     []
@@ -226,6 +229,27 @@ export const App: React.FC = () => {
     [selectedBlockType, activeDevice]
   );
 
+  // Contexto estructurado reutilizable para futura integración con IA en Asistente Bi-Tech
+  const assistantContext = useMemo(
+    () =>
+      buildBiTechAssistantContext({
+        activeDevice,
+        projectName,
+        selectedBlockType,
+        selectedBlockId,
+        parsedProgram,
+        generatedCode,
+      }),
+    [
+      activeDevice,
+      projectName,
+      selectedBlockType,
+      selectedBlockId,
+      parsedProgram,
+      generatedCode,
+    ]
+  );
+
   return (
     <div className="min-h-screen flex flex-col bg-[#eaf3ec] text-slate-800 pb-4">
       {/* Cabecera e identidad visual */}
@@ -240,96 +264,151 @@ export const App: React.FC = () => {
         hasValidationIssues={generatedCode.validationIssues.length > 0}
       />
 
-      {/* Contenedor principal de las 3 filas */}
+      {/* Contenedor principal separado por modo de trabajo */}
       <main className="max-w-[1600px] w-full mx-auto px-3 mt-2.5 flex-1 flex flex-col gap-2.5">
-        {/* Panel interactivo de Placa real (V0.3) cuando se activa el modo Placa real */}
-        {workMode === 'board' && (
-          <RealBoardPanel
-            activeDevice={activeDevice}
-            onSelectDevice={handleSelectDevice}
-            sketchCode={generatedCode.compilableSketch}
-            validationIssues={generatedCode.validationIssues}
-            statementCount={
-              parsedProgram.setupStatements.length +
-              parsedProgram.loopStatements.length
-            }
-            cameraStreamConfig={cameraStreamConfig}
-            onChangeCameraStreamConfig={setCameraStreamConfig}
-          />
+        {/* ===================================================================
+            1. MODO PROGRAMAR: Bloques | Área de programación | Código Arduino
+               + Ayuda contextual compacta + Asistente Bi-Tech (sin simulador)
+           =================================================================== */}
+        {workMode === 'program' && (
+          <>
+            <div
+              data-testid="program-mode-view"
+              className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 min-h-[480px] lg:h-[510px]"
+            >
+              <div className="lg:col-span-2 h-full overflow-hidden">
+                <BlockCategoriesPanel
+                  activeDevice={activeDevice}
+                  selectedCategory={selectedCategory}
+                  onSelectCategory={setSelectedCategory}
+                  onInsertBlock={handleInsertBlock}
+                />
+              </div>
+
+              <div className="lg:col-span-6 h-full overflow-hidden">
+                <BlocklyWorkspacePanel
+                  activeDevice={activeDevice}
+                  workspaceXml={workspaceXml}
+                  pendingInsertBlockType={pendingInsertBlock}
+                  onConsumePendingInsertBlock={() => setPendingInsertBlock(null)}
+                  onWorkspaceChange={handleWorkspaceChange}
+                  onSelectBlock={handleSelectBlock}
+                  onResetDefaultProgram={handleResetDefaultProgram}
+                />
+              </div>
+
+              <div className="lg:col-span-4 h-full overflow-hidden">
+                <ArduinoCodePanel
+                  generatedCode={generatedCode}
+                  selectedBlockId={selectedBlockId}
+                />
+              </div>
+            </div>
+
+            {/* Ayuda contextual compacta del bloque seleccionado */}
+            <ContextualManualPanel entry={manualEntry} />
+
+            {/* Panel de conversación Asistente Bi-Tech */}
+            <BiTechAssistantPanel context={assistantContext} />
+          </>
         )}
 
-        {/* Fila Central: BLOQUES | ÁREA DE PROGRAMACIÓN | CÓDIGO ARDUINO */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 min-h-[470px] lg:h-[500px]">
-          <div className="lg:col-span-2 h-full overflow-hidden">
-            <BlockCategoriesPanel
-              activeDevice={activeDevice}
-              selectedCategory={selectedCategory}
-              onSelectCategory={setSelectedCategory}
-              onInsertBlock={handleInsertBlock}
-            />
-          </div>
+        {/* ===================================================================
+            2. MODO SIMULAR: Controles de Sensores | Smart Garden Virtual
+               ocupando el espacio principal + referencia del programa activo
+           =================================================================== */}
+        {workMode === 'simulate' && (
+          <div data-testid="simulate-mode-view" className="space-y-2.5">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-stretch">
+              <div className="lg:col-span-6">
+                <SimulatorControlsPanel
+                  activeDevice={activeDevice}
+                  sensors={sensors}
+                  onChangeSensors={setSensors}
+                  nodeMcuSensors={nodeMcuSensors}
+                  onChangeNodeMcuSensors={setNodeMcuSensors}
+                  onInsertSecondAnalogSensorDemo={() => {
+                    handleInsertSecondAnalogSensorDemo();
+                    setWorkMode('program');
+                  }}
+                  cameraState={cameraSimulation}
+                  onTriggerManualCapture={handleTriggerManualCapture}
+                  onResetCameraSimulation={handleResetCameraSimulation}
+                />
+              </div>
 
-          <div className="lg:col-span-6 h-full overflow-hidden">
-            <BlocklyWorkspacePanel
-              activeDevice={activeDevice}
-              workspaceXml={workspaceXml}
-              pendingInsertBlockType={pendingInsertBlock}
-              onWorkspaceChange={handleWorkspaceChange}
-              onSelectBlock={handleSelectBlock}
-              onResetDefaultProgram={handleResetDefaultProgram}
-            />
-          </div>
+              <div className="lg:col-span-6">
+                <VirtualSystemPanel
+                  activeDevice={activeDevice}
+                  sensors={sensors}
+                  actuators={gardenActuators}
+                  nodeMcuSensors={nodeMcuSensors}
+                  nodeMcuActuators={nodeMcuActuators}
+                  cameraState={cameraSimulation}
+                  configuredStreamUrl={resolvedCameraStreamUrl}
+                  onChangeConfiguredStreamUrl={(fullUrl) =>
+                    setCameraStreamConfig((prev) => ({ ...prev, fullUrl }))
+                  }
+                />
+              </div>
+            </div>
 
-          <div className="lg:col-span-4 h-full overflow-hidden">
-            <ArduinoCodePanel
-              generatedCode={generatedCode}
-              selectedBlockId={selectedBlockId}
-            />
-          </div>
-        </div>
+            {/* Referencia compacta del programa en ejecución durante la simulación */}
+            <section
+              data-testid="simulate-program-reference"
+              className="bg-white rounded-2xl border border-slate-200/90 shadow-xs px-4 py-3 flex flex-wrap items-center justify-between gap-3"
+            >
+              <div className="space-y-0.5">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800">
+                  Programa activo en simulación
+                </span>
+                <p className="text-xs text-slate-600">
+                  El simulador está evaluando en tiempo real tu programa actual
+                  ({parsedProgram.setupStatements.length +
+                    parsedProgram.loopStatements.length}{' '}
+                  instrucción(es) principales).
+                </p>
+              </div>
 
-        {/* Fila Inferior: SIMULADOR | SISTEMA VIRTUAL */}
-        <div
-          className={`grid grid-cols-1 lg:grid-cols-12 gap-2.5 rounded-2xl transition ${
-            workMode === 'simulate'
-              ? 'ring-2 ring-emerald-500/80 bg-emerald-50/40 p-1'
-              : ''
-          }`}
-        >
-          <div className="lg:col-span-6">
-            <SimulatorControlsPanel
+              <button
+                type="button"
+                data-testid="simulate-back-to-program-btn"
+                onClick={() => setWorkMode('program')}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-900 border border-slate-200 hover:border-emerald-300 text-xs font-bold transition cursor-pointer"
+              >
+                Volver a Programar bloques
+              </button>
+            </section>
+          </div>
+        )}
+
+        {/* ===================================================================
+            3. MODO PLACA REAL: Conexión / Compilación / Carga / Monitor
+               + Sketch Arduino compilable (.ino) sin simulador
+           =================================================================== */}
+        {workMode === 'board' && (
+          <div data-testid="board-mode-view" className="space-y-2.5">
+            <RealBoardPanel
               activeDevice={activeDevice}
-              sensors={sensors}
-              onChangeSensors={setSensors}
-              nodeMcuSensors={nodeMcuSensors}
-              onChangeNodeMcuSensors={setNodeMcuSensors}
-              onInsertSecondAnalogSensorDemo={
-                handleInsertSecondAnalogSensorDemo
+              onSelectDevice={handleSelectDevice}
+              sketchCode={generatedCode.compilableSketch}
+              validationIssues={generatedCode.validationIssues}
+              statementCount={
+                parsedProgram.setupStatements.length +
+                parsedProgram.loopStatements.length
               }
-              cameraState={cameraSimulation}
-              onTriggerManualCapture={handleTriggerManualCapture}
-              onResetCameraSimulation={handleResetCameraSimulation}
+              cameraStreamConfig={cameraStreamConfig}
+              onChangeCameraStreamConfig={setCameraStreamConfig}
             />
-          </div>
 
-          <div className="lg:col-span-6">
-            <VirtualSystemPanel
-              activeDevice={activeDevice}
-              sensors={sensors}
-              actuators={gardenActuators}
-              nodeMcuSensors={nodeMcuSensors}
-              nodeMcuActuators={nodeMcuActuators}
-              cameraState={cameraSimulation}
-              configuredStreamUrl={resolvedCameraStreamUrl}
-              onChangeConfiguredStreamUrl={(fullUrl) =>
-                setCameraStreamConfig((prev) => ({ ...prev, fullUrl }))
-              }
-            />
+            <div className="h-[420px]">
+              <ArduinoCodePanel
+                generatedCode={generatedCode}
+                selectedBlockId={selectedBlockId}
+              />
+            </div>
           </div>
-        </div>
-
-        {/* Pie Pedagógico: ¿Qué hace este bloque? */}
-        <ContextualManualPanel entry={manualEntry} />
+        )}
       </main>
 
       {/* Modal de configuración centralizada y supuestos de hardware */}
