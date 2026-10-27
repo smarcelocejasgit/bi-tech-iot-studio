@@ -1,5 +1,14 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { MessageCircle } from 'lucide-react';
+import { buildBiTechAssistantContext } from './assistant/bitechAssistantContext';
 import { ArduinoCodePanel } from './components/ArduinoCodePanel';
+import { BiTechAssistantPanel } from './components/BiTechAssistantPanel';
 import { BlockCategoriesPanel } from './components/BlockCategoriesPanel';
 import { BlocklyWorkspacePanel } from './components/BlocklyWorkspacePanel';
 import { ContextualManualPanel } from './components/ContextualManualPanel';
@@ -80,6 +89,7 @@ export const App: React.FC = () => {
     useState<boolean>(false);
   const [isMyProjectsModalOpen, setIsMyProjectsModalOpen] =
     useState<boolean>(false);
+  const [isAssistantOpen, setIsAssistantOpen] = useState<boolean>(false);
 
   // Programa lógico extraído del lienzo Blockly
   const [parsedProgram, setParsedProgram] = useState<ParsedProgram>(() => ({
@@ -302,6 +312,35 @@ export const App: React.FC = () => {
     [selectedBlockType, activeDevice]
   );
 
+  const assistantContext = useMemo(
+    () =>
+      buildBiTechAssistantContext({
+        activeDevice,
+        projectName,
+        selectedBlockType,
+        selectedBlockId,
+        parsedProgram,
+        generatedCode,
+      }),
+    [
+      activeDevice,
+      projectName,
+      selectedBlockType,
+      selectedBlockId,
+      parsedProgram,
+      generatedCode,
+    ]
+  );
+
+  useEffect(() => {
+    if (!isAssistantOpen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsAssistantOpen(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isAssistantOpen]);
+
   return (
     <div className="min-h-screen flex flex-col bg-[#eaf3ec] text-slate-800 pb-4">
       {/* Cabecera e identidad visual */}
@@ -311,7 +350,10 @@ export const App: React.FC = () => {
         activeDevice={activeDevice}
         onSelectDevice={handleSelectDevice}
         workMode={workMode}
-        onSelectWorkMode={setWorkMode}
+        onSelectWorkMode={(mode) => {
+          setWorkMode(mode);
+          if (mode !== 'program') setIsAssistantOpen(false);
+        }}
         onOpenHardwareModal={() => setIsHardwareModalOpen(true)}
         onOpenNewProjectModal={() => setIsNewProjectModalOpen(true)}
         onOpenMyProjectsModal={() => setIsMyProjectsModalOpen(true)}
@@ -366,6 +408,35 @@ export const App: React.FC = () => {
             {/* Ayuda contextual compacta del bloque seleccionado */}
             <ContextualManualPanel entry={manualEntry} />
 
+            {!isAssistantOpen && (
+              <button
+                type="button"
+                data-testid="assistant-launcher"
+                aria-expanded="false"
+                aria-controls="bitech-assistant-drawer"
+                onClick={() => setIsAssistantOpen(true)}
+                className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full border border-emerald-600 bg-emerald-700 px-4 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-emerald-950/20 transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 cursor-pointer"
+              >
+                <MessageCircle className="h-4 w-4" />
+                <span>Asistente Bi-Tech</span>
+              </button>
+            )}
+
+            {isAssistantOpen && (
+              <aside
+                id="bitech-assistant-drawer"
+                data-testid="assistant-drawer"
+                role="dialog"
+                aria-label="Asistente Bi-Tech"
+                className="fixed bottom-3 right-3 top-[104px] z-50 w-[360px] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-2xl shadow-slate-950/25"
+              >
+                <BiTechAssistantPanel
+                  context={assistantContext}
+                  variant="drawer"
+                  onClose={() => setIsAssistantOpen(false)}
+                />
+              </aside>
+            )}
           </>
         )}
 

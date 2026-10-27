@@ -6,6 +6,7 @@ import {
   Clock,
   Send,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { BITECH_ASSISTANT_SUGGESTIONS } from '../assistant/bitechAssistantContext';
 import { getDeviceProfile } from '../hardware/hardwareCapabilities';
@@ -16,10 +17,14 @@ import {
 
 interface BiTechAssistantPanelProps {
   context: BiTechAssistantContext;
+  variant?: 'inline' | 'drawer';
+  onClose?: () => void;
 }
 
 export const BiTechAssistantPanel: React.FC<BiTechAssistantPanelProps> = ({
   context,
+  variant = 'inline',
+  onClose,
 }) => {
   const [messages, setMessages] = useState<BiTechAssistantMessage[]>([]);
   const [inputText, setInputText] = useState<string>('');
@@ -29,6 +34,7 @@ export const BiTechAssistantPanel: React.FC<BiTechAssistantPanelProps> = ({
   const statementCount =
     context.parsedProgram.setupStatements.length +
     context.parsedProgram.loopStatements.length;
+  const isDrawer = variant === 'drawer';
 
   const submitQuestion = (questionText: string) => {
     const trimmed = questionText.trim();
@@ -65,11 +71,19 @@ export const BiTechAssistantPanel: React.FC<BiTechAssistantPanelProps> = ({
   return (
     <section
       data-testid="bitech-assistant-panel"
-      className="bg-white rounded-2xl border border-slate-200/90 shadow-xs px-3.5 py-2.5 space-y-2"
+      className={`bg-white px-3.5 py-3 ${
+        isDrawer
+          ? 'h-full flex flex-col gap-3 overflow-y-auto'
+          : 'rounded-2xl border border-slate-200/90 shadow-xs space-y-2'
+      }`}
     >
       {/* Fila principal compacta: Encabezado + Texto breve + Entrada + Enviar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+      <div
+        className={`flex justify-between gap-2.5 ${
+          isDrawer ? 'flex-col' : 'flex-col lg:flex-row lg:items-center'
+        }`}
+      >
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
           <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
             <span aria-hidden="true">💬</span>
             <span>Asistente Bi-Tech</span>
@@ -86,11 +100,26 @@ export const BiTechAssistantPanel: React.FC<BiTechAssistantPanelProps> = ({
             <Clock className="w-3 h-3 text-amber-700" />
             Asistente en preparación
           </span>
+
+          {isDrawer && onClose && (
+            <button
+              type="button"
+              data-testid="assistant-close-btn"
+              onClick={onClose}
+              className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer"
+              aria-label="Cerrar Asistente Bi-Tech"
+              title="Cerrar asistente"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         <form
           onSubmit={handleFormSubmit}
-          className="flex-1 flex items-center gap-1.5 max-w-2xl"
+          className={`flex items-center gap-1.5 ${
+            isDrawer ? 'w-full' : 'flex-1 max-w-2xl'
+          }`}
         >
           <input
             type="text"
@@ -133,7 +162,11 @@ export const BiTechAssistantPanel: React.FC<BiTechAssistantPanelProps> = ({
       {/* Sugerencias rápidas en una sola línea compacta */}
       <div
         data-testid="assistant-conversation-area"
-        className="flex items-center gap-1.5 overflow-x-auto pb-0.5"
+        className={`flex gap-1.5 pb-0.5 ${
+          isDrawer
+            ? 'flex-wrap items-start overflow-y-auto'
+            : 'items-center overflow-x-auto'
+        }`}
       >
         <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 shrink-0">
           <Sparkles className="w-3 h-3 text-emerald-600" />
@@ -156,7 +189,9 @@ export const BiTechAssistantPanel: React.FC<BiTechAssistantPanelProps> = ({
       {messages.length > 0 && isExpanded && (
         <div
           data-testid="assistant-messages-list"
-          className="pt-2 border-t border-slate-100 space-y-2 max-h-40 overflow-y-auto"
+          className={`pt-2 border-t border-slate-100 space-y-2 overflow-y-auto ${
+            isDrawer ? 'max-h-none flex-1' : 'max-h-40'
+          }`}
         >
           {messages.map((msg) =>
             msg.role === 'user' ? (

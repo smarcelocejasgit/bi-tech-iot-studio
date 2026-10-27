@@ -136,6 +136,9 @@ export const DidacticInterpreterView: React.FC<DidacticInterpreterViewProps> = (
     );
   }
 
+  const stepCount = interpretation.narrativeSteps.length;
+  const stepCountLabel = `${stepCount} ${stepCount === 1 ? 'paso' : 'pasos'}`;
+
   return (
     <div
       data-testid="didactic-interpreter-view"
@@ -154,8 +157,11 @@ export const DidacticInterpreterView: React.FC<DidacticInterpreterViewProps> = (
               Así se ejecuta tu algoritmo
             </h3>
           </div>
-          <span className="shrink-0 rounded-full border border-emerald-200 bg-white px-2 py-0.5 text-[9px] font-bold text-emerald-800">
-            {interpretation.totalStatements} instrucción(es)
+          <span
+            data-testid="interpreter-step-count"
+            className="shrink-0 rounded-full border border-emerald-200 bg-white px-2 py-0.5 text-[9px] font-bold text-emerald-800"
+          >
+            {stepCountLabel}
           </span>
         </div>
         <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">
@@ -166,7 +172,7 @@ export const DidacticInterpreterView: React.FC<DidacticInterpreterViewProps> = (
 
       <ol
         data-testid="interpreter-narrative"
-        className="relative space-y-2 before:absolute before:bottom-3 before:left-[13px] before:top-3 before:w-px before:bg-slate-200"
+        className="relative space-y-1 before:absolute before:bottom-3 before:left-[13px] before:top-3 before:w-px before:bg-slate-200"
       >
         {interpretation.narrativeSteps.map(
           (step: DidacticNarrativeStep, index) => {
@@ -192,10 +198,10 @@ export const DidacticInterpreterView: React.FC<DidacticInterpreterViewProps> = (
                 </span>
 
                 <article
-                  className={`min-w-0 flex-1 rounded-xl border p-2.5 transition-all ${
+                  className={`min-w-0 flex-1 border-l-2 py-1.5 pl-3 pr-1 transition-all ${style.border} ${
                     isHighlighted
-                      ? 'border-amber-300 bg-amber-50/90 ring-2 ring-amber-300/60 shadow-xs'
-                      : `${style.border} bg-white shadow-2xs`
+                      ? 'rounded-r-lg border-amber-400 bg-amber-50/80 ring-1 ring-amber-300/50'
+                      : 'bg-transparent'
                   }`}
                 >
                   <div className="flex flex-wrap items-center gap-1.5">

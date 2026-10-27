@@ -4,6 +4,16 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 
 ---
 
+## [0.5.5 (V0.5E)] — 2026-10-26
+### Asistente contextual flotante y relato visual del intérprete
+- El **Asistente Bi-Tech** vuelve al modo Programar como un botón flotante discreto y un drawer lateral superpuesto, reutilizando su contexto, sugerencias y estado **Asistente en preparación** sin incorporar IA.
+- El asistente cerrado no ocupa espacio de trabajo y el drawer abierto conserva sin desplazamientos la grilla principal `2 / 7 / 3`; Blockly mantiene disponibles el zoom, el scroll y el drag-and-drop.
+- El intérprete narrativo reemplaza la sucesión de tarjetas aisladas por un recorrido vertical continuo con números, hitos y acentos cromáticos semánticos, manteniendo intactos el contenido determinístico y el resaltado sincronizado con Blockly.
+- El contador refleja ahora la cantidad real de pasos narrativos con plural natural: `1 paso` o `N pasos`.
+- Se amplía la cobertura Playwright para verificar el launcher, la apertura y cierre del drawer, la estabilidad de la grilla, el drag-and-drop con el asistente abierto y el contador narrativo.
+
+---
+
 ## [0.5.4 (V0.5D)] — 2026-10-26
 ### Intérprete didáctico narrativo y secuencial
 - La vista principal de **Interpretar programa** recorre ahora el algoritmo en su orden real, desde `al iniciar` hasta el cierre de `repetir siempre`, en lugar de reorganizar las instrucciones por categorías independientes.

@@ -19,6 +19,7 @@ test('el clic de la paleta continúa insertando y seleccionando el bloque', asyn
   await expect(page.getByTestId('manual-block-preview')).toContainText('esperar');
   await expect(page.getByTestId('didactic-interpreter-view')).toBeVisible();
   await expect(page.getByTestId('interpreter-narrative')).toBeVisible();
+  await expect(page.getByTestId('interpreter-step-count')).toHaveText('4 pasos');
   await expect(page.getByTestId('interpreter-pipeline-badges')).toHaveCount(0);
 });
 
@@ -68,7 +69,7 @@ test('arrastrar desde la paleta crea una sola instancia válida en el punto de d
   await expect(page.getByTestId('manual-block-preview')).toContainText('esperar');
 });
 
-test('Programar prioriza Blockly y no monta el asistente permanente', async ({
+test('Programar prioriza Blockly y mantiene el asistente cerrado como botón flotante', async ({
   page,
 }) => {
   const workspaceBox = await page
@@ -82,6 +83,55 @@ test('Programar prioriza Blockly y no monta el asistente permanente', async ({
   expect(interpreterBox).not.toBeNull();
   expect(workspaceBox!.width).toBeGreaterThan(interpreterBox!.width);
   await expect(page.getByTestId('bitech-assistant-panel')).toHaveCount(0);
+  await expect(page.getByTestId('assistant-drawer')).toHaveCount(0);
+  await expect(page.getByTestId('assistant-launcher')).toBeVisible();
+});
+
+test('el drawer del asistente se superpone sin cambiar la grilla ni bloquear Blockly', async ({
+  page,
+}) => {
+  const program = page.getByTestId('program-mode-view');
+  const widthsBefore = await program
+    .locator(':scope > div')
+    .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
+
+  await page.getByTestId('assistant-launcher').click();
+  await expect(page.getByTestId('assistant-drawer')).toBeVisible();
+  await expect(page.getByTestId('bitech-assistant-panel')).toBeVisible();
+  await expect(page.getByTestId('assistant-status-badge')).toContainText(
+    'Asistente en preparación'
+  );
+
+  const widthsOpen = await program
+    .locator(':scope > div')
+    .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
+  expect(widthsOpen).toEqual(widthsBefore);
+
+  const source = page.getByTestId('insert-block-bitech_wait');
+  const dropZone = page.getByTestId('blockly-drop-zone');
+  const zoneBox = await dropZone.boundingBox();
+  expect(zoneBox).not.toBeNull();
+  await source.dragTo(dropZone, {
+    targetPosition: {
+      x: Math.round(zoneBox!.width * 0.4),
+      y: Math.round(zoneBox!.height * 0.5),
+    },
+  });
+  await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(1);
+
+  await page.getByTestId('assistant-suggestion-0').click();
+  await expect(page.getByTestId('assistant-status-response')).toContainText(
+    'Asistente en preparación'
+  );
+
+  await page.getByTestId('assistant-close-btn').click();
+  await expect(page.getByTestId('assistant-drawer')).toHaveCount(0);
+  await expect(page.getByTestId('assistant-launcher')).toBeVisible();
+
+  const widthsClosed = await program
+    .locator(':scope > div')
+    .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
+  expect(widthsClosed).toEqual(widthsBefore);
 });
 
 test('el modo Placa real conserva su vista independiente', async ({ page }) => {
