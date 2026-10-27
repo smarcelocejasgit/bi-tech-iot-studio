@@ -18,6 +18,7 @@ import {
 import {
   DEMO_LIVE_STATE,
   DemoGardenLabDataSource,
+  HttpGardenLabDataSource,
 } from '../lab/smartGardenLive';
 import { resolveRoute } from '../routing/appRoute';
 import { CAMERA_NODE_CONFIG } from '../hardware/cameraNodeConfig';
@@ -611,6 +612,7 @@ describe('Bi-Tech IoT Studio V0.5A — Rutas y Smart Garden Lab (demostración)'
     const ds = new DemoGardenLabDataSource();
     const snap = ds.getSnapshot();
     expect(ds.isDemo).toBe(true);
+    expect(snap.source).toBe('demo');
     expect(snap.temperature).toBe(24.0);
     expect(snap.ambientHumidity).toBe(60);
     expect(snap.soilMoisture).toBe(650);
@@ -629,5 +631,46 @@ describe('Bi-Tech IoT Studio V0.5A — Rutas y Smart Garden Lab (demostración)'
     });
     expect(received).toBe(650);
     expect(typeof unsubscribe).toBe('function');
+  });
+
+  it('HttpGardenLabDataSource reemplaza sólo temperatura y humedad con telemetría real', async () => {
+    const fetchImpl = async () =>
+      new Response(
+        JSON.stringify({
+          identity: {
+            schoolId: 'escuela-estacion',
+            labId: 'lab-01',
+            nodeId: 'garden-node-01',
+            nodeLabel: 'Garden Node 01',
+          },
+          telemetry: {
+            temperature: 17.3,
+            humidity: 60,
+            status: 'online',
+            timestamp: 1793059200000,
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    const ds = new HttpGardenLabDataSource(
+      '/api/garden/latest',
+      DEMO_LIVE_STATE,
+      fetchImpl
+    );
+
+    expect(ds.getSnapshot().source).toBe('demo');
+    expect(await ds.refresh()).toBe(true);
+
+    const snap = ds.getSnapshot();
+    expect(snap.source).toBe('real');
+    expect(snap.temperature).toBe(17.3);
+    expect(snap.ambientHumidity).toBe(60);
+    expect(snap.gardenNodeConnected).toBe(true);
+    expect(snap.networkConnected).toBe(true);
+    expect(snap.soilMoisture).toBeNull();
+    expect(snap.lightLevel).toBeNull();
+    expect(snap.pump).toBeNull();
+    expect(snap.lighting).toBeNull();
+    expect(snap.cameraNodeConnected).toBe(false);
   });
 });

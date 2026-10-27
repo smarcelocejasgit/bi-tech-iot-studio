@@ -10,7 +10,7 @@
 | Característica | Garden Node Bi-Tech (`ESP32`) | Camera Node Bi-Tech (`ESP32-CAM`) | NodeMCU (`ESP8266`) |
 | :--- | :--- | :--- | :--- |
 | **Microcontrolador / Módulo** | `ESP32-WROOM-32` | `ESP32-S` + `OV2640` | `ESP8266EX` (`ESP-12E`) |
-| **FQBN Verificado (Arduino CLI)** | `esp32:esp32:esp32` *(pendiente instalar core)* | `esp32:esp32:esp32cam` *(pendiente instalar core)* | **`esp8266:esp8266:nodemcuv2`** *(verificado con core `3.1.2`)* |
+| **FQBN Verificado (Arduino CLI)** | **`esp32:esp32:esp32`** *(verificado con core `2.0.17` sobre ESP32-D0WD-V3 rev. 3.0)* | `esp32:esp32:esp32cam` *(pendiente instalar core)* | **`esp8266:esp8266:nodemcuv2`** *(verificado con core `3.1.2`)* |
 | **GPIO Digitales Físicos Utilizables** | `22` GPIOs | `2` libres (resto cámara) | **`9` GPIOs físicos (`D0` a `D8`)** |
 | **Recursos Expuestos en Perfil Educativo** | `1` entrada dig. + `DHT11`, `2` salidas relay | Cámara + Flash LED | **`1` entrada dig. + `DHT11`, `3` salidas (`Relay`, `Luz`, `Salida Dig.`)** |
 | **Entradas Analógicas Físicas (ADC)** | `6` canales `ADC1` (`12 bits`, `0–4095`) | `0` disponibles con Wi-Fi activo | **`1` única entrada (`A0`, `10 bits`, escala bruta `0–1023`)** |
@@ -19,6 +19,12 @@
 > [!NOTE]
 > **¿Por qué el perfil educativo de NodeMCU expone un subconjunto de entradas/salidas digitales en lugar de los 9 GPIOs físicos?**
 > En el módulo ESP-12E, los pines `D3 (GPIO0)`, `D4 (GPIO2)` y `D8 (GPIO15)` determinan el modo de arranque (*boot-strapping*). Si un circuito externo fuerza `D3` o `D4` a `LOW`, o `D8` a `HIGH` al energizar la placa, el microcontrolador no inicia el programa. Por ello, el perfil educativo preconfigura las funciones de aula sobre los 5 pines digitales seguros (`D1/GPIO5`, `D2/GPIO4`, `D5/GPIO14`, `D6/GPIO12` y `D7/GPIO13`).
+
+### Validación de banco actual — Garden Node ESP32 (2026-10-27)
+
+- **DHT11 — validado físicamente en el banco actual:** conector `D21` de la expansora → `GPIO21` del ESP32.
+- Se obtuvieron lecturas consecutivas estables de temperatura y humedad por Monitor Serie a `115200`, sin `NaN` ni timeouts en la ejecución validada.
+- Esta asignación queda registrada exclusivamente como **pin de validación física**. No constituye todavía el pinout definitivo completo del perfil Garden Node y no modifica `verifiedGpio` en `src/hardware/`.
 
 ---
 
@@ -62,6 +68,6 @@ En las placas **NodeMCU ESP8266**, la serigrafía impresa (`D0`–`D8`) no coinc
 
 | ID | Dispositivo | Elemento Pendiente | Estado Actual en V0.1.2 | Acción Requerida |
 | :--- | :--- | :--- | :--- | :--- |
-| **SP-01 a SP-06** | Garden Node (`ESP32`) | GPIOs definitivos, polaridad de relay y calibración de suelo | Candidatos compilables (`verifiedGpio: null`) | Verificar en placa del Smart Garden Lab. |
+| **SP-01 a SP-06** | Garden Node (`ESP32`) | GPIOs definitivos, polaridad de relay y calibración de suelo | DHT11 validado en banco sobre `D21 → GPIO21`; pinout completo aún pendiente (`verifiedGpio: null`) | Continuar la validación física del resto de conexiones antes de fijar el perfil. |
 | **SP-07 y SP-08** | Camera Node (`ESP32-CAM`) | Endpoint HTTP de streaming MJPEG e IP en red escolar | URL configurable (`null`) | Verificar firmware en `ESP32-CAM` (`V0.3`). |
 | **SP-09 a SP-14** | NodeMCU (`ESP8266`) | Cierre del cableado definitivo (`verifiedGpio: null`) sobre los candidatos `D1→GPIO5`, `D2→GPIO4`, `D5→GPIO14`, `D6→GPIO12`, `D7→GPIO13` y medición del divisor de `A0` (`adcInputVoltageRange`) | Sketch `.ino` compilado con éxito (`esp8266:esp8266:nodemcuv2`) | Verificar con la placa física NodeMCU antes del flasheo USB en `V0.2`. |

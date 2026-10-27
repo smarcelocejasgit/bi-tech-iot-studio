@@ -15,8 +15,8 @@ import {
 } from 'lucide-react';
 import {
   DEMO_SMART_GARDEN_NODE,
-  demoGardenLabDataSource,
   GardenLabDataSource,
+  liveGardenLabDataSource,
   SmartGardenLiveState,
 } from './smartGardenLive';
 
@@ -87,7 +87,7 @@ interface SmartGardenLabProps {
 }
 
 export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
-  dataSource = demoGardenLabDataSource,
+  dataSource = liveGardenLabDataSource,
 }) => {
   const state = useGardenLabState(dataSource);
   const clock = useClock();
@@ -125,7 +125,7 @@ export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {dataSource.isDemo && (
+            {state.source === 'demo' && (
               <span
                 data-testid="lab-demo-badge"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#f3dfa6] text-[#6b5314] text-xs font-extrabold uppercase tracking-wider border border-[#e0c776]"
@@ -202,11 +202,14 @@ export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
             <select
               data-testid="lab-active-garden-select"
               aria-label="Smart Garden activo"
-              defaultValue={DEMO_SMART_GARDEN_NODE.id}
+              value={state.nodeId ?? DEMO_SMART_GARDEN_NODE.id}
+              onChange={() => undefined}
               className="px-3 py-1.5 rounded-lg bg-[#fffdf6] text-[#1d4a2c] text-xs font-bold border border-[#ddd8c2] focus:outline-none"
             >
-              <option value={DEMO_SMART_GARDEN_NODE.id}>
-                {DEMO_SMART_GARDEN_NODE.label}
+              <option value={state.nodeId ?? DEMO_SMART_GARDEN_NODE.id}>
+                {state.nodeLabel
+                  ? `${state.nodeLabel} — Real`
+                  : DEMO_SMART_GARDEN_NODE.label}
               </option>
             </select>
           </label>
@@ -214,7 +217,7 @@ export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
 
         <main className="mt-3">
           {section === 'live' ? (
-            <LiveView state={state} isDemo={dataSource.isDemo} />
+            <LiveView state={state} />
           ) : (
             <NextStagePlaceholder
               testId={`lab-placeholder-${activeSection.id}`}
@@ -245,10 +248,7 @@ export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
 /* Vista EN VIVO                                                              */
 /* -------------------------------------------------------------------------- */
 
-const LiveView: React.FC<{ state: SmartGardenLiveState; isDemo: boolean }> = ({
-  state,
-  isDemo,
-}) => {
+const LiveView: React.FC<{ state: SmartGardenLiveState }> = ({ state }) => {
   const streamAvailable = state.cameraNodeConnected && !!state.cameraStreamUrl;
 
   return (
@@ -351,8 +351,16 @@ const LiveView: React.FC<{ state: SmartGardenLiveState; isDemo: boolean }> = ({
               tint="#eadfd2"
               iconColor="#7b5a36"
               label="Humedad de suelo"
-              value={String(Math.round(state.soilMoisture))}
-              unit="lectura analógica"
+              value={
+                state.soilMoisture === null
+                  ? '—'
+                  : String(Math.round(state.soilMoisture))
+              }
+              unit={
+                state.soilMoisture === null
+                  ? 'Sin sensor real'
+                  : 'lectura analógica'
+              }
             />
             <EnvCard
               testId="env-light"
@@ -360,8 +368,12 @@ const LiveView: React.FC<{ state: SmartGardenLiveState; isDemo: boolean }> = ({
               tint="#f6ead0"
               iconColor="#b8841b"
               label="Luminosidad"
-              value={String(Math.round(state.lightLevel))}
-              unit="lectura LDR"
+              value={
+                state.lightLevel === null
+                  ? '—'
+                  : String(Math.round(state.lightLevel))
+              }
+              unit={state.lightLevel === null ? 'Sin sensor real' : 'lectura LDR'}
             />
           </div>
 
@@ -372,7 +384,11 @@ const LiveView: React.FC<{ state: SmartGardenLiveState; isDemo: boolean }> = ({
 
       <p className="mt-5 text-right text-xs text-[#5b6b5d]">
         Última actualización:{' '}
-        {isDemo ? 'datos simulados · Modo demostración' : 'sin datos'}
+        {state.source === 'demo'
+          ? 'datos simulados · Modo demostración'
+          : state.lastUpdatedAt
+          ? `${new Date(state.lastUpdatedAt).toLocaleString('es-AR')} · dato real`
+          : 'dato real'}
       </p>
     </div>
   );
@@ -435,7 +451,7 @@ const SystemStatusCard: React.FC<{ state: SmartGardenLiveState }> = ({
     {
       label: 'Actuadores',
       icon: <Power className="w-4 h-4" />,
-      connected: state.gardenNodeConnected,
+      connected: state.pump !== null || state.lighting !== null,
     },
     {
       label: 'Red',
@@ -502,12 +518,13 @@ const ActuatorsCard: React.FC<{ state: SmartGardenLiveState }> = ({ state }) => 
           key={a.testId}
           data-testid={a.testId}
           className={`rounded-xl border px-3 py-2 text-center text-sm font-bold ${
-            a.on
+            a.on === true
               ? 'bg-[#dcefe3] border-[#2f7d46] text-[#1d4a2c]'
               : 'bg-white border-[#e4dfca] text-[#5b6b5d]'
           }`}
         >
-          {a.label}: {a.on ? 'ON' : 'OFF'}
+          {a.label}:{' '}
+          {a.on === null ? 'No conectado' : a.on ? 'ON' : 'OFF'}
         </div>
       ))}
     </div>

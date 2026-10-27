@@ -4,6 +4,17 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 
 ---
 
+## [0.5.6 (V0.5F)] — 2026-10-27
+### Puente seguro Garden Node → Smart Garden Lab validado localmente
+- Se incorpora una única HTTPS Function `gardenTelemetry` con las rutas `POST /telemetry` y `GET /latest`, preparada para recibir temperatura, humedad y estado del Garden Node y conservar únicamente la lectura más reciente en Realtime Database.
+- La escritura exige un token Bearer cuyo hash SHA-256 se configura como secreto; el token plano no se almacena, registra ni versiona. Las reglas de RTDB bloquean todo acceso directo desde clientes.
+- Se fija para esta primera integración la identidad `Escuela Estación → Lab 01 → Garden Node 01`, sin agregar todavía administración multi-escuela, historial, usuarios, MQTT ni control remoto.
+- Smart Garden Lab incorpora `HttpGardenLabDataSource`: usa temperatura y humedad reales cuando `/latest` entrega una lectura válida y conserva `DemoGardenLabDataSource` como fallback. Suelo, luminosidad, actuadores y cámara permanecen explícitamente sin datos reales.
+- El sketch de validación ESP32 mantiene DHT11 en `GPIO21`, Wi-Fi y TLS verificado mediante certificado raíz público; las credenciales Wi-Fi y del dispositivo permanecen en archivos locales separados e ignorados por Git.
+- El circuito completo fue validado con emuladores locales de Functions, Hosting y RTDB, incluyendo rechazo de tokens ausentes o inválidos, escritura autorizada y lectura de la última telemetría. No se realizó despliegue, creación de RTDB, cambio de billing, configuración de secretos productivos ni carga de firmware.
+
+---
+
 ## [0.5.5 (V0.5E)] — 2026-10-26
 ### Asistente contextual flotante y relato visual del intérprete
 - El **Asistente Bi-Tech** vuelve al modo Programar como un botón flotante discreto y un drawer lateral superpuesto, reutilizando su contexto, sugerencias y estado **Asistente en preparación** sin incorporar IA.

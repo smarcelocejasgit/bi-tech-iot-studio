@@ -25,6 +25,8 @@ firebase-adminsdk*.json
 # Configuraciones locales de hardware con credenciales Wi-Fi
 hardware.local.json
 wifi_credentials.h
+device_credentials.h
+functions/.secret.local
 
 # Datos sensibles o de estudiantes
 student_data/
@@ -36,6 +38,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+firebase-debug.log*
+database-debug.log
+firestore-debug.log
+ui-debug.log
 
 # Editor y sistema operativo
 .vscode/*

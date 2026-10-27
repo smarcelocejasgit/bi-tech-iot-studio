@@ -8,7 +8,7 @@ Bi-Tech IoT Studio y Smart Garden Lab son dos partes del mismo ecosistema, publi
 | `/lab` | Smart Garden Lab Bi-Tech | Observar datos y estados emitidos por esos dispositivos. |
 | `/` | — | Redirige a `/studio`. |
 
-## Estado de esta iteración (V0.5A)
+## Estado base (V0.5A)
 
 Solo se monta la **interfaz web** del Lab, en **modo demostración**:
 
@@ -46,7 +46,46 @@ Servicio IoT / streaming
 Smart Garden Lab
 ```
 
-No existe todavía: MQTT, streaming real, backend, múltiples nodos ni autenticación. El selector `Smart Garden activo` (`Garden Node — Demo`) deja visible el lugar donde luego se distinguirán los grupos.
+No existe todavía: MQTT, streaming real, múltiples nodos ni autenticación de usuarios. El selector `Smart Garden activo` deja visible el lugar donde luego se distinguirán los grupos.
+
+## Primera telemetría real — preparación local (sin despliegue)
+
+Se incorporó una arquitectura mínima preparada y validada con Firebase Emulator Suite, pero todavía no desplegada:
+
+```text
+Garden Node ESP32
+  → HTTPS + Authorization: Bearer <token local>
+  → gardenTelemetry (una única HTTPS Function)
+      POST /telemetry
+      GET  /latest
+  → Realtime Database: sólo la última lectura
+  → HttpGardenLabDataSource
+  → Smart Garden Lab
+```
+
+La identidad inicial es fija y deliberadamente mínima:
+
+```text
+Escuela Estación → Lab 01 → Garden Node 01
+```
+
+La lectura se propone en RTDB bajo:
+
+```text
+schools/escuela-estacion/labs/lab-01/nodes/garden-node-01/latest
+```
+
+El navegador no accede directamente a RTDB. Sus reglas niegan todas las lecturas y escrituras; la Function usa Admin SDK. `POST /telemetry` valida el token por su hash SHA-256 guardado como secreto, valida temperatura/humedad/estado y genera el timestamp en servidor. `GET /latest` devuelve sólo la identidad lógica y la última telemetría autorizada.
+
+`HttpGardenLabDataSource` consulta `/api/garden/latest`. Mientras no haya una respuesta real válida conserva `DemoGardenLabDataSource` como fallback. Cuando recibe telemetría real reemplaza únicamente temperatura y humedad; suelo, luz, actuadores y cámara quedan explícitamente como no conectados.
+
+Las credenciales permanecen separadas y excluidas de Git:
+
+- `wifi_credentials.h`: SSID y contraseña Wi-Fi.
+- `device_credentials.h`: token del Garden Node.
+- `functions/.secret.local`: hash de prueba exclusivo del emulador.
+
+Para producción quedan pendientes una acción manual sobre el plan Firebase, crear la instancia RTDB y configurar el secreto real. No se realizó ningún despliegue ni cambio de billing en esta etapa.
 
 ## Identidad visual
 

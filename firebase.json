@@ -1,4 +1,20 @@
 {
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        ".secret.local"
+      ]
+    }
+  ],
+  "database": {
+    "rules": "database.rules.json"
+  },
   "hosting": {
     "target": "iotstudio",
     "public": "dist",
@@ -9,9 +25,31 @@
     ],
     "rewrites": [
       {
+        "source": "/api/garden/**",
+        "function": {
+          "functionId": "gardenTelemetry",
+          "region": "southamerica-east1"
+        }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
     ]
+  },
+  "emulators": {
+    "functions": {
+      "port": 5001
+    },
+    "database": {
+      "port": 9000
+    },
+    "hosting": {
+      "port": 5000
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true
   }
 }
