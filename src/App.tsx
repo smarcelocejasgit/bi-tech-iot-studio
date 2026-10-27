@@ -380,6 +380,8 @@ export const App: React.FC = () => {
                 <ArduinoCodePanel
                   generatedCode={generatedCode}
                   selectedBlockId={selectedBlockId}
+                  parsedProgram={parsedProgram}
+                  workMode={workMode}
                 />
               </div>
             </div>
@@ -484,6 +486,8 @@ export const App: React.FC = () => {
               <ArduinoCodePanel
                 generatedCode={generatedCode}
                 selectedBlockId={selectedBlockId}
+                parsedProgram={parsedProgram}
+                workMode={workMode}
               />
             </div>
           </div>

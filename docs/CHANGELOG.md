@@ -4,6 +4,31 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 
 ---
 
+## [0.5.2 (V0.5B)] — 2026-10-26
+### Intérprete didáctico del programa y diferenciación de modos Programar vs Placa real
+- **Intérprete didáctico del programa como vista principal en modo Programar (`src/components/ArduinoCodePanel.tsx`, `src/components/DidacticInterpreterView.tsx`, `src/interpreter/programInterpreter.ts`):**
+  - Implementación de las pestañas en el panel derecho:
+    1. **Interpretar programa** — vista principal y activa por defecto.
+    2. **Ver código Arduino** — vista secundaria con resaltado sintáctico, subtabs (Vista educativa vs Sketch compilable) y copiado.
+  - Botón **Descargar .ino** disponible de manera permanente en todas las pestañas.
+- **Estructura pedagógica por categorías de ejecución:**
+  - **Al comenzar:** setup, inicialización de módulos, resolución/calidad de cámara y conexión Wi-Fi.
+  - **Observar / medir:** lectura de sensores físicos (humedad del suelo, temperatura y humedad del aire DHT11, fotorresistencia LDR, canal analógico A0, entrada digital) y su propósito en la huerta.
+  - **Decidir:** explicaciones pedagógicas de condiciones y comparaciones (ej. *«La placa compara la humedad del suelo con el valor 30. Si detecta que el suelo necesita agua, activa la bomba de riego.»*).
+  - **Actuar:** efectos en el entorno real sobre bomba de agua, iluminación complementaria, relays, salidas digitales o capturas de cámara.
+  - **Comunicar:** registro por puerto serie y publicación en canales IoT para Smart Garden Lab.
+  - **Repetir:** ciclo continuo del microcontrolador y pausas de temporización para estabilización.
+- **Lógica determinista y reactiva:**
+  - Sin uso de IA en esta fase para garantizar previsibilidad y rigor curricular.
+  - Actualización reactiva instantánea ante cualquier modificación en Blockly o cambio de proyecto local.
+  - Estado vacío pedagógico guiado cuando el workspace está vacío.
+- **Protagonismo del código Arduino en modo Placa real:**
+  - En `workMode === 'board'`, el código Arduino puro permanece como protagonista indiscutido junto con la compilación, carga USB, Monitor Serie y estado de la placa, evitando duplicar vistas entre modos.
+- **Alineación curricular:**
+  - Cumplimiento del recorrido pedagógico: `Bloque → interpretación → código → placa → comportamiento real`.
+
+---
+
 ## [0.4.0-alpha.1 (V0.4A)] — 2026-10-25
 ### Preparación de Software para Camera Node Bi-Tech (`ESP32-CAM · OV2640`)
 - **Toolchain ESP32 y FQBN Candidato (`src/hardware/cameraNodeConfig.ts`, `src/types/hardware.ts`):**
