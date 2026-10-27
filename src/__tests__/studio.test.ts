@@ -31,7 +31,10 @@ import {
   sanitizeHardwareLog,
   SerialPortInfo,
 } from '../hardware/hardwareBridge';
-import { identifyCompatibleBoard } from '../hardware/boardDetection';
+import {
+  getProfileFqbn,
+  identifyCompatibleBoard,
+} from '../hardware/boardDetection';
 import { getDeviceCapabilities } from '../hardware/hardwareCapabilities';
 import { validateProgramAgainstCapabilities } from '../hardware/hardwareValidator';
 import { NODEMCU_ESP8266_CONFIG } from '../hardware/nodeMcuConfig';
@@ -419,22 +422,28 @@ describe('Bi-Tech IoT Studio V0.3 — Placa real y HardwareBridge', () => {
     expect(clean).not.toContain('C:\\Users\\Alumno');
   });
 
-  it('detecta un ESP32 genérico como Garden Node compatible sin depender de un COM fijo', () => {
+  it('selecciona Garden Node automáticamente cuando Arduino CLI identifica ESP32 Dev Module', () => {
+    const portAddress = 'PORT_GARDEN_TEST';
     const port: SerialPortInfo = {
-      address: 'COM7',
-      label: 'COM7 — Puerto USB',
+      address: portAddress,
+      label: `${portAddress} — Puerto USB`,
       protocol: 'serial',
       protocolLabel: 'Serial Port (USB)',
       isUsb: true,
       usbProduct: 'USB-Enhanced-SERIAL CH9102',
       usbManufacturer: 'WCH',
-      matchingBoards: [],
+      matchingBoards: [
+        {
+          name: 'ESP32 Dev Module',
+          fqbn: 'esp32:esp32:esp32',
+        },
+      ],
       chipModel: 'ESP32-D0WD-V3 (revision v3.0)',
       flashSize: '4 MB',
     };
 
     const detected = identifyCompatibleBoard(port);
-    expect(detected.port.address).toBe('COM7');
+    expect(detected.port.address).toBe(portAddress);
     expect(detected.family).toBe('esp32');
     expect(detected.usbSerialChip).toBe('WCH CH9102');
     expect(detected.suggestedProfileId).toBe('garden-node');
@@ -466,10 +475,35 @@ describe('Bi-Tech IoT Studio V0.3 — Placa real y HardwareBridge', () => {
     expect(camera.recommendedFqbn).toBe('esp32:esp32:esp32cam');
   });
 
+  it('exige selección manual para un ESP32 genérico sin match específico y resuelve el FQBN del perfil elegido', () => {
+    const genericEsp32 = identifyCompatibleBoard({
+      address: 'PORT_ESP32_AMBIGUOUS_TEST',
+      label: 'Puerto USB de prueba',
+      protocol: 'serial',
+      protocolLabel: 'Serial Port (USB)',
+      isUsb: true,
+      usbProduct: 'USB Serial Port',
+      usbManufacturer: 'FTDI',
+      matchingBoards: [],
+      chipModel: 'ESP32-D0WD-V3 (revision v3.1)',
+      flashSize: null,
+    });
+
+    expect(genericEsp32.family).toBe('esp32');
+    expect(genericEsp32.displayName).toBe(
+      'Placa ESP32 detectada — seleccioná el perfil'
+    );
+    expect(genericEsp32.suggestedProfileId).toBeNull();
+    expect(genericEsp32.recommendedFqbn).toBeNull();
+    expect(genericEsp32.requiresProfileSelection).toBe(true);
+    expect(getProfileFqbn('camera-node')).toBe('esp32:esp32:esp32cam');
+    expect(getProfileFqbn('garden-node')).toBe('esp32:esp32:esp32');
+  });
+
   it('asocia ESP8266 con el perfil NodeMCU y deja seleccionar perfil si la familia es desconocida', () => {
     const nodemcu = identifyCompatibleBoard({
-      address: 'COM9',
-      label: 'COM9 — Puerto USB',
+      address: 'PORT_NODEMCU_TEST',
+      label: 'Puerto NodeMCU de prueba',
       protocol: 'serial',
       protocolLabel: 'Serial Port (USB)',
       isUsb: true,
@@ -487,8 +521,8 @@ describe('Bi-Tech IoT Studio V0.3 — Placa real y HardwareBridge', () => {
     );
 
     const unknown = identifyCompatibleBoard({
-      address: 'COM11',
-      label: 'COM11 — Puerto USB',
+      address: 'PORT_UNKNOWN_TEST',
+      label: 'Puerto USB desconocido de prueba',
       protocol: 'serial',
       protocolLabel: 'Serial Port (USB)',
       isUsb: true,

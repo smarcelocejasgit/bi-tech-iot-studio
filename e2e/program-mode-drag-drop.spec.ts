@@ -145,6 +145,7 @@ test('Placa real identifica puerto, familia, perfil y FQBN automáticamente', as
   page,
 }) => {
   let boardConnected = true;
+  const portAddress = 'PORT_GARDEN_TEST';
   await page.route('**/api/hardware/ports', async (route) => {
     await route.fulfill({
       contentType: 'application/json',
@@ -152,14 +153,19 @@ test('Placa real identifica puerto, familia, perfil y FQBN automáticamente', as
         ports: boardConnected
           ? [
               {
-                address: 'COM7',
-                label: 'COM7 — Puerto USB (Placa detectada)',
+                address: portAddress,
+                label: `${portAddress} — Puerto USB (Placa detectada)`,
                 protocol: 'serial',
                 protocolLabel: 'Serial Port (USB)',
                 isUsb: true,
                 usbProduct: 'USB-Enhanced-SERIAL CH9102',
                 usbManufacturer: 'WCH',
-                matchingBoards: [],
+                matchingBoards: [
+                  {
+                    name: 'ESP32 Dev Module',
+                    fqbn: 'esp32:esp32:esp32',
+                  },
+                ],
                 chipModel: 'ESP32-D0WD-V3 (revision v3.0)',
                 flashSize: '4 MB',
               },
@@ -173,7 +179,9 @@ test('Placa real identifica puerto, familia, perfil y FQBN automáticamente', as
 
   await expect(page.getByTestId('board-detection-panel')).toBeVisible();
   await expect(page.getByTestId('detected-board-family')).toHaveText('ESP32');
-  await expect(page.getByTestId('detected-board-port')).toHaveText('COM7');
+  await expect(page.getByTestId('detected-board-port')).toHaveText(
+    portAddress
+  );
   await expect(page.getByTestId('detected-board-usb-chip')).toHaveText(
     'WCH CH9102'
   );
@@ -195,5 +203,58 @@ test('Placa real identifica puerto, familia, perfil y FQBN automáticamente', as
   await expect(page.getByTestId('detected-board-details')).toHaveCount(0);
   await expect(page.getByTestId('board-detection-panel').locator('h2')).toHaveText(
     'No se detectó ninguna placa compatible.'
+  );
+});
+
+test('un ESP32 genérico exige perfil manual y actualiza el FQBN elegido', async ({
+  page,
+}) => {
+  await page.route('**/api/hardware/ports', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ports: [
+          {
+            address: 'PORT_ESP32_AMBIGUOUS_TEST',
+            label: 'Puerto USB ESP32 ambiguo',
+            protocol: 'serial',
+            protocolLabel: 'Serial Port (USB)',
+            isUsb: true,
+            usbProduct: 'USB Serial Port',
+            usbManufacturer: 'FTDI',
+            matchingBoards: [],
+            chipModel: 'ESP32-D0WD-V3 (revision v3.1)',
+            flashSize: null,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.getByTestId('mode-board').click();
+
+  await expect(page.getByTestId('board-detection-panel').locator('h2')).toHaveText(
+    'Placa ESP32 detectada — seleccioná el perfil'
+  );
+  await expect(page.getByTestId('manual-detected-profile-select')).toHaveValue(
+    ''
+  );
+  await expect(page.getByTestId('detected-board-fqbn')).toHaveText(
+    'Seleccioná un perfil'
+  );
+  await expect(page.getByTestId('use-detected-board-btn')).toBeDisabled();
+
+  await page
+    .getByTestId('manual-detected-profile-select')
+    .selectOption('camera-node');
+  await expect(page.getByTestId('detected-board-fqbn')).toHaveText(
+    'esp32:esp32:esp32cam'
+  );
+
+  await page
+    .getByTestId('manual-detected-profile-select')
+    .selectOption('garden-node');
+  await expect(page.getByTestId('detected-board-fqbn')).toHaveText(
+    'esp32:esp32:esp32'
   );
 });

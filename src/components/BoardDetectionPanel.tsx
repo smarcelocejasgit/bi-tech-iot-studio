@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import {
   DetectedBoardInfo,
+  getProfileFqbn,
   SUPPORTED_DETECTION_PROFILES,
 } from '../hardware/boardDetection';
 import { DeviceProfileId } from '../types/hardware';
@@ -41,18 +42,23 @@ export const BoardDetectionPanel: React.FC<BoardDetectionPanelProps> = ({
     () => boards.find((board) => board.port.address === selectedPort) ?? boards[0],
     [boards, selectedPort]
   );
-  const [manualProfile, setManualProfile] =
-    useState<DeviceProfileId>('garden-node');
+  const [manualProfile, setManualProfile] = useState<DeviceProfileId | ''>('');
 
   useEffect(() => {
     if (selectedBoard?.suggestedProfileId) {
       setManualProfile(selectedBoard.suggestedProfileId);
+    } else {
+      setManualProfile('');
     }
   }, [selectedBoard?.port.address, selectedBoard?.suggestedProfileId]);
 
   const profileToUse = selectedBoard?.suggestedProfileId ?? manualProfile;
+  const fqbnToUse =
+    selectedBoard?.recommendedFqbn ??
+    (profileToUse ? getProfileFqbn(profileToUse) : null);
   const isAlreadyInUse =
     Boolean(selectedBoard) &&
+    Boolean(profileToUse) &&
     activeDevice === profileToUse &&
     selectedPort === selectedBoard.port.address;
 
@@ -165,7 +171,7 @@ export const BoardDetectionPanel: React.FC<BoardDetectionPanelProps> = ({
             <div className="rounded-lg bg-white border border-slate-200 px-3 py-2">
               <dt className="text-slate-500 font-semibold">FQBN recomendado</dt>
               <dd data-testid="detected-board-fqbn" className="font-mono font-bold text-slate-900 break-all">
-                {selectedBoard.recommendedFqbn ?? 'Seleccionar perfil'}
+                {fqbnToUse ?? 'Seleccioná un perfil'}
               </dd>
             </div>
           </dl>
@@ -185,13 +191,16 @@ export const BoardDetectionPanel: React.FC<BoardDetectionPanelProps> = ({
                     data-testid="manual-detected-profile-select"
                     value={manualProfile}
                     onChange={(event) =>
-                      setManualProfile(event.target.value as DeviceProfileId)
+                      setManualProfile(
+                        event.target.value as DeviceProfileId | ''
+                      )
                     }
                     className="w-full max-w-md px-3 py-2 rounded-lg border border-amber-300 bg-white text-xs font-semibold text-slate-900"
                   >
+                    <option value="">-- Seleccioná un perfil --</option>
                     {SUPPORTED_DETECTION_PROFILES.map((profile) => (
                       <option key={profile.id} value={profile.id}>
-                        {profile.label}
+                        {profile.label} — {getProfileFqbn(profile.id)}
                       </option>
                     ))}
                   </select>
@@ -206,8 +215,12 @@ export const BoardDetectionPanel: React.FC<BoardDetectionPanelProps> = ({
             <button
               type="button"
               data-testid="use-detected-board-btn"
-              disabled={isAlreadyInUse}
-              onClick={() => onUseBoard(profileToUse, selectedBoard.port.address)}
+              disabled={!profileToUse || isAlreadyInUse}
+              onClick={() => {
+                if (profileToUse) {
+                  onUseBoard(profileToUse, selectedBoard.port.address);
+                }
+              }}
               className="px-4 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 disabled:bg-slate-300 disabled:text-slate-600 text-white text-xs font-bold flex items-center gap-2 cursor-pointer disabled:cursor-default"
             >
               {isAlreadyInUse ? (
@@ -215,7 +228,11 @@ export const BoardDetectionPanel: React.FC<BoardDetectionPanelProps> = ({
               ) : (
                 <Plug className="w-4 h-4" />
               )}
-              {isAlreadyInUse ? 'Placa en uso' : 'Usar esta placa'}
+              {isAlreadyInUse
+                ? 'Placa en uso'
+                : profileToUse
+                ? 'Usar esta placa'
+                : 'Seleccioná un perfil'}
             </button>
           </div>
         </div>

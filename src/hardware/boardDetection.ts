@@ -27,6 +27,16 @@ const PROFILE_LABELS: Record<DeviceProfileId, string> = {
   'nodemcu-esp8266': 'NodeMCU — ESP8266',
 };
 
+const PROFILE_FQBNS: Record<DeviceProfileId, string> = {
+  'garden-node': 'esp32:esp32:esp32',
+  'camera-node': 'esp32:esp32:esp32cam',
+  'nodemcu-esp8266': 'esp8266:esp8266:nodemcuv2',
+};
+
+export function getProfileFqbn(profile: DeviceProfileId): string {
+  return PROFILE_FQBNS[profile];
+}
+
 /**
  * Obtiene el nombre del puente USB-Serial únicamente desde descripciones
  * reportadas por el sistema operativo o Arduino CLI. No depende de un VID/PID
@@ -78,6 +88,11 @@ export function identifyCompatibleBoard(
     /ESP32[-_ ]?CAM|ESP32CAM|AI[-_ ]?THINKER/i.test(source);
   const esp8266 = /ESP8266|ESP[-_ ]?12|NODEMCU/i.test(source);
   const esp32 = /ESP32/i.test(source);
+  const explicitGardenBoard = (port.matchingBoards ?? []).some(
+    (board) =>
+      board.fqbn.toLowerCase() === PROFILE_FQBNS['garden-node'] ||
+      /ESP32 DEV MODULE/i.test(board.name)
+  );
 
   let family: DetectedBoardFamily = 'unknown';
   let suggestedProfileId: DeviceProfileId | null = null;
@@ -87,18 +102,22 @@ export function identifyCompatibleBoard(
   if (explicitCamera) {
     family = 'esp32-cam';
     suggestedProfileId = 'camera-node';
-    recommendedFqbn = 'esp32:esp32:esp32cam';
+    recommendedFqbn = PROFILE_FQBNS['camera-node'];
     displayName = 'Camera Node compatible';
   } else if (esp8266) {
     family = 'esp8266';
     suggestedProfileId = 'nodemcu-esp8266';
-    recommendedFqbn = 'esp8266:esp8266:nodemcuv2';
+    recommendedFqbn = PROFILE_FQBNS['nodemcu-esp8266'];
     displayName = 'NodeMCU ESP8266 compatible';
   } else if (esp32) {
     family = 'esp32';
-    suggestedProfileId = 'garden-node';
-    recommendedFqbn = 'esp32:esp32:esp32';
-    displayName = 'Garden Node compatible';
+    if (explicitGardenBoard) {
+      suggestedProfileId = 'garden-node';
+      recommendedFqbn = PROFILE_FQBNS['garden-node'];
+      displayName = 'Garden Node compatible';
+    } else {
+      displayName = 'Placa ESP32 detectada — seleccioná el perfil';
+    }
   }
 
   const familyLabels: Record<DetectedBoardFamily, string> = {
