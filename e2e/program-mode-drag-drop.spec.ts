@@ -18,6 +18,8 @@ test('el clic de la paleta continúa insertando y seleccionando el bloque', asyn
   await expect(blocks.first()).toContainText('esperar');
   await expect(page.getByTestId('manual-block-preview')).toContainText('esperar');
   await expect(page.getByTestId('didactic-interpreter-view')).toBeVisible();
+  await expect(page.getByTestId('interpreter-narrative')).toBeVisible();
+  await expect(page.getByTestId('interpreter-pipeline-badges')).toHaveCount(0);
 });
 
 test('arrastrar desde la paleta crea una sola instancia válida en el punto de drop', async ({

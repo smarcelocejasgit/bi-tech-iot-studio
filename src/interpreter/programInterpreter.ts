@@ -7,88 +7,26 @@ import {
   StatementNode,
 } from '../types/studio';
 
-export type DidacticCategoryKey =
+export type NarrativeStepKind =
   | 'start'
-  | 'observe'
-  | 'decide'
-  | 'act'
-  | 'communicate'
-  | 'repeat';
+  | 'configuration'
+  | 'repeat'
+  | 'read'
+  | 'condition'
+  | 'branch'
+  | 'action'
+  | 'communication'
+  | 'wait'
+  | 'continue';
 
-export interface DidacticCategoryMeta {
-  key: DidacticCategoryKey;
-  label: string;
-  badgeLabel: string;
-  iconName: string;
-  colorClass: string;
-  bgClass: string;
-  borderClass: string;
-}
-
-export const DIDACTIC_CATEGORIES: Record<DidacticCategoryKey, DidacticCategoryMeta> = {
-  start: {
-    key: 'start',
-    label: 'Al comenzar',
-    badgeLabel: 'Configuración inicial',
-    iconName: 'Play',
-    colorClass: 'text-sky-700',
-    bgClass: 'bg-sky-50',
-    borderClass: 'border-sky-200',
-  },
-  observe: {
-    key: 'observe',
-    label: 'Observar / medir',
-    badgeLabel: 'Lectura de sensores',
-    iconName: 'Eye',
-    colorClass: 'text-teal-700',
-    bgClass: 'bg-teal-50',
-    borderClass: 'border-teal-200',
-  },
-  decide: {
-    key: 'decide',
-    label: 'Decidir',
-    badgeLabel: 'Condiciones y lógica',
-    iconName: 'GitBranch',
-    colorClass: 'text-amber-700',
-    bgClass: 'bg-amber-50',
-    borderClass: 'border-amber-200',
-  },
-  act: {
-    key: 'act',
-    label: 'Actuar',
-    badgeLabel: 'Control de actuadores',
-    iconName: 'Zap',
-    colorClass: 'text-emerald-700',
-    bgClass: 'bg-emerald-50',
-    borderClass: 'border-emerald-200',
-  },
-  communicate: {
-    key: 'communicate',
-    label: 'Comunicar',
-    badgeLabel: 'Telemetría y red',
-    iconName: 'Radio',
-    colorClass: 'text-indigo-700',
-    bgClass: 'bg-indigo-50',
-    borderClass: 'border-indigo-200',
-  },
-  repeat: {
-    key: 'repeat',
-    label: 'Repetir',
-    badgeLabel: 'Ciclo continuo',
-    iconName: 'Repeat',
-    colorClass: 'text-purple-700',
-    bgClass: 'bg-purple-50',
-    borderClass: 'border-purple-200',
-  },
-};
-
-export interface DidacticItem {
+export interface DidacticNarrativeStep {
   id: string;
-  category: DidacticCategoryKey;
-  title: string;
+  kind: NarrativeStepKind;
+  blockLabel: string;
   explanation: string;
+  depth: number;
   blockId?: string;
-  tag?: string;
+  branch?: 'then' | 'else';
 }
 
 export interface DidacticProgramInterpretation {
@@ -96,9 +34,33 @@ export interface DidacticProgramInterpretation {
   isEmpty: boolean;
   totalStatements: number;
   summarySentence: string;
-  itemsByCategory: Record<DidacticCategoryKey, DidacticItem[]>;
-  activeCategories: DidacticCategoryKey[];
+  narrativeSteps: DidacticNarrativeStep[];
 }
+
+interface ConditionSummary {
+  subject: string;
+  comparisonText: string;
+  pedagogicalMeaning: string;
+}
+
+interface SensorReference {
+  sensor: SensorKey;
+  blockId?: string;
+}
+
+interface ProgramFeatures {
+  configure: boolean;
+  read: boolean;
+  compare: boolean;
+  decide: boolean;
+  act: boolean;
+  communicate: boolean;
+  wait: boolean;
+  repeat: boolean;
+}
+
+const EMPTY_MESSAGE =
+  'Tu programa todavía no tiene instrucciones. Agregá bloques para comenzar a construir y después vas a poder leer aquí, paso a paso, qué hace tu algoritmo.';
 
 export function formatSensorDisplayName(sensor: SensorKey): string {
   switch (sensor) {
@@ -111,7 +73,7 @@ export function formatSensorDisplayName(sensor: SensorKey): string {
     case 'nivelLuz':
       return 'nivel de luz ambiental';
     case 'entradaAnalogicaA0':
-      return 'sensor en entrada analógica A0';
+      return 'entrada analógica A0';
     case 'entradaDigital':
       return 'entrada digital';
   }
@@ -142,143 +104,86 @@ export function formatNumericExpression(expr: NumericExpressionNode): string {
   }
 }
 
-interface ConditionSummary {
-  subject: string;
-  comparisonText: string;
-  pedagogicalMeaning: string;
+function formatOperator(operator: string): string {
+  switch (operator) {
+    case '<':
+      return 'es menor que';
+    case '<=':
+      return 'es menor o igual que';
+    case '>':
+      return 'es mayor que';
+    case '>=':
+      return 'es mayor o igual que';
+    case '==':
+      return 'es igual a';
+    case '!=':
+      return 'es diferente de';
+    default:
+      return operator;
+  }
 }
 
 export function describeCondition(cond: ConditionNode | null): ConditionSummary {
   if (!cond) {
     return {
-      subject: 'Condición sin configurar',
-      comparisonText: 'condición no definida',
-      pedagogicalMeaning: 'requiere completar los parámetros en el bloque',
+      subject: 'condición sin configurar',
+      comparisonText: 'la condición todavía no está configurada',
+      pedagogicalMeaning:
+        'el bloque necesita una condición para poder elegir entre sus caminos',
     };
   }
 
   if (cond.kind === 'camera_state_check') {
     return {
-      subject: 'Estado de la cámara',
-      comparisonText: 'si la cámara está lista y activa',
-      pedagogicalMeaning: 'el módulo OV2640 está disponible para operar',
+      subject: 'estado de la cámara',
+      comparisonText: 'la cámara está lista y activa',
+      pedagogicalMeaning:
+        'comprueba el estado de la cámara y obtiene un resultado verdadero o falso',
     };
   }
 
   if (cond.kind === 'logical') {
-    const leftDesc = describeCondition(cond.left);
-    const rightDesc = describeCondition(cond.right);
-    const opWord = cond.operator === 'AND' ? 'y además' : 'o bien';
+    const left = describeCondition(cond.left);
+    const right = describeCondition(cond.right);
+    const connector = cond.operator === 'AND' ? 'y además' : 'o bien';
     return {
-      subject: `${leftDesc.subject} ${cond.operator} ${rightDesc.subject}`,
-      comparisonText: `${leftDesc.comparisonText} ${opWord} ${rightDesc.comparisonText}`,
+      subject: `${left.subject} ${cond.operator} ${right.subject}`,
+      comparisonText: `${left.comparisonText} ${connector} ${right.comparisonText}`,
       pedagogicalMeaning:
         cond.operator === 'AND'
-          ? `ambas condiciones deben cumplirse a la vez (${leftDesc.pedagogicalMeaning} y ${rightDesc.pedagogicalMeaning})`
-          : `al menos una de las dos condiciones debe cumplirse (${leftDesc.pedagogicalMeaning} o ${rightDesc.pedagogicalMeaning})`,
+          ? 'las dos comparaciones deben ser verdaderas al mismo tiempo'
+          : 'alcanza con que una de las dos comparaciones sea verdadera',
     };
   }
 
-  // Comparison
-  const sensorKey: SensorKey | undefined =
+  const sensor =
     cond.leftSensor ??
-    (cond.leftExpr && cond.leftExpr.kind === 'sensor_read'
+    (cond.leftExpr?.kind === 'sensor_read'
       ? cond.leftExpr.sensor
       : undefined);
-
-  const leftLabel = cond.leftExpr
+  const left = cond.leftExpr
     ? formatNumericExpression(cond.leftExpr)
-    : sensorKey
-      ? formatSensorDisplayName(sensorKey)
+    : sensor
+      ? formatSensorDisplayName(sensor)
       : cond.leftNumber !== undefined
         ? String(cond.leftNumber)
-        : 'valor';
-
-  const rightVal = cond.rightNumber;
-  const unit = sensorKey ? formatSensorUnit(sensorKey) : '';
-  const rightWithUnit = unit ? `${rightVal} ${unit}` : `${rightVal}`;
-
-  let opText = '';
-  switch (cond.operator) {
-    case '<':
-      opText = 'es menor que';
-      break;
-    case '<=':
-      opText = 'es menor o igual que';
-      break;
-    case '>':
-      opText = 'es mayor que';
-      break;
-    case '>=':
-      opText = 'es mayor o igual que';
-      break;
-    case '==':
-      opText = 'es igual a';
-      break;
-    case '!=':
-      opText = 'es diferente de';
-      break;
-  }
-
-  let meaning = '';
-  if (sensorKey === 'humedadSuelo') {
-    if (cond.operator === '<' || cond.operator === '<=') {
-      meaning = 'detecta que el suelo necesita agua';
-    } else if (cond.operator === '>' || cond.operator === '>=') {
-      meaning = 'detecta que el suelo tiene suficiente humedad';
-    } else {
-      meaning = `la humedad de suelo coincide con ${rightVal}`;
-    }
-  } else if (sensorKey === 'temperatura') {
-    if (cond.operator === '>' || cond.operator === '>=') {
-      meaning = `detecta calor elevado (más de ${rightWithUnit})`;
-    } else if (cond.operator === '<' || cond.operator === '<=') {
-      meaning = `detecta frío ambiental (menos de ${rightWithUnit})`;
-    } else {
-      meaning = `la temperatura es de ${rightWithUnit}`;
-    }
-  } else if (sensorKey === 'humedadAmbiente') {
-    if (cond.operator === '<' || cond.operator === '<=') {
-      meaning = 'el aire está seco';
-    } else if (cond.operator === '>' || cond.operator === '>=') {
-      meaning = 'el aire tiene alta humedad';
-    } else {
-      meaning = `la humedad ambiental alcanza ${rightWithUnit}`;
-    }
-  } else if (sensorKey === 'nivelLuz') {
-    if (cond.operator === '<' || cond.operator === '<=') {
-      meaning = 'detecta oscuridad o luz insuficiente';
-    } else if (cond.operator === '>' || cond.operator === '>=') {
-      meaning = 'detecta buena iluminación natural';
-    } else {
-      meaning = `el nivel de luz equivale a ${rightVal}`;
-    }
-  } else if (sensorKey === 'entradaDigital') {
-    if (rightVal === 1) {
-      meaning = 'la entrada digital se activa (HIGH)';
-    } else {
-      meaning = 'la entrada digital está inactiva (LOW)';
-    }
-  } else if (sensorKey === 'entradaAnalogicaA0') {
-    meaning = `la lectura del canal A0 ${opText} ${rightVal}`;
-  } else {
-    meaning = `${leftLabel} ${opText} ${rightWithUnit}`;
-  }
+        : 'el valor disponible';
+  const unit = sensor ? formatSensorUnit(sensor) : '';
+  const right = unit ? `${cond.rightNumber} ${unit}` : String(cond.rightNumber);
+  const comparisonText = `${left} ${formatOperator(cond.operator)} ${right}`;
 
   return {
-    subject: leftLabel,
-    comparisonText: `${leftLabel} ${opText} ${rightWithUnit}`,
-    pedagogicalMeaning: meaning,
+    subject: left,
+    comparisonText,
+    pedagogicalMeaning: `realiza la comparación “${comparisonText}” y obtiene un resultado verdadero o falso`,
   };
 }
 
 export function formatActionsList(statements: StatementNode[]): string {
-  if (!statements || statements.length === 0) {
-    return 'no realiza ninguna acción adicional';
-  }
+  if (statements.length === 0) return 'no ejecuta otras instrucciones';
 
-  const parts = statements.map((st) => {
-    switch (st.kind) {
+  const actions = statements.map((statement) => {
+    switch (statement.kind) {
       case 'bomba_on':
         return 'activa la bomba de riego';
       case 'bomba_off':
@@ -296,475 +201,484 @@ export function formatActionsList(statements: StatementNode[]): string {
       case 'digital_out_off':
         return 'desactiva la salida digital';
       case 'wait':
-        return `espera ${st.seconds} segundo(s)`;
+        return `espera ${statement.seconds} segundo(s)`;
       case 'cam_capture':
-        return 'toma una captura fotográfica';
+        return 'toma una captura';
       case 'cam_stream_start':
-        return 'inicia la transmisión de video en vivo';
+        return 'inicia la transmisión de video';
       case 'cam_stream_stop':
         return 'detiene la transmisión de video';
       case 'data_log':
-        return `registra el dato "${st.label}"`;
+        return `registra el dato “${statement.label}”`;
       case 'iot_publish':
-        return `envía la lectura al canal IoT "${st.topic}"`;
+        return `publica un dato en “${statement.topic}”`;
       case 'cam_config':
         return 'configura la cámara';
       case 'cam_resolution':
-        return `ajusta la resolución a ${st.resolution}`;
+        return `define la resolución ${statement.resolution}`;
       case 'cam_quality':
-        return `ajusta la calidad a ${st.quality}`;
+        return `define la calidad ${statement.quality}`;
       case 'cam_init':
-        return 'inicia el sensor de cámara';
+        return 'inicia la cámara';
       case 'cam_wifi':
-        return `conecta a la red Wi-Fi ${st.ssid}`;
+        return `conecta la placa a la red “${statement.ssid}”`;
       case 'if':
-        return 'evalúa una condición anidada';
+        return 'evalúa una decisión anidada';
     }
   });
 
-  if (parts.length === 1) return parts[0];
-  if (parts.length === 2) return `${parts[0]} y ${parts[1]}`;
-  const last = parts.pop();
-  return `${parts.join(', ')} y ${last}`;
+  if (actions.length === 1) return actions[0];
+  if (actions.length === 2) return `${actions[0]} y ${actions[1]}`;
+  return `${actions.slice(0, -1).join(', ')} y ${actions.at(-1)}`;
 }
 
-function collectSensorsFromExpr(
-  expr: NumericExpressionNode | undefined,
-  target: Set<SensorKey>
-) {
-  if (!expr) return;
-  if (expr.kind === 'sensor_read') {
-    target.add(expr.sensor);
-  } else if (expr.kind === 'math_op') {
-    collectSensorsFromExpr(expr.left, target);
+function deviceDisplayName(device: DeviceProfileId): string {
+  switch (device) {
+    case 'garden-node':
+      return 'Garden Node';
+    case 'camera-node':
+      return 'Camera Node';
+    case 'nodemcu-esp8266':
+      return 'NodeMCU';
+  }
+}
+
+function collectSensorsFromExpression(
+  expression: NumericExpressionNode | undefined,
+  target: SensorReference[]
+): void {
+  if (!expression) return;
+  if (expression.kind === 'sensor_read') {
+    target.push({ sensor: expression.sensor, blockId: expression.blockId });
+  } else if (expression.kind === 'math_op') {
+    collectSensorsFromExpression(expression.left, target);
   }
 }
 
 function collectSensorsFromCondition(
-  cond: ConditionNode | null | undefined,
-  target: Set<SensorKey>
-) {
-  if (!cond) return;
-  if (cond.kind === 'comparison') {
-    if (cond.leftSensor) target.add(cond.leftSensor);
-    if (cond.rightSensor) target.add(cond.rightSensor);
-    collectSensorsFromExpr(cond.leftExpr, target);
-  } else if (cond.kind === 'logical') {
-    collectSensorsFromCondition(cond.left, target);
-    collectSensorsFromCondition(cond.right, target);
+  condition: ConditionNode | null,
+  target: SensorReference[]
+): void {
+  if (!condition) return;
+  if (condition.kind === 'comparison') {
+    if (condition.leftSensor) {
+      target.push({ sensor: condition.leftSensor, blockId: condition.blockId });
+    }
+    if (condition.rightSensor) {
+      target.push({ sensor: condition.rightSensor, blockId: condition.blockId });
+    }
+    collectSensorsFromExpression(condition.leftExpr, target);
+  } else if (condition.kind === 'logical') {
+    collectSensorsFromCondition(condition.left, target);
+    collectSensorsFromCondition(condition.right, target);
   }
 }
 
-function collectSensorsFromStatements(
+function uniqueSensors(condition: ConditionNode | null): SensorReference[] {
+  const collected: SensorReference[] = [];
+  collectSensorsFromCondition(condition, collected);
+  return collected.filter(
+    (item, index) =>
+      collected.findIndex((candidate) => candidate.sensor === item.sensor) === index
+  );
+}
+
+function countStatements(statements: StatementNode[]): number {
+  return statements.reduce((total, statement) => {
+    if (statement.kind !== 'if') return total + 1;
+    return (
+      total +
+      1 +
+      countStatements(statement.thenBranch) +
+      countStatements(statement.elseBranch ?? [])
+    );
+  }, 0);
+}
+
+function newFeatures(): ProgramFeatures {
+  return {
+    configure: false,
+    read: false,
+    compare: false,
+    decide: false,
+    act: false,
+    communicate: false,
+    wait: false,
+    repeat: false,
+  };
+}
+
+function collectFeatures(
   statements: StatementNode[],
-  target: Set<SensorKey>
-) {
-  for (const st of statements) {
-    if (st.kind === 'if') {
-      collectSensorsFromCondition(st.condition, target);
-      collectSensorsFromStatements(st.thenBranch, target);
-      if (st.elseBranch) collectSensorsFromStatements(st.elseBranch, target);
-    } else if (st.kind === 'data_log' || st.kind === 'iot_publish') {
-      target.add(st.sensor);
+  features: ProgramFeatures
+): void {
+  for (const statement of statements) {
+    switch (statement.kind) {
+      case 'if':
+        features.compare = true;
+        features.decide = true;
+        features.read ||= uniqueSensors(statement.condition).length > 0;
+        collectFeatures(statement.thenBranch, features);
+        collectFeatures(statement.elseBranch ?? [], features);
+        break;
+      case 'data_log':
+      case 'iot_publish':
+        features.read = true;
+        features.communicate = true;
+        break;
+      case 'cam_wifi':
+      case 'cam_stream_start':
+      case 'cam_stream_stop':
+        features.communicate = true;
+        break;
+      case 'cam_config':
+      case 'cam_resolution':
+      case 'cam_quality':
+      case 'cam_init':
+        features.configure = true;
+        break;
+      case 'wait':
+        features.wait = true;
+        break;
+      case 'bomba_on':
+      case 'bomba_off':
+      case 'luz_on':
+      case 'luz_off':
+      case 'relay_on':
+      case 'relay_off':
+      case 'digital_out_on':
+      case 'digital_out_off':
+      case 'cam_capture':
+        features.act = true;
+        break;
     }
   }
 }
 
-export function interpretProgram(program: ParsedProgram): DidacticProgramInterpretation {
-  const itemsByCategory: Record<DidacticCategoryKey, DidacticItem[]> = {
-    start: [],
-    observe: [],
-    decide: [],
-    act: [],
-    communicate: [],
-    repeat: [],
+function buildSummary(features: ProgramFeatures): string {
+  const actions: string[] = [];
+  if (features.configure) actions.push('configura');
+  if (features.read) actions.push('mide');
+  if (features.compare) actions.push('compara');
+  if (features.decide) actions.push('decide');
+  if (features.act) actions.push('actúa');
+  if (features.communicate) actions.push('comunica');
+  if (features.wait) actions.push('espera');
+  if (features.repeat) {
+    actions.push(features.read ? 'vuelve a medir' : 'repite');
+  }
+  return `Este programa: ${actions.join(' → ')}.`;
+}
+
+function sequenceOpening(
+  index: number,
+  context: 'setup' | 'loop' | 'then' | 'else'
+): string {
+  if (index > 0) return 'Después,';
+  switch (context) {
+    case 'setup':
+      return 'Primero,';
+    case 'loop':
+      return 'En cada repetición,';
+    case 'then':
+      return 'Dentro de la rama “si”, primero,';
+    case 'else':
+      return 'Dentro de la rama “si no”, primero,';
+  }
+}
+
+function describeSimpleStatement(statement: Exclude<StatementNode, { kind: 'if' }>): {
+  kind: NarrativeStepKind;
+  blockLabel: string;
+  explanation: string;
+} {
+  switch (statement.kind) {
+    case 'bomba_on':
+      return {
+        kind: 'action',
+        blockLabel: 'encender bomba',
+        explanation:
+          'es una instrucción de salida: activa la bomba de riego y produce una acción sobre el sistema físico.',
+      };
+    case 'bomba_off':
+      return {
+        kind: 'action',
+        blockLabel: 'apagar bomba',
+        explanation:
+          'es una instrucción de salida: desactiva la bomba de riego.',
+      };
+    case 'luz_on':
+      return {
+        kind: 'action',
+        blockLabel: 'encender iluminación',
+        explanation:
+          'es una instrucción de salida: activa la iluminación conectada.',
+      };
+    case 'luz_off':
+      return {
+        kind: 'action',
+        blockLabel: 'apagar iluminación',
+        explanation:
+          'es una instrucción de salida: desactiva la iluminación conectada.',
+      };
+    case 'relay_on':
+      return {
+        kind: 'action',
+        blockLabel: 'encender relay',
+        explanation:
+          'es una instrucción de salida: activa el canal del relay.',
+      };
+    case 'relay_off':
+      return {
+        kind: 'action',
+        blockLabel: 'apagar relay',
+        explanation:
+          'es una instrucción de salida: desactiva el canal del relay.',
+      };
+    case 'digital_out_on':
+      return {
+        kind: 'action',
+        blockLabel: 'activar salida digital',
+        explanation:
+          'es una instrucción de salida: coloca el pin configurado en estado HIGH.',
+      };
+    case 'digital_out_off':
+      return {
+        kind: 'action',
+        blockLabel: 'desactivar salida digital',
+        explanation:
+          'es una instrucción de salida: coloca el pin configurado en estado LOW.',
+      };
+    case 'wait':
+      return {
+        kind: 'wait',
+        blockLabel: `esperar ${statement.seconds} segundo(s)`,
+        explanation: `cumple una función de temporización: pausa la secuencia durante ${statement.seconds} segundo(s) antes de continuar.`,
+      };
+    case 'cam_config':
+      return {
+        kind: 'configuration',
+        blockLabel: 'configurar cámara',
+        explanation:
+          'prepara la configuración necesaria para que el módulo de cámara pueda utilizarse.',
+      };
+    case 'cam_resolution':
+      return {
+        kind: 'configuration',
+        blockLabel: `resolución ${statement.resolution}`,
+        explanation: `define ${statement.resolution} como tamaño de las imágenes que producirá la cámara.`,
+      };
+    case 'cam_quality':
+      return {
+        kind: 'configuration',
+        blockLabel: `calidad ${statement.quality}`,
+        explanation: `establece el nivel ${statement.quality} para la compresión JPEG de las imágenes.`,
+      };
+    case 'cam_init':
+      return {
+        kind: 'configuration',
+        blockLabel: 'iniciar cámara',
+        explanation:
+          'inicializa el sensor OV2640 para que las instrucciones posteriores puedan usarlo.',
+      };
+    case 'cam_wifi':
+      return {
+        kind: 'communication',
+        blockLabel: 'conectar a Wi-Fi',
+        explanation: `cumple una función de comunicación: intenta conectar la placa a la red “${statement.ssid}”.`,
+      };
+    case 'cam_stream_start':
+      return {
+        kind: 'communication',
+        blockLabel: 'iniciar transmisión',
+        explanation:
+          'cumple una función de comunicación: comienza a ofrecer el flujo de video de la cámara.',
+      };
+    case 'cam_stream_stop':
+      return {
+        kind: 'communication',
+        blockLabel: 'detener transmisión',
+        explanation:
+          'cumple una función de comunicación: detiene el flujo de video.',
+      };
+    case 'cam_capture':
+      return {
+        kind: 'action',
+        blockLabel: 'capturar imagen',
+        explanation:
+          'produce un dato visual: solicita una nueva imagen al sensor de cámara.',
+      };
+    case 'data_log':
+      return {
+        kind: 'communication',
+        blockLabel: 'registrar dato',
+        explanation: `obtiene la lectura de ${formatSensorDisplayName(statement.sensor)} y la envía por el puerto serie con la etiqueta “${statement.label}”.`,
+      };
+    case 'iot_publish':
+      return {
+        kind: 'communication',
+        blockLabel: 'enviar a IoT',
+        explanation: `obtiene la lectura de ${formatSensorDisplayName(statement.sensor)} y la publica en el canal “${statement.topic}”.`,
+      };
+  }
+}
+
+function buildNarrative(program: ParsedProgram): DidacticNarrativeStep[] {
+  const steps: DidacticNarrativeStep[] = [];
+  const device = deviceDisplayName(program.device);
+
+  steps.push({
+    id: 'start',
+    kind: 'start',
+    blockLabel: 'al iniciar',
+    explanation: `Al iniciar el programa, la placa ${device} comienza a ejecutar, en orden, las instrucciones que construiste.`,
+    depth: 0,
+    blockId: program.startBlockId,
+  });
+
+  const appendStatements = (
+    statements: StatementNode[],
+    depth: number,
+    context: 'setup' | 'loop' | 'then' | 'else',
+    path: string
+  ) => {
+    statements.forEach((statement, index) => {
+      const id = `${path}-${index}`;
+      const opening = sequenceOpening(index, context);
+
+      if (statement.kind !== 'if') {
+        const description = describeSimpleStatement(statement);
+        steps.push({
+          id,
+          kind: description.kind,
+          blockLabel: description.blockLabel,
+          explanation: `${opening} el bloque ${description.blockLabel} ${description.explanation}`,
+          depth,
+          blockId: statement.blockId,
+        });
+        return;
+      }
+
+      const condition = describeCondition(statement.condition);
+      const sensors = uniqueSensors(statement.condition);
+      sensors.forEach((sensor, sensorIndex) => {
+        const sensorName = formatSensorDisplayName(sensor.sensor);
+        steps.push({
+          id: `${id}-read-${sensor.sensor}`,
+          kind: 'read',
+          blockLabel: `leer ${sensorName}`,
+          explanation: `${
+            sensorIndex === 0 ? opening : 'También,'
+          } el bloque de lectura obtiene un dato de ${sensorName}. Ese valor queda disponible para la decisión que viene a continuación.`,
+          depth,
+          blockId: sensor.blockId ?? statement.blockId,
+        });
+      });
+
+      const hasElse = statement.elseBranch !== undefined;
+      steps.push({
+        id: `${id}-condition`,
+        kind: 'condition',
+        blockLabel: hasElse ? 'si... entonces / si no' : 'si... entonces',
+        explanation: `${
+          sensors.length > 0 ? 'Luego,' : opening
+        } este bloque cumple la función computacional de una decisión condicional. Comprueba si ${condition.comparisonText}. Si el resultado es verdadero, ejecuta la rama “si”${
+          hasElse
+            ? '; si es falso, ejecuta la rama “si no”'
+            : '; si es falso, salta los bloques de esa rama'
+        }.`,
+        depth,
+        blockId: statement.blockId,
+      });
+
+      steps.push({
+        id: `${id}-then`,
+        kind: 'branch',
+        blockLabel: 'rama si',
+        explanation:
+          statement.thenBranch.length > 0
+            ? 'Cuando la condición es verdadera, el programa entra en esta rama y ejecuta sus bloques en orden.'
+            : 'Cuando la condición es verdadera, esta rama no contiene instrucciones.',
+        depth: depth + 1,
+        branch: 'then',
+      });
+      appendStatements(statement.thenBranch, depth + 2, 'then', `${id}-then`);
+
+      if (hasElse) {
+        steps.push({
+          id: `${id}-else`,
+          kind: 'branch',
+          blockLabel: 'rama si no',
+          explanation:
+            statement.elseBranch!.length > 0
+              ? 'Cuando la condición es falsa, el programa entra en esta otra rama y ejecuta sus bloques en orden.'
+              : 'Cuando la condición es falsa, esta rama no contiene instrucciones.',
+          depth: depth + 1,
+          branch: 'else',
+        });
+        appendStatements(
+          statement.elseBranch!,
+          depth + 2,
+          'else',
+          `${id}-else`
+        );
+      }
+    });
   };
 
+  appendStatements(program.setupStatements, 1, 'setup', 'setup');
+
+  if (program.loopStatements.length > 0) {
+    steps.push({
+      id: 'repeat',
+      kind: 'repeat',
+      blockLabel: 'repetir siempre',
+      explanation: `Después de la preparación inicial, el bloque repetir siempre crea un ciclo: hace que todas las instrucciones que contiene vuelvan a ejecutarse continuamente mientras la placa ${device} está funcionando.`,
+      depth: 0,
+      blockId: program.loopBlockId,
+    });
+    appendStatements(program.loopStatements, 1, 'loop', 'loop');
+    steps.push({
+      id: 'repeat-again',
+      kind: 'continue',
+      blockLabel: 'volver a repetir',
+      explanation:
+        'Cuando termina la última instrucción del ciclo, el programa vuelve al comienzo de repetir siempre y ejecuta nuevamente la misma secuencia con datos actualizados.',
+      depth: 0,
+      blockId: program.loopBlockId,
+    });
+  }
+
+  return steps;
+}
+
+export function interpretProgram(
+  program: ParsedProgram
+): DidacticProgramInterpretation {
   const totalStatements =
-    program.setupStatements.length + program.loopStatements.length;
+    countStatements(program.setupStatements) +
+    countStatements(program.loopStatements);
 
   if (totalStatements === 0) {
     return {
       device: program.device,
       isEmpty: true,
       totalStatements: 0,
-      summarySentence:
-        'El proyecto no tiene instrucciones cargadas todavía. Construí tu programa arrastrando bloques.',
-      itemsByCategory,
-      activeCategories: [],
+      summarySentence: EMPTY_MESSAGE,
+      narrativeSteps: [],
     };
   }
 
-  // 1. AL COMENZAR (Setup / Inicialización)
-  program.setupStatements.forEach((st, idx) => {
-    switch (st.kind) {
-      case 'cam_config':
-        itemsByCategory.start.push({
-          id: `start-cam-config-${idx}`,
-          category: 'start',
-          title: 'Configurar pines del módulo de cámara OV2640',
-          explanation:
-            'Prepara los pines de datos, reloj e inicialización del bus para el sensor de cámara.',
-          blockId: st.blockId,
-          tag: 'Cámara',
-        });
-        break;
-      case 'cam_resolution':
-        itemsByCategory.start.push({
-          id: `start-cam-res-${idx}`,
-          category: 'start',
-          title: `Definir resolución en ${st.resolution}`,
-          explanation: `Establece la resolución óptica del video/foto en ${st.resolution} para equilibrar nitidez y fluidez.`,
-          blockId: st.blockId,
-          tag: 'Cámara',
-        });
-        break;
-      case 'cam_quality':
-        itemsByCategory.start.push({
-          id: `start-cam-qual-${idx}`,
-          category: 'start',
-          title: `Fijar calidad JPEG en nivel ${st.quality}`,
-          explanation: `Ajusta el nivel de compresión de la imagen (valores bajos ofrecen mayor definición fotográfica).`,
-          blockId: st.blockId,
-          tag: 'Cámara',
-        });
-        break;
-      case 'cam_init':
-        itemsByCategory.start.push({
-          id: `start-cam-init-${idx}`,
-          category: 'start',
-          title: 'Inicializar sensor de cámara OV2640',
-          explanation:
-            'Energiza el sensor óptico y verifica que responda antes de iniciar la captura o streaming.',
-          blockId: st.blockId,
-          tag: 'Cámara',
-        });
-        break;
-      case 'cam_wifi':
-        itemsByCategory.start.push({
-          id: `start-cam-wifi-${idx}`,
-          category: 'start',
-          title: `Conectar a Wi-Fi ("${st.ssid}")`,
-          explanation: `Conecta la placa a la red escolar local ("${st.ssid}") para permitir la transmisión de datos o video en vivo.`,
-          blockId: st.blockId,
-          tag: 'Wi-Fi',
-        });
-        break;
-      default:
-        // Any other setup statements
-        break;
-    }
-  });
-
-  // 2. OBSERVAR / MEDIR (Sensores)
-  const observedSensors = new Set<SensorKey>();
-  collectSensorsFromStatements(program.setupStatements, observedSensors);
-  collectSensorsFromStatements(program.loopStatements, observedSensors);
-
-  observedSensors.forEach((sensor) => {
-    switch (sensor) {
-      case 'humedadSuelo':
-        itemsByCategory.observe.push({
-          id: `obs-soil`,
-          category: 'observe',
-          title: 'Sensor de humedad del suelo',
-          explanation:
-            'La placa mide el nivel de agua retenida en el sustrato para saber cuándo las raíces necesitan hidratación.',
-          tag: 'Humedad suelo',
-        });
-        break;
-      case 'temperatura':
-        itemsByCategory.observe.push({
-          id: `obs-temp`,
-          category: 'observe',
-          title: 'Sensor de temperatura (DHT11)',
-          explanation:
-            'La placa mide los grados de calor ambiente (°C) para prevenir estrés térmico en el cultivo.',
-          tag: 'Temperatura',
-        });
-        break;
-      case 'humedadAmbiente':
-        itemsByCategory.observe.push({
-          id: `obs-hum`,
-          category: 'observe',
-          title: 'Sensor de humedad del aire (DHT11)',
-          explanation:
-            'La placa mide el porcentaje de humedad ambiental (%) para vigilar la transpiración de las plantas.',
-          tag: 'Humedad aire',
-        });
-        break;
-      case 'nivelLuz':
-        itemsByCategory.observe.push({
-          id: `obs-light`,
-          category: 'observe',
-          title: 'Fotorresistencia LDR (luz)',
-          explanation:
-            'La placa mide la intensidad de luz ambiente para saber si la huerta requiere iluminación artificial de apoyo.',
-          tag: 'Luz ambiental',
-        });
-        break;
-      case 'entradaAnalogicaA0':
-        itemsByCategory.observe.push({
-          id: `obs-a0`,
-          category: 'observe',
-          title: 'Canal analógico A0 (0 a 1023)',
-          explanation:
-            'La placa mide la tensión del sensor conectado al único canal analógico de la placa NodeMCU.',
-          tag: 'Analógico A0',
-        });
-        break;
-      case 'entradaDigital':
-        itemsByCategory.observe.push({
-          id: `obs-dig-in`,
-          category: 'observe',
-          title: 'Entrada digital (HIGH / LOW)',
-          explanation:
-            'La placa lee el estado binario del pin digital para detectar señales de pulsadores o sensores todo/nada.',
-          tag: 'Entrada digital',
-        });
-        break;
-    }
-  });
-
-  // 3. DECIDIR (Condicionales / Lógica) & 4. ACTUAR & 5. COMUNICAR
-  let decideIndex = 0;
-  let waitSecondsCount = 0;
-
-  function traverseStatements(statements: StatementNode[], depth = 0) {
-    for (const st of statements) {
-      if (st.kind === 'if') {
-        decideIndex++;
-        const condDesc = describeCondition(st.condition);
-        const thenSummary = formatActionsList(st.thenBranch);
-        const hasElse = Boolean(st.elseBranch && st.elseBranch.length > 0);
-        const elseSummary = hasElse
-          ? formatActionsList(st.elseBranch!)
-          : undefined;
-
-        // Construir la explicación pedagógica natural:
-        // "La placa compara la humedad del suelo con el valor 30. Si detecta que el suelo necesita agua, activa la bomba."
-        let sentence = '';
-        if (st.condition && st.condition.kind === 'comparison') {
-          const sensorKey: SensorKey | undefined =
-            st.condition.leftSensor ??
-            (st.condition.leftExpr &&
-            st.condition.leftExpr.kind === 'sensor_read'
-              ? st.condition.leftExpr.sensor
-              : undefined);
-
-          const subject = sensorKey
-            ? formatSensorDisplayName(sensorKey)
-            : 'el valor medido';
-
-          sentence = `La placa compara ${subject} con el valor ${st.condition.rightNumber}. Si ${condDesc.pedagogicalMeaning}, ${thenSummary}.`;
-          if (elseSummary) {
-            sentence += ` De lo contrario, ${elseSummary}.`;
-          }
-        } else {
-          sentence = `La placa evalúa ${condDesc.comparisonText}. Si se cumple (${condDesc.pedagogicalMeaning}), ${thenSummary}.`;
-          if (elseSummary) {
-            sentence += ` En caso contrario, ${elseSummary}.`;
-          }
-        }
-
-        itemsByCategory.decide.push({
-          id: `decide-${decideIndex}`,
-          category: 'decide',
-          title: `Evaluar: ${condDesc.comparisonText}`,
-          explanation: sentence,
-          blockId: st.blockId,
-          tag: depth > 0 ? 'Decisión anidada' : 'Decisión',
-        });
-
-        // Recorrer ramas para actuaciones y comunicaciones
-        traverseStatements(st.thenBranch, depth + 1);
-        if (st.elseBranch) {
-          traverseStatements(st.elseBranch, depth + 1);
-        }
-      } else if (st.kind === 'bomba_on') {
-        itemsByCategory.act.push({
-          id: `act-bomba-on-${Math.random().toString(36).slice(2, 6)}`,
-          category: 'act',
-          title: 'Activar bomba de riego',
-          explanation:
-            'Enciende la bomba eléctrica para suministrar agua a la tierra de la huerta.',
-          blockId: st.blockId,
-          tag: 'Bomba',
-        });
-      } else if (st.kind === 'bomba_off') {
-        itemsByCategory.act.push({
-          id: `act-bomba-off-${Math.random().toString(36).slice(2, 6)}`,
-          category: 'act',
-          title: 'Apagar bomba de riego',
-          explanation:
-            'Detiene la bomba de agua para evitar encharcamientos o sobrehidratación.',
-          blockId: st.blockId,
-          tag: 'Bomba',
-        });
-      } else if (st.kind === 'luz_on') {
-        itemsByCategory.act.push({
-          id: `act-luz-on-${Math.random().toString(36).slice(2, 6)}`,
-          category: 'act',
-          title: 'Encender iluminación artificial',
-          explanation:
-            'Activa la luminaria para aportar luz complementaria y estimular el desarrollo vegetal.',
-          blockId: st.blockId,
-          tag: 'Iluminación',
-        });
-      } else if (st.kind === 'luz_off') {
-        itemsByCategory.act.push({
-          id: `act-luz-off-${Math.random().toString(36).slice(2, 6)}`,
-          category: 'act',
-          title: 'Apagar iluminación',
-          explanation:
-            'Apaga la luminaria para permitir el descanso fisiológico de las plantas.',
-          blockId: st.blockId,
-          tag: 'Iluminación',
-        });
-      } else if (st.kind === 'relay_on') {
-        itemsByCategory.act.push({
-          id: `act-relay-on-${Math.random().toString(36).slice(2, 6)}`,
-          category: 'act',
-          title: 'Activar relay',
-          explanation:
-            'Conmuta el contacto del relay para encender la carga de potencia conectada.',
-          blockId: st.blockId,
-          tag: 'Relay',
-        });
-      } else if (st.kind === 'relay_off') {
-        itemsByCategory.act.push({
-          id: `act-relay-off-${Math.random().toString(36).slice(2, 6)}`,
-          category: 'act',
-          title: 'Desactivar relay',
-          explanation:
-            'Abre el circuito del relay para desenergizar el artefacto conectado.',
-          blockId: st.blockId,
-          tag: 'Relay',
-        });
-      } else if (st.kind === 'digital_out_on') {
-        itemsByCategory.act.push({
-          id: `act-dig-on-${Math.random().toString(36).slice(2, 6)}`,
-          category: 'act',
-          title: 'Activar salida digital (HIGH)',
-          explanation:
-            'Establece el pin digital en nivel alto (3.3V) para enviar una señal de control.',
-          blockId: st.blockId,
-          tag: 'Salida digital',
-        });
-      } else if (st.kind === 'digital_out_off') {
-        itemsByCategory.act.push({
-          id: `act-dig-off-${Math.random().toString(36).slice(2, 6)}`,
-          category: 'act',
-          title: 'Desactivar salida digital (LOW)',
-          explanation:
-            'Pone el pin digital en 0V para desactivar la señal de control externa.',
-          blockId: st.blockId,
-          tag: 'Salida digital',
-        });
-      } else if (st.kind === 'cam_capture') {
-        itemsByCategory.act.push({
-          id: `act-cam-cap-${Math.random().toString(36).slice(2, 6)}`,
-          category: 'act',
-          title: 'Tomar fotografía con la cámara',
-          explanation:
-            'Dispara el sensor OV2640 y genera un fotograma de la huerta para observación botánica.',
-          blockId: st.blockId,
-          tag: 'Cámara',
-        });
-      } else if (st.kind === 'cam_stream_start') {
-        itemsByCategory.act.push({
-          id: `act-cam-stream-${Math.random().toString(36).slice(2, 6)}`,
-          category: 'act',
-          title: 'Iniciar transmisión de video en vivo',
-          explanation:
-            'Abre el flujo MJPEG en la red para ver el estado de la huerta en tiempo real.',
-          blockId: st.blockId,
-          tag: 'Streaming',
-        });
-      } else if (st.kind === 'cam_stream_stop') {
-        itemsByCategory.act.push({
-          id: `act-cam-stop-${Math.random().toString(36).slice(2, 6)}`,
-          category: 'act',
-          title: 'Detener transmisión de video',
-          explanation:
-            'Pausa el video en vivo para reducir el consumo energético y el tráfico de red.',
-          blockId: st.blockId,
-          tag: 'Streaming',
-        });
-      } else if (st.kind === 'data_log') {
-        itemsByCategory.communicate.push({
-          id: `comm-log-${Math.random().toString(36).slice(2, 6)}`,
-          category: 'communicate',
-          title: `Registrar por serie: "${st.label}"`,
-          explanation: `Envía por el cable USB el dato "${st.label}" correspondiente a ${formatSensorDisplayName(st.sensor)} para su lectura en la computadora.`,
-          blockId: st.blockId,
-          tag: 'Monitor Serie',
-        });
-      } else if (st.kind === 'iot_publish') {
-        itemsByCategory.communicate.push({
-          id: `comm-iot-${Math.random().toString(36).slice(2, 6)}`,
-          category: 'communicate',
-          title: `Publicar en canal IoT: "${st.topic}"`,
-          explanation: `Transmite la lectura de ${formatSensorDisplayName(st.sensor)} vía Wi-Fi hacia "${st.topic}" para su visualización en Smart Garden Lab.`,
-          blockId: st.blockId,
-          tag: 'IoT Wi-Fi',
-        });
-      } else if (st.kind === 'cam_wifi') {
-        itemsByCategory.communicate.push({
-          id: `comm-wifi-${Math.random().toString(36).slice(2, 6)}`,
-          category: 'communicate',
-          title: `Conectar a Wi-Fi: "${st.ssid}"`,
-          explanation: `Establece la conexión de red inalámbrica con la red escolar "${st.ssid}".`,
-          blockId: st.blockId,
-          tag: 'Wi-Fi',
-        });
-      } else if (st.kind === 'wait') {
-        waitSecondsCount += st.seconds;
-      }
-    }
-  }
-
-  traverseStatements(program.loopStatements);
-
-  // 6. REPETIR (Ciclo continuo)
-  if (program.loopStatements.length > 0) {
-    if (waitSecondsCount > 0) {
-      itemsByCategory.repeat.push({
-        id: 'rep-loop-wait',
-        category: 'repeat',
-        title: 'Ciclo continuo con temporización',
-        explanation: `La placa repite estas instrucciones de manera indefinida. Cada ciclo incluye una pausa de ${waitSecondsCount} segundo(s) para dar tiempo a que los actuadores y sensores se estabilicen.`,
-        tag: 'Bucle principal',
-      });
-    } else {
-      itemsByCategory.repeat.push({
-        id: 'rep-loop-continuous',
-        category: 'repeat',
-        title: 'Ciclo continuo rápido',
-        explanation:
-          'La placa repite la lectura y toma de decisiones continuamente a la máxima velocidad del microcontrolador.',
-        tag: 'Bucle principal',
-      });
-    }
-  }
-
-  const activeCategories: DidacticCategoryKey[] = (
-    ['start', 'observe', 'decide', 'act', 'communicate', 'repeat'] as DidacticCategoryKey[]
-  ).filter((k) => itemsByCategory[k].length > 0);
-
-  // Resumen pedagógico conciso de cabecera
-  const categorySummaryWords = activeCategories
-    .map((k) => DIDACTIC_CATEGORIES[k].label)
-    .join(' → ');
-
-  const summarySentence = `El programa ejecuta el ciclo pedagógico: ${categorySummaryWords}.`;
+  const features = newFeatures();
+  collectFeatures(program.setupStatements, features);
+  collectFeatures(program.loopStatements, features);
+  features.repeat = program.loopStatements.length > 0;
 
   return {
     device: program.device,
     isEmpty: false,
     totalStatements,
-    summarySentence,
-    itemsByCategory,
-    activeCategories,
+    summarySentence: buildSummary(features),
+    narrativeSteps: buildNarrative(program),
   };
 }

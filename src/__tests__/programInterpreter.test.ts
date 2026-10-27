@@ -1,42 +1,143 @@
 import { describe, expect, it } from 'vitest';
 import {
-  interpretProgram,
   describeCondition,
-  formatSensorDisplayName,
   formatActionsList,
+  interpretProgram,
 } from '../interpreter/programInterpreter';
 import { ParsedProgram } from '../types/studio';
 
-describe('Intérprete didáctico del programa (V0.5B)', () => {
-  it('maneja un programa vacío correctamente', () => {
-    const emptyProgram: ParsedProgram = {
+describe('Intérprete didáctico narrativo del programa', () => {
+  it('muestra el mensaje pedagógico requerido cuando el programa está vacío', () => {
+    const result = interpretProgram({
       device: 'garden-node',
       setupStatements: [],
       loopStatements: [],
-    };
+    });
 
-    const result = interpretProgram(emptyProgram);
     expect(result.isEmpty).toBe(true);
-    expect(result.totalStatements).toBe(0);
-    expect(result.activeCategories).toHaveLength(0);
+    expect(result.narrativeSteps).toEqual([]);
+    expect(result.summarySentence).toBe(
+      'Tu programa todavía no tiene instrucciones. Agregá bloques para comenzar a construir y después vas a poder leer aquí, paso a paso, qué hace tu algoritmo.'
+    );
   });
 
-  it('interpreta el ejemplo clave: si humedad del suelo < 30 → encender bomba', () => {
+  it('narra en orden lectura, decisión, ramas y acciones dentro del ciclo', () => {
+    const program: ParsedProgram = {
+      device: 'garden-node',
+      startBlockId: 'start',
+      loopBlockId: 'loop',
+      setupStatements: [],
+      loopStatements: [
+        {
+          kind: 'if',
+          blockId: 'if-soil',
+          condition: {
+            kind: 'comparison',
+            blockId: 'sensor-soil',
+            leftSensor: 'humedadSuelo',
+            operator: '<',
+            rightNumber: 30,
+          },
+          thenBranch: [{ kind: 'bomba_on', blockId: 'pump-on' }],
+          elseBranch: [{ kind: 'bomba_off', blockId: 'pump-off' }],
+        },
+      ],
+    };
+
+    const result = interpretProgram(program);
+    const labels = result.narrativeSteps.map((step) => step.blockLabel);
+
+    expect(labels).toEqual([
+      'al iniciar',
+      'repetir siempre',
+      'leer humedad del suelo',
+      'si... entonces / si no',
+      'rama si',
+      'encender bomba',
+      'rama si no',
+      'apagar bomba',
+      'volver a repetir',
+    ]);
+
+    const repeatStep = result.narrativeSteps.find(
+      (step) => step.kind === 'repeat'
+    )!;
+    expect(repeatStep.explanation).toContain('crea un ciclo');
+    expect(repeatStep.explanation).not.toContain('condición');
+    expect(repeatStep.blockId).toBe('loop');
+
+    const readStep = result.narrativeSteps.find(
+      (step) => step.kind === 'read'
+    )!;
+    expect(readStep.explanation).toContain('obtiene un dato de humedad del suelo');
+
+    const conditionStep = result.narrativeSteps.find(
+      (step) => step.kind === 'condition'
+    )!;
+    expect(conditionStep.explanation).toContain('decisión condicional');
+    expect(conditionStep.explanation).toContain(
+      'humedad del suelo es menor que 30'
+    );
+    expect(conditionStep.explanation).toContain('rama “si no”');
+
+    expect(result.summarySentence).toBe(
+      'Este programa: mide → compara → decide → actúa → vuelve a medir.'
+    );
+  });
+
+  it('conserva el orden de una secuencia y explica la temporización', () => {
+    const result = interpretProgram({
+      device: 'garden-node',
+      setupStatements: [{ kind: 'bomba_off', blockId: 'safe-off' }],
+      loopStatements: [
+        { kind: 'bomba_on', blockId: 'pump-on' },
+        { kind: 'wait', seconds: 2, blockId: 'wait' },
+        { kind: 'bomba_off', blockId: 'pump-off' },
+      ],
+    });
+
+    expect(result.narrativeSteps.map((step) => step.blockLabel)).toEqual([
+      'al iniciar',
+      'apagar bomba',
+      'repetir siempre',
+      'encender bomba',
+      'esperar 2 segundo(s)',
+      'apagar bomba',
+      'volver a repetir',
+    ]);
+    expect(
+      result.narrativeSteps.find((step) => step.kind === 'wait')?.explanation
+    ).toContain('pausa la secuencia durante 2 segundo(s)');
+    expect(result.summarySentence).toBe(
+      'Este programa: actúa → espera → repite.'
+    );
+  });
+
+  it('representa decisiones anidadas con mayor profundidad que su rama contenedora', () => {
     const program: ParsedProgram = {
       device: 'garden-node',
       setupStatements: [],
       loopStatements: [
         {
           kind: 'if',
+          blockId: 'outer-if',
           condition: {
             kind: 'comparison',
-            leftSensor: 'humedadSuelo',
-            operator: '<',
-            rightNumber: 30,
+            leftSensor: 'temperatura',
+            operator: '>',
+            rightNumber: 28,
           },
           thenBranch: [
             {
-              kind: 'bomba_on',
+              kind: 'if',
+              blockId: 'inner-if',
+              condition: {
+                kind: 'comparison',
+                leftSensor: 'humedadSuelo',
+                operator: '<',
+                rightNumber: 30,
+              },
+              thenBranch: [{ kind: 'bomba_on', blockId: 'pump' }],
             },
           ],
         },
@@ -44,71 +145,23 @@ describe('Intérprete didáctico del programa (V0.5B)', () => {
     };
 
     const result = interpretProgram(program);
-    expect(result.isEmpty).toBe(false);
-    expect(result.activeCategories).toContain('observe');
-    expect(result.activeCategories).toContain('decide');
-    expect(result.activeCategories).toContain('act');
-    expect(result.activeCategories).toContain('repeat');
+    const outer = result.narrativeSteps.find(
+      (step) => step.blockId === 'outer-if' && step.kind === 'condition'
+    )!;
+    const inner = result.narrativeSteps.find(
+      (step) => step.blockId === 'inner-if' && step.kind === 'condition'
+    )!;
+    const action = result.narrativeSteps.find(
+      (step) => step.blockId === 'pump'
+    )!;
 
-    // Categoría Decidir
-    const decideItems = result.itemsByCategory.decide;
-    expect(decideItems).toHaveLength(1);
-    expect(decideItems[0].explanation).toBe(
-      'La placa compara humedad del suelo con el valor 30. Si detecta que el suelo necesita agua, activa la bomba de riego.'
-    );
-
-    // Categoría Observar / medir
-    const observeItems = result.itemsByCategory.observe;
-    expect(observeItems).toHaveLength(1);
-    expect(observeItems[0].title).toBe('Sensor de humedad del suelo');
-
-    // Categoría Actuar
-    const actItems = result.itemsByCategory.act;
-    expect(actItems).toHaveLength(1);
-    expect(actItems[0].title).toBe('Activar bomba de riego');
-
-    // Categoría Repetir
-    const repeatItems = result.itemsByCategory.repeat;
-    expect(repeatItems).toHaveLength(1);
+    expect(inner.depth).toBeGreaterThan(outer.depth);
+    expect(action.depth).toBeGreaterThan(inner.depth);
+    expect(inner.explanation).toContain('humedad del suelo es menor que 30');
   });
 
-  it('interpreta condiciones con rama si-no (elseBranch)', () => {
-    const program: ParsedProgram = {
-      device: 'garden-node',
-      setupStatements: [],
-      loopStatements: [
-        {
-          kind: 'if',
-          condition: {
-            kind: 'comparison',
-            leftSensor: 'humedadSuelo',
-            operator: '<',
-            rightNumber: 30,
-          },
-          thenBranch: [{ kind: 'bomba_on' }],
-          elseBranch: [{ kind: 'bomba_off' }],
-        },
-        {
-          kind: 'wait',
-          seconds: 2,
-        },
-      ],
-    };
-
-    const result = interpretProgram(program);
-    const decideItem = result.itemsByCategory.decide[0];
-    expect(decideItem.explanation).toContain(
-      'La placa compara humedad del suelo con el valor 30. Si detecta que el suelo necesita agua, activa la bomba de riego. De lo contrario, apaga la bomba de riego.'
-    );
-
-    // Categoría Repetir con temporización
-    expect(result.itemsByCategory.repeat[0].explanation).toContain(
-      'pausa de 2 segundo(s)'
-    );
-  });
-
-  it('clasifica setup en Al comenzar y telemetría en Comunicar', () => {
-    const camProgram: ParsedProgram = {
+  it('explica configuración y comunicación de Camera Node sin inventar pasos', () => {
+    const result = interpretProgram({
       device: 'camera-node',
       setupStatements: [
         { kind: 'cam_config' },
@@ -118,120 +171,55 @@ describe('Intérprete didáctico del programa (V0.5B)', () => {
       ],
       loopStatements: [
         { kind: 'cam_capture' },
-        { kind: 'data_log', label: 'temp', sensor: 'temperatura' },
-        { kind: 'iot_publish', topic: 'escuela/huerta/temp', sensor: 'temperatura' },
+        { kind: 'iot_publish', topic: 'escuela/camara', sensor: 'temperatura' },
       ],
-    };
+    });
 
-    const result = interpretProgram(camProgram);
-    expect(result.activeCategories).toContain('start');
-    expect(result.activeCategories).toContain('act');
-    expect(result.activeCategories).toContain('communicate');
-
-    // Al comenzar
-    expect(result.itemsByCategory.start).toHaveLength(4);
-    expect(result.itemsByCategory.start[0].title).toContain('Configurar pines');
-    expect(result.itemsByCategory.start[2].explanation).toContain('Escuela_BiTech');
-
-    // Comunicar
-    expect(result.itemsByCategory.communicate).toHaveLength(2);
-    expect(result.itemsByCategory.communicate[0].title).toContain('Registrar por serie');
-    expect(result.itemsByCategory.communicate[1].title).toContain('Publicar en canal IoT');
-  });
-
-  it('soporta sensores de NodeMCU ESP8266 (A0, relay, salida digital)', () => {
-    const nodemcuProgram: ParsedProgram = {
-      device: 'nodemcu-esp8266',
-      setupStatements: [],
-      loopStatements: [
-        {
-          kind: 'if',
-          condition: {
-            kind: 'comparison',
-            leftSensor: 'entradaAnalogicaA0',
-            operator: '>',
-            rightNumber: 600,
-          },
-          thenBranch: [{ kind: 'relay_on' }, { kind: 'digital_out_on' }],
-          elseBranch: [{ kind: 'relay_off' }],
-        },
-      ],
-    };
-
-    const result = interpretProgram(nodemcuProgram);
-    expect(result.itemsByCategory.observe[0].title).toContain('Canal analógico A0');
-    expect(result.itemsByCategory.decide[0].explanation).toContain(
-      'activa el relay y activa la salida digital. De lo contrario, desactiva el relay.'
+    const narrative = result.narrativeSteps
+      .map((step) => step.explanation)
+      .join(' ');
+    expect(narrative).toContain('placa Camera Node');
+    expect(narrative).toContain('red “Escuela_BiTech”');
+    expect(narrative).toContain('canal “escuela/camara”');
+    expect(result.summarySentence).toBe(
+      'Este programa: configura → mide → actúa → comunica → vuelve a medir.'
     );
   });
 
-  it('interpreta condiciones lógicas compuestas (AND / OR) y expresiones matemáticas', () => {
-    const complexProgram: ParsedProgram = {
-      device: 'garden-node',
-      setupStatements: [],
-      loopStatements: [
-        {
-          kind: 'if',
-          condition: {
-            kind: 'logical',
-            operator: 'AND',
-            left: {
-              kind: 'comparison',
-              leftSensor: 'temperatura',
-              operator: '>',
-              rightNumber: 28,
-            },
-            right: {
-              kind: 'comparison',
-              leftExpr: {
-                kind: 'math_op',
-                operator: '-',
-                left: { kind: 'sensor_read', sensor: 'humedadSuelo' },
-                rightNumber: 10,
-              },
-              operator: '<',
-              rightNumber: 20,
-            },
-          },
-          thenBranch: [
-            { kind: 'bomba_on' },
-            { kind: 'luz_on' },
-          ],
-        },
-      ],
-    };
+  it('describe condiciones lógicas como decisiones y no como repeticiones', () => {
+    const condition = describeCondition({
+      kind: 'logical',
+      operator: 'AND',
+      left: {
+        kind: 'comparison',
+        leftSensor: 'temperatura',
+        operator: '>',
+        rightNumber: 28,
+      },
+      right: {
+        kind: 'comparison',
+        leftSensor: 'humedadAmbiente',
+        operator: '<',
+        rightNumber: 40,
+      },
+    });
 
-    const result = interpretProgram(complexProgram);
-    expect(result.activeCategories).toContain('observe');
-    expect(result.activeCategories).toContain('decide');
-    expect(result.activeCategories).toContain('act');
-
-    const decideItem = result.itemsByCategory.decide[0];
-    expect(decideItem.explanation).toContain('ambas condiciones deben cumplirse a la vez');
-    expect(decideItem.explanation).toContain('activa la bomba de riego y enciende la iluminación');
+    expect(condition.comparisonText).toContain('y además');
+    expect(condition.pedagogicalMeaning).toContain(
+      'las dos comparaciones deben ser verdaderas'
+    );
+    expect(condition.pedagogicalMeaning).not.toContain('repite');
   });
 
-  it('incluye el resumen del ciclo pedagógico con las categorías activas', () => {
-    const program: ParsedProgram = {
-      device: 'garden-node',
-      setupStatements: [],
-      loopStatements: [
-        {
-          kind: 'if',
-          condition: {
-            kind: 'comparison',
-            leftSensor: 'humedadSuelo',
-            operator: '<',
-            rightNumber: 30,
-          },
-          thenBranch: [{ kind: 'bomba_on' }],
-        },
-      ],
-    };
-
-    const result = interpretProgram(program);
-    expect(result.summarySentence).toBe(
-      'El programa ejecuta el ciclo pedagógico: Observar / medir → Decidir → Actuar → Repetir.'
+  it('mantiene utilidades determinísticas para resumir acciones reales', () => {
+    expect(
+      formatActionsList([
+        { kind: 'relay_on' },
+        { kind: 'digital_out_on' },
+        { kind: 'wait', seconds: 1 },
+      ])
+    ).toBe(
+      'activa el relay, activa la salida digital y espera 1 segundo(s)'
     );
   });
 });

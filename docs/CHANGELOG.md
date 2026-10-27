@@ -4,6 +4,17 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 
 ---
 
+## [0.5.4 (V0.5D)] — 2026-10-26
+### Intérprete didáctico narrativo y secuencial
+- La vista principal de **Interpretar programa** recorre ahora el algoritmo en su orden real, desde `al iniciar` hasta el cierre de `repetir siempre`, en lugar de reorganizar las instrucciones por categorías independientes.
+- Cada paso vincula el nombre del bloque con su función computacional y con el dato o la acción que produce: preparación, lectura, repetición, decisión condicional, ramas, acción, espera o comunicación.
+- Las decisiones anidadas y las ramas `si` / `si no` conservan su jerarquía mediante sangrías y explicaciones explícitas del flujo.
+- La síntesis secundaria se construye sólo con operaciones presentes en el programa (por ejemplo, `mide → compara → decide → actúa → vuelve a medir`).
+- El intérprete continúa siendo determinístico y conserva el resaltado sincronizado con los bloques, las pestañas **Interpretar programa** / **Ver código Arduino** y el layout `2 / 7 / 3`.
+- Se incorpora el mensaje pedagógico específico para workspaces vacíos y pruebas de orden, semántica, anidamiento, temporización, comunicación y síntesis.
+
+---
+
 ## [0.5.3 (V0.5C)] — 2026-10-26
 ### Mejora de UI/UX en modo Programar: construcción visual del algoritmo y semántica cromática
 - **Drag & Drop real desde la paleta (`src/blocks/paletteDrag.ts`, `src/components/BlockCategoriesPanel.tsx`, `src/components/BlocklyWorkspacePanel.tsx`):**

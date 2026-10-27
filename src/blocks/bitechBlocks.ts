@@ -918,12 +918,13 @@ function parseNumericExpression(
   if (!block) return undefined;
   const sensor = parseSensorFromBlock(block);
   if (sensor) {
-    return { kind: 'sensor_read', sensor };
+    return { kind: 'sensor_read', sensor, blockId: block.id };
   }
   if (block.type === 'bitech_number') {
     return {
       kind: 'number_literal',
       value: Number(block.getFieldValue('NUM') ?? 0),
+      blockId: block.id,
     };
   }
   if (block.type === 'bitech_math_op') {
@@ -939,6 +940,7 @@ function parseNumericExpression(
       operator,
       left,
       rightNumber,
+      blockId: block.id,
     };
   }
   return undefined;
@@ -1140,6 +1142,8 @@ export function parseWorkspaceToProgram(
   const setupStatements: StatementNode[] = [];
   const loopStatements: StatementNode[] = [];
   const usedSensorsSet = new Set<SensorKey>();
+  let startBlockId: string | undefined;
+  let loopBlockId: string | undefined;
 
   // Recolectar también bloques de sensores sueltos o encastrados en el lienzo
   const allBlocks = workspace.getAllBlocks(false);
@@ -1166,12 +1170,14 @@ export function parseWorkspaceToProgram(
 
     while (cursor) {
       if (cursor.type === 'bitech_on_start') {
+        startBlockId ??= cursor.id;
         inSetupChain = true;
         cursor = cursor.getNextBlock();
         continue;
       }
 
       if (cursor.type === 'bitech_forever') {
+        loopBlockId ??= cursor.id;
         inSetupChain = false;
         const insideLoop = parseStatementChain(
           cursor.getInputTargetBlock('LOOP_DO')
@@ -1195,6 +1201,8 @@ export function parseWorkspaceToProgram(
     device,
     setupStatements,
     loopStatements,
+    startBlockId,
+    loopBlockId,
     usedSensors: Array.from(usedSensorsSet),
   };
 }

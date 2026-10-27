@@ -1,20 +1,21 @@
 import React from 'react';
 import {
-  Activity,
-  AlertCircle,
   BookOpen,
+  Clock3,
+  CornerDownRight,
   Eye,
   GitBranch,
   Play,
   Radio,
   Repeat,
+  RotateCcw,
+  Settings,
   Zap,
 } from 'lucide-react';
 import {
-  DIDACTIC_CATEGORIES,
-  DidacticCategoryKey,
-  DidacticItem,
+  DidacticNarrativeStep,
   DidacticProgramInterpretation,
+  NarrativeStepKind,
 } from '../interpreter/programInterpreter';
 
 interface DidacticInterpreterViewProps {
@@ -22,20 +23,95 @@ interface DidacticInterpreterViewProps {
   selectedBlockId?: string;
 }
 
-function getCategoryIcon(key: DidacticCategoryKey) {
-  switch (key) {
+const STEP_STYLES: Record<
+  NarrativeStepKind,
+  { label: string; text: string; bg: string; border: string }
+> = {
+  start: {
+    label: 'Inicio',
+    text: 'text-emerald-800',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+  },
+  configuration: {
+    label: 'Preparación',
+    text: 'text-sky-800',
+    bg: 'bg-sky-50',
+    border: 'border-sky-200',
+  },
+  repeat: {
+    label: 'Repetición',
+    text: 'text-purple-800',
+    bg: 'bg-purple-50',
+    border: 'border-purple-200',
+  },
+  read: {
+    label: 'Lectura',
+    text: 'text-cyan-800',
+    bg: 'bg-cyan-50',
+    border: 'border-cyan-200',
+  },
+  condition: {
+    label: 'Decisión',
+    text: 'text-amber-800',
+    bg: 'bg-amber-50',
+    border: 'border-amber-200',
+  },
+  branch: {
+    label: 'Rama',
+    text: 'text-slate-700',
+    bg: 'bg-slate-50',
+    border: 'border-slate-200',
+  },
+  action: {
+    label: 'Acción',
+    text: 'text-violet-800',
+    bg: 'bg-violet-50',
+    border: 'border-violet-200',
+  },
+  communication: {
+    label: 'Comunicación',
+    text: 'text-teal-800',
+    bg: 'bg-teal-50',
+    border: 'border-teal-200',
+  },
+  wait: {
+    label: 'Espera',
+    text: 'text-rose-800',
+    bg: 'bg-rose-50',
+    border: 'border-rose-200',
+  },
+  continue: {
+    label: 'Continuidad',
+    text: 'text-purple-800',
+    bg: 'bg-purple-50',
+    border: 'border-purple-200',
+  },
+};
+
+function getStepIcon(kind: NarrativeStepKind) {
+  const className = 'w-3.5 h-3.5';
+  switch (kind) {
     case 'start':
-      return <Play className="w-3.5 h-3.5 text-sky-700" />;
-    case 'observe':
-      return <Eye className="w-3.5 h-3.5 text-teal-700" />;
-    case 'decide':
-      return <GitBranch className="w-3.5 h-3.5 text-amber-700" />;
-    case 'act':
-      return <Zap className="w-3.5 h-3.5 text-emerald-700" />;
-    case 'communicate':
-      return <Radio className="w-3.5 h-3.5 text-indigo-700" />;
+      return <Play className={className} />;
+    case 'configuration':
+      return <Settings className={className} />;
     case 'repeat':
-      return <Repeat className="w-3.5 h-3.5 text-purple-700" />;
+      return <Repeat className={className} />;
+    case 'read':
+      return <Eye className={className} />;
+    case 'condition':
+      return <GitBranch className={className} />;
+    case 'branch':
+      return <CornerDownRight className={className} />;
+    case 'action':
+      return <Zap className={className} />;
+    case 'communication':
+      return <Radio className={className} />;
+    case 'wait':
+      return <Clock3 className={className} />;
+    case 'continue':
+      return <RotateCcw className={className} />;
   }
 }
 
@@ -52,142 +128,112 @@ export const DidacticInterpreterView: React.FC<DidacticInterpreterViewProps> = (
         <div className="w-12 h-12 rounded-2xl bg-emerald-100/70 border border-emerald-200 flex items-center justify-center text-emerald-800 mb-3 shadow-2xs">
           <BookOpen className="w-6 h-6" />
         </div>
-        <h3 className="text-sm font-bold text-slate-800">
-          Programa vacío
-        </h3>
-        <p className="text-xs text-slate-500 mt-1 max-w-xs leading-relaxed">
-          Arrastrá bloques al área de programación para que el intérprete didáctico
-          te explique paso a paso qué hará la placa.
+        <h3 className="text-sm font-bold text-slate-800">Programa vacío</h3>
+        <p className="text-xs text-slate-600 mt-1 max-w-xs leading-relaxed">
+          {interpretation.summarySentence}
         </p>
-        <div className="mt-4 px-3.5 py-2 rounded-xl bg-white border border-slate-200/80 text-[11px] text-slate-600 shadow-2xs text-left max-w-xs space-y-1">
-          <span className="font-bold text-emerald-800 block">
-            💡 Recorrido pedagógico:
-          </span>
-          <p className="leading-snug text-slate-600">
-            <strong>Bloque</strong> → <strong>Interpretación</strong> →{' '}
-            <strong>Código</strong> → <strong>Placa</strong> →{' '}
-            <strong>Comportamiento real</strong>
-          </p>
-        </div>
       </div>
     );
   }
 
-  const { activeCategories, itemsByCategory } = interpretation;
-
   return (
     <div
       data-testid="didactic-interpreter-view"
-      className="h-full overflow-y-auto p-3.5 space-y-3.5 bg-[#f9fbfd]"
+      className="h-full overflow-y-auto p-3 space-y-3 bg-[#f9fbfd]"
     >
-      {/* Síntesis pedagógica y ruta de fases activas */}
-      <div className="p-3 rounded-xl bg-white border border-slate-200/80 shadow-2xs space-y-2">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
-            Flujo de ejecución del programa
-          </span>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+      <header
+        data-testid="interpreter-narrative-header"
+        className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 shadow-2xs"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-800">
+              Lectura paso a paso
+            </p>
+            <h3 className="mt-0.5 text-sm font-bold text-slate-900">
+              Así se ejecuta tu algoritmo
+            </h3>
+          </div>
+          <span className="shrink-0 rounded-full border border-emerald-200 bg-white px-2 py-0.5 text-[9px] font-bold text-emerald-800">
             {interpretation.totalStatements} instrucción(es)
           </span>
         </div>
-
-        <div
-          data-testid="interpreter-pipeline-badges"
-          className="flex flex-wrap items-center gap-1.5 pt-0.5"
-        >
-          {activeCategories.map((catKey, idx) => {
-            const meta = DIDACTIC_CATEGORIES[catKey];
-            return (
-              <React.Fragment key={catKey}>
-                <span
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wider border shadow-2xs ${meta.bgClass} ${meta.colorClass} ${meta.borderClass}`}
-                >
-                  {getCategoryIcon(catKey)}
-                  <span>{meta.label}</span>
-                </span>
-                {idx < activeCategories.length - 1 && (
-                  <span className="text-slate-300 text-xs select-none">→</span>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Categorías didácticas con sus explicaciones correspondientes */}
-      <div className="space-y-3">
-        {activeCategories.map((catKey) => {
-          const meta = DIDACTIC_CATEGORIES[catKey];
-          const items = itemsByCategory[catKey];
-
-          return (
-            <section
-              key={catKey}
-              data-testid={`interpreter-category-${catKey}`}
-              className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden"
-            >
-              {/* Encabezado de la categoría */}
-              <div
-                className={`px-3 py-1.5 border-b border-slate-100 flex items-center justify-between gap-2 ${meta.bgClass}/40`}
-              >
-                <div className="flex items-center gap-1.5">
-                  {getCategoryIcon(catKey)}
-                  <h4
-                    className={`text-[11px] font-extrabold uppercase tracking-wider ${meta.colorClass}`}
-                  >
-                    {meta.label}
-                  </h4>
-                </div>
-                <span className="text-[9px] font-semibold text-slate-500">
-                  {meta.badgeLabel}
-                </span>
-              </div>
-
-              {/* Lista de explicaciones */}
-              <div className="p-2.5 space-y-2">
-                {items.map((item: DidacticItem) => {
-                  const isHighlighted =
-                    Boolean(selectedBlockId) && item.blockId === selectedBlockId;
-
-                  return (
-                    <article
-                      key={item.id}
-                      data-testid={`interpreter-item-${item.category}`}
-                      className={`p-2.5 rounded-lg border text-xs transition-all ${
-                        isHighlighted
-                          ? 'bg-amber-50/80 border-amber-300 ring-2 ring-amber-300/60 shadow-xs'
-                          : 'bg-slate-50/60 hover:bg-slate-50 border-slate-200/70'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <h5 className="font-bold text-slate-800 leading-snug text-[12px]">
-                          {item.title}
-                        </h5>
-                        {item.tag && (
-                          <span className="shrink-0 text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-600">
-                            {item.tag}
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="mt-1 text-slate-600 leading-relaxed text-[11.5px]">
-                        {item.explanation}
-                      </p>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
-      </div>
-
-      {/* Pie de página con el principio pedagógico */}
-      <div className="pt-1 pb-2 text-center">
-        <p className="text-[10px] text-slate-400">
-          Recorrido pedagógico: Bloque → Interpretación → Código → Placa → Comportamiento real
+        <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">
+          Seguí el recorrido desde el primer bloque. Las sangrías muestran qué
+          instrucciones están dentro de un ciclo o de una decisión.
         </p>
-      </div>
+      </header>
+
+      <ol
+        data-testid="interpreter-narrative"
+        className="relative space-y-2 before:absolute before:bottom-3 before:left-[13px] before:top-3 before:w-px before:bg-slate-200"
+      >
+        {interpretation.narrativeSteps.map(
+          (step: DidacticNarrativeStep, index) => {
+            const style = STEP_STYLES[step.kind];
+            const isHighlighted =
+              Boolean(selectedBlockId) && step.blockId === selectedBlockId;
+            const indentation = Math.min(step.depth, 4) * 10;
+
+            return (
+              <li
+                key={step.id}
+                data-testid="interpreter-narrative-step"
+                data-step-kind={step.kind}
+                data-step-depth={step.depth}
+                className="relative flex items-start gap-2"
+                style={{ marginLeft: `${indentation}px` }}
+              >
+                <span
+                  className={`relative z-10 mt-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border bg-white text-[9px] font-extrabold shadow-2xs ${style.border} ${style.text}`}
+                  aria-label={`Paso ${index + 1}`}
+                >
+                  {index + 1}
+                </span>
+
+                <article
+                  className={`min-w-0 flex-1 rounded-xl border p-2.5 transition-all ${
+                    isHighlighted
+                      ? 'border-amber-300 bg-amber-50/90 ring-2 ring-amber-300/60 shadow-xs'
+                      : `${style.border} bg-white shadow-2xs`
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ${style.bg} ${style.border} ${style.text}`}
+                    >
+                      {getStepIcon(step.kind)}
+                      {style.label}
+                    </span>
+                    <span className="rounded-md bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">
+                      {step.blockLabel}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-[11.5px] leading-relaxed text-slate-700">
+                    {step.explanation}
+                  </p>
+                </article>
+              </li>
+            );
+          }
+        )}
+      </ol>
+
+      <aside
+        data-testid="interpreter-summary"
+        className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs"
+      >
+        <p className="text-[9px] font-extrabold uppercase tracking-widest text-slate-500">
+          Síntesis del algoritmo
+        </p>
+        <p className="mt-1 text-xs font-bold leading-relaxed text-slate-800">
+          {interpretation.summarySentence}
+        </p>
+      </aside>
+
+      <p className="pb-1 text-center text-[9.5px] text-slate-400">
+        Bloque visual → función computacional → dato o acción → siguiente paso
+      </p>
     </div>
   );
 };

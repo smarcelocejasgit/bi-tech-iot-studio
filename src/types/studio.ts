@@ -70,13 +70,14 @@ export type LogicalOperator = 'AND' | 'OR';
 export type MathOperator = '+' | '-' | '*' | '/';
 
 export type NumericExpressionNode =
-  | { kind: 'sensor_read'; sensor: SensorKey }
-  | { kind: 'number_literal'; value: number }
+  | { kind: 'sensor_read'; sensor: SensorKey; blockId?: string }
+  | { kind: 'number_literal'; value: number; blockId?: string }
   | {
       kind: 'math_op';
       operator: MathOperator;
       left: NumericExpressionNode;
       rightNumber: number;
+      blockId?: string;
     };
 
 export type ConditionNode =
@@ -138,6 +139,8 @@ export interface ParsedProgram {
   device: DeviceProfileId;
   setupStatements: StatementNode[];
   loopStatements: StatementNode[];
+  startBlockId?: string;
+  loopBlockId?: string;
   looseAnalogsCount?: number;
   usedSensors?: SensorKey[];
 }
