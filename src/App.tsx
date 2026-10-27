@@ -1,7 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { buildBiTechAssistantContext } from './assistant/bitechAssistantContext';
 import { ArduinoCodePanel } from './components/ArduinoCodePanel';
-import { BiTechAssistantPanel } from './components/BiTechAssistantPanel';
 import { BlockCategoriesPanel } from './components/BlockCategoriesPanel';
 import { BlocklyWorkspacePanel } from './components/BlocklyWorkspacePanel';
 import { ContextualManualPanel } from './components/ContextualManualPanel';
@@ -304,27 +302,6 @@ export const App: React.FC = () => {
     [selectedBlockType, activeDevice]
   );
 
-  // Contexto estructurado reutilizable para futura integración con IA en Asistente Bi-Tech
-  const assistantContext = useMemo(
-    () =>
-      buildBiTechAssistantContext({
-        activeDevice,
-        projectName,
-        selectedBlockType,
-        selectedBlockId,
-        parsedProgram,
-        generatedCode,
-      }),
-    [
-      activeDevice,
-      projectName,
-      selectedBlockType,
-      selectedBlockId,
-      parsedProgram,
-      generatedCode,
-    ]
-  );
-
   return (
     <div className="min-h-screen flex flex-col bg-[#eaf3ec] text-slate-800 pb-4">
       {/* Cabecera e identidad visual */}
@@ -345,14 +322,14 @@ export const App: React.FC = () => {
       {/* Contenedor principal separado por modo de trabajo */}
       <main className="max-w-[1600px] w-full mx-auto px-3 mt-2.5 flex-1 flex flex-col gap-2.5">
         {/* ===================================================================
-            1. MODO PROGRAMAR: Bloques | Área de programación | Código Arduino
-               + Ayuda contextual compacta + Asistente Bi-Tech (sin simulador)
+            1. MODO PROGRAMAR: Bloques | Área de programación | Interpretación
+               + Ayuda contextual compacta (sin simulador ni asistente permanente)
            =================================================================== */}
         {workMode === 'program' && (
           <>
             <div
               data-testid="program-mode-view"
-              className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 min-h-[480px] lg:h-[510px]"
+              className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 min-h-[560px] lg:h-[620px]"
             >
               <div className="lg:col-span-2 h-full overflow-hidden">
                 <BlockCategoriesPanel
@@ -363,7 +340,7 @@ export const App: React.FC = () => {
                 />
               </div>
 
-              <div className="lg:col-span-6 h-full overflow-hidden">
+              <div className="lg:col-span-7 h-full overflow-hidden">
                 <BlocklyWorkspacePanel
                   key={activeProject.id}
                   activeDevice={activeDevice}
@@ -376,7 +353,7 @@ export const App: React.FC = () => {
                 />
               </div>
 
-              <div className="lg:col-span-4 h-full overflow-hidden">
+              <div className="lg:col-span-3 h-full overflow-hidden">
                 <ArduinoCodePanel
                   generatedCode={generatedCode}
                   selectedBlockId={selectedBlockId}
@@ -389,8 +366,6 @@ export const App: React.FC = () => {
             {/* Ayuda contextual compacta del bloque seleccionado */}
             <ContextualManualPanel entry={manualEntry} />
 
-            {/* Panel de conversación Asistente Bi-Tech */}
-            <BiTechAssistantPanel context={assistantContext} />
           </>
         )}
 

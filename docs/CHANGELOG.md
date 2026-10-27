@@ -4,6 +4,41 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 
 ---
 
+## [0.5.3 (V0.5C)] — 2026-10-26
+### Mejora de UI/UX en modo Programar: construcción visual del algoritmo y semántica cromática
+- **Drag & Drop real desde la paleta (`src/blocks/paletteDrag.ts`, `src/components/BlockCategoriesPanel.tsx`, `src/components/BlocklyWorkspacePanel.tsx`):**
+  - Los bloques de la paleta se pueden arrastrar y soltar en una posición aproximada del workspace mediante APIs públicas de Blockly; el clic se conserva como alternativa accesible.
+  - El área de programación muestra una zona de recepción esmeralda mientras un bloque compatible está sobre ella y procesa cada `drop` una sola vez.
+  - El bloque resultante es un `BlockSvg` nativo: puede seleccionarse, moverse y encastrarse normalmente sin interferir con el arrastre interno de Blockly.
+- **Feedback visual reforzado (`src/index.css`, `src/components/BlocklyWorkspacePanel.tsx`):**
+  - Cursores contextuales explícitos: `grab` sobre bloques disponibles y en la paleta; `grabbing` activo durante el arrastre; `text` en campos numéricos y `pointer` en dropdowns.
+  - Sombra y elevación destacada (`drop-shadow` de 16px/30px, brillo sutil) mientras el bloque es arrastrado.
+  - Resaltado visible del bloque seleccionado mediante anillo ámbar de alto contraste (`#f59e0b`, 3.5px) y glow suave.
+  - Feedback visual de encastre: marcadores de inserción (`.blocklyInsertionMarker`) con trazo discontinuo esmeralda (`#10b981`) y animación pulsante.
+  - Resaltado de puntos de conexión compatibles (`.blocklyHighlightedConnectionPath`) con glow verde esmeralda.
+  - Transiciones visuales suaves en los bloques del lienzo.
+- **Familia cromática funcional coherente (`src/blocks/bitechBlocks.ts`, `src/components/BlockCategoriesPanel.tsx`):**
+  - **Inicio:** Verde (`#15803d` / `#16a34a`) para `al iniciar`, `repetir siempre` y `esperar`.
+  - **Sensores:** Celeste / Azul (`#0284c7`) para `humedad de suelo`, `temperatura`, `humedad ambiente`, `nivel de luz`, `analógico A0` y `entrada digital`.
+  - **Control / lógica:** Amarillo / Ámbar (`#d97706` / `#b45309`) para condicionales `si ... entonces`, `si ... si no`, comparaciones y lógica.
+  - **Actuadores:** Violeta (`#7c3aed`) para `bomba`, `iluminación`, `relay`, `salida digital` y `captura de cámara`.
+  - **Datos:** Rosa (`#db2777`) para `registrar dato`.
+  - **IoT / comunicación:** Turquesa (`#0d9488` / `#0891b2`) para `enviar a IoT`, `conectar a Wi-Fi` y streaming.
+  - Las categorías y sus bloques comparten una familia visual coherente, con variaciones cuando una función específica lo requiere (por ejemplo, captura, comunicación o estado dentro de Cámara).
+- **Contraste y legibilidad tipográfica:**
+  - Tipografía `Inter` semibold blanca (`#ffffff`) sobre fondos de bloque vibrantes.
+  - Campos editables de números y dropdowns con contenedores semitransparentes redondeados (`rx: 6px`) y texto nítido.
+  - Menús desplegables redondeados con sombra suave y destaque de ítem en verde esmeralda.
+- **Íconos funcionales identificatorios:**
+  - Incorporación de pequeños anclas visuales en los bloques (`▶`, `↻`, `🕒`, `🌱`, `🌡️`, `💧`, `☀️`, `📈`, `🔘`, `🔀`, `⚙️`, `💡`, `🔌`, `⚡`, `📷`, `🖼️`, `✨`, `📶`, `▶️`, `⏹️`, `📸`, `📊`, `☁️`), manteniendo el texto como medio principal de lectura.
+- **Prioridad espacial del área de programación (`src/App.tsx`, `src/components/BlocklyWorkspacePanel.tsx`):**
+  - Incremento de la altura del workspace de programación a `620px` (y `min-h: 420px` en lienzo) y distribución horizontal `2 / 7 / 3` para priorizar la construcción del algoritmo.
+  - El Asistente Bi-Tech deja de ocupar espacio permanente en el modo Programar; su código se conserva para una integración futura.
+- **Validación:**
+  - Pruebas unitarias del protocolo de transferencia y prueba de navegador del flujo clic/arrastre, creación única, posición, movimiento nativo, selección/interpretación y aislamiento del modo Placa real.
+
+---
+
 ## [0.5.2 (V0.5B)] — 2026-10-26
 ### Intérprete didáctico del programa y diferenciación de modos Programar vs Placa real
 - **Intérprete didáctico del programa como vista principal en modo Programar (`src/components/ArduinoCodePanel.tsx`, `src/components/DidacticInterpreterView.tsx`, `src/interpreter/programInterpreter.ts`):**

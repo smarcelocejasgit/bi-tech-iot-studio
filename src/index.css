@@ -10,7 +10,154 @@
   }
 }
 
-/* Ajustes sutiles para el lienzo de Blockly dentro de Bi-Tech IoT Studio */
+/* ==========================================================================
+   INTERACCIÓN VISUAL BLOCKLY — Bi-Tech IoT Studio
+   Prioridad: arrastrar → encastrar → construir → interpretar
+   ========================================================================== */
+
+/* 1. CURSORES Y DRAG & DROP */
+.blocklyDraggable {
+  cursor: grab !important;
+}
+
+.blocklyDraggable:active,
+.blocklyDragging,
+.blocklyDragging * {
+  cursor: grabbing !important;
+}
+
+.blocklyEditableText,
+.blocklyEditableText * {
+  cursor: text !important;
+}
+
+.blocklyFieldDropdown,
+.blocklyFieldDropdown * {
+  cursor: pointer !important;
+}
+
+/* 2. ESTADO NORMAL Y HOVER DE BLOQUES */
+.blocklyPath {
+  transition: stroke 0.16s ease, stroke-width 0.16s ease, filter 0.16s ease;
+}
+
+.blocklyDraggable:not(.blocklyDragging):not(.blocklyDisabled):hover > .blocklyPath {
+  filter: brightness(1.07) drop-shadow(0 3px 6px rgba(15, 23, 42, 0.14));
+}
+
+/* 3. ESTADO ARRASTRANDO (Sombra, elevación y feedback) */
+.blocklyDragging {
+  filter: drop-shadow(0 16px 30px rgba(15, 23, 42, 0.35)) brightness(1.05) !important;
+  opacity: 0.96;
+}
+
+.blocklyDragging > .blocklyPath {
+  stroke: rgba(255, 255, 255, 0.75) !important;
+  stroke-width: 2.5px !important;
+}
+
+/* 4. BLOQUE SELECCIONADO (Resaltado visible con anillo ámbar) */
+.blocklySelected > .blocklyPath {
+  stroke: #f59e0b !important;
+  stroke-width: 3.5px !important;
+  filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.6)) !important;
+}
+
+/* 5. ZONAS DE ENCASTRE Y PUNTOS DE CONEXIÓN COMPATIBLES */
+.blocklyInsertionMarker .blocklyPath {
+  fill-opacity: 0.35 !important;
+  stroke: #10b981 !important;
+  stroke-width: 3.5px !important;
+  stroke-dasharray: 6 3 !important;
+  animation: pulse-insertion-marker 1s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-insertion-marker {
+  from {
+    stroke-opacity: 0.65;
+    fill-opacity: 0.22;
+  }
+  to {
+    stroke-opacity: 1;
+    fill-opacity: 0.45;
+  }
+}
+
+.blocklyHighlightedConnectionPath {
+  stroke: #10b981 !important;
+  stroke-width: 4.5px !important;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.9)) !important;
+}
+
+/* 6. CONTRASTE Y LEGIBILIDAD TIPOGRÁFICA */
+.blocklyText {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  fill: #ffffff !important;
+  letter-spacing: -0.01em;
+}
+
+/* Campos editables (números, entradas de texto) dentro de bloques */
+.blocklyEditableText .blocklyFieldRect {
+  fill: rgba(255, 255, 255, 0.22) !important;
+  stroke: rgba(255, 255, 255, 0.45) !important;
+  stroke-width: 1.5px !important;
+  rx: 6px !important;
+  ry: 6px !important;
+  transition: fill 0.15s ease, stroke 0.15s ease;
+}
+
+.blocklyEditableText:hover .blocklyFieldRect {
+  fill: rgba(255, 255, 255, 0.36) !important;
+  stroke: rgba(255, 255, 255, 0.85) !important;
+}
+
+.blocklyEditableText text {
+  fill: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* Dropdowns en bloques */
+.blocklyFieldDropdown .blocklyFieldRect {
+  fill: rgba(255, 255, 255, 0.2) !important;
+  stroke: rgba(255, 255, 255, 0.42) !important;
+  stroke-width: 1.5px !important;
+  rx: 6px !important;
+  ry: 6px !important;
+}
+
+.blocklyFieldDropdown:hover .blocklyFieldRect {
+  fill: rgba(255, 255, 255, 0.32) !important;
+}
+
+/* Menú flotante de dropdowns de Blockly */
+.blocklyDropDownDiv {
+  border-radius: 14px !important;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18), 0 4px 8px rgba(15, 23, 42, 0.08) !important;
+  border: 1px solid #e2e8f0 !important;
+  padding: 6px !important;
+  background-color: #ffffff !important;
+}
+
+.blocklyMenuItem {
+  font-family: 'Inter', system-ui, sans-serif !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: #1e293b !important;
+  padding: 6px 12px !important;
+  border-radius: 8px !important;
+  transition: background-color 0.12s ease !important;
+}
+
+.blocklyMenuItemHighlight {
+  background-color: #ecfdf5 !important;
+  color: #065f46 !important;
+  font-weight: 700 !important;
+}
+
+/* Fondo del lienzo */
 .blocklySvg {
   background-color: #f8fafc !important;
 }

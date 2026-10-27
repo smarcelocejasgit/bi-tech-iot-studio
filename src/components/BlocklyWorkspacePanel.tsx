@@ -10,9 +10,14 @@ import {
   ZoomOut,
 } from 'lucide-react';
 import {
+  getCatalogForDevice,
   parseWorkspaceToProgram,
   registerBiTechBlocks,
 } from '../blocks/bitechBlocks';
+import {
+  isPaletteBlockDrag,
+  readPaletteBlockDragData,
+} from '../blocks/paletteDrag';
 import { DeviceProfileId } from '../types/hardware';
 import { ParsedProgram } from '../types/studio';
 
@@ -39,7 +44,11 @@ export const BlocklyWorkspacePanel: React.FC<BlocklyWorkspacePanelProps> = ({
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const activeDeviceRef = useRef<DeviceProfileId>(activeDevice);
   const isLoadingXmlRef = useRef<boolean>(false);
+  const paletteDragDepthRef = useRef<number>(0);
+  const processedDropEventsRef = useRef<WeakSet<Event>>(new WeakSet());
   const [confirmingLoadExample, setConfirmingLoadExample] =
+    useState<boolean>(false);
+  const [isPaletteDragOver, setIsPaletteDragOver] =
     useState<boolean>(false);
 
   activeDeviceRef.current = activeDevice;
@@ -48,6 +57,28 @@ export const BlocklyWorkspacePanel: React.FC<BlocklyWorkspacePanelProps> = ({
   useEffect(() => {
     registerBiTechBlocks();
     if (!containerRef.current) return;
+
+    const biTechZelosTheme = Blockly.Theme.defineTheme('biTechZelosTheme', {
+      name: 'biTechZelosTheme',
+      base: Blockly.Themes.Zelos,
+      blockStyles: {},
+      categoryStyles: {},
+      componentStyles: {
+        workspaceBackgroundColour: '#f8fafc',
+        toolboxBackgroundColour: '#ffffff',
+        flyoutBackgroundColour: '#ffffff',
+        scrollbarColour: '#cbd5e1',
+        scrollbarOpacity: 0.7,
+        insertionMarkerColour: '#10b981',
+        insertionMarkerOpacity: 0.35,
+        selectedGlowColour: '#f59e0b',
+      },
+      fontStyle: {
+        family: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+        weight: '600',
+        size: 13,
+      },
+    });
 
     const ws = Blockly.inject(containerRef.current, {
       trashcan: false,
@@ -72,6 +103,7 @@ export const BlocklyWorkspacePanel: React.FC<BlocklyWorkspacePanelProps> = ({
         wheel: false,
       },
       renderer: 'zelos',
+      theme: biTechZelosTheme,
     });
 
     workspaceRef.current = ws;
@@ -243,6 +275,73 @@ export const BlocklyWorkspacePanel: React.FC<BlocklyWorkspacePanelProps> = ({
     workspaceRef.current.scrollCenter();
   };
 
+  const handlePaletteDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!isPaletteBlockDrag(event.dataTransfer)) return;
+    event.preventDefault();
+    paletteDragDepthRef.current += 1;
+    setIsPaletteDragOver(true);
+  };
+
+  const handlePaletteDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!isPaletteBlockDrag(event.dataTransfer)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    if (!isPaletteDragOver) setIsPaletteDragOver(true);
+  };
+
+  const handlePaletteDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!isPaletteBlockDrag(event.dataTransfer)) return;
+    paletteDragDepthRef.current = Math.max(0, paletteDragDepthRef.current - 1);
+    if (paletteDragDepthRef.current === 0) setIsPaletteDragOver(false);
+  };
+
+  const handlePaletteDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!isPaletteBlockDrag(event.dataTransfer)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    paletteDragDepthRef.current = 0;
+    setIsPaletteDragOver(false);
+
+    if (processedDropEventsRef.current.has(event.nativeEvent)) return;
+    processedDropEventsRef.current.add(event.nativeEvent);
+
+    const ws = workspaceRef.current;
+    const blockType = readPaletteBlockDragData(event.dataTransfer);
+    if (!ws || !blockType) return;
+
+    const isAvailableForDevice = getCatalogForDevice(
+      activeDeviceRef.current
+    ).some((category) =>
+      category.blocks.some((block) => block.type === blockType)
+    );
+    if (!isAvailableForDevice) return;
+
+    try {
+      const workspacePoint = Blockly.utils.svgMath.screenToWsCoordinates(
+        ws,
+        new Blockly.utils.Coordinate(event.clientX, event.clientY)
+      );
+      const newBlock = ws.newBlock(blockType);
+      newBlock.initSvg();
+      newBlock.render();
+
+      const currentPosition = newBlock.getRelativeToSurfaceXY();
+      newBlock.moveBy(
+        workspacePoint.x - currentPosition.x,
+        workspacePoint.y - currentPosition.y
+      );
+      newBlock.select();
+      onSelectBlock(newBlock.type, newBlock.id);
+
+      const parsed = parseWorkspaceToProgram(ws, activeDeviceRef.current);
+      const xmlDom = Blockly.Xml.workspaceToDom(ws);
+      onWorkspaceChange(parsed, Blockly.Xml.domToText(xmlDom));
+    } catch (err) {
+      console.error('No se pudo soltar el bloque en el workspace:', err);
+    }
+  };
+
   return (
     <section className="bg-white rounded-2xl border border-slate-200/90 shadow-xs flex flex-col h-full overflow-hidden">
       {/* Cabecera del Área de Programación */}
@@ -321,12 +420,36 @@ export const BlocklyWorkspacePanel: React.FC<BlocklyWorkspacePanelProps> = ({
       </div>
 
       {/* Contenedor del lienzo Blockly + Botones flotantes de Zoom */}
-      <div className="relative flex-1 min-h-[340px] w-full bg-[#f8fafc]">
+      <div
+        data-testid="blockly-drop-zone"
+        data-drag-over={isPaletteDragOver ? 'true' : 'false'}
+        className={`relative flex-1 min-h-[420px] w-full bg-[#f8fafc] transition-colors ${
+          isPaletteDragOver ? 'bg-emerald-50/70' : ''
+        }`}
+        onDragEnter={handlePaletteDragEnter}
+        onDragOver={handlePaletteDragOver}
+        onDragLeave={handlePaletteDragLeave}
+        onDrop={handlePaletteDrop}
+      >
         <div
           ref={containerRef}
           data-testid="blockly-workspace-container"
           className="absolute inset-0 w-full h-full"
         />
+
+        <div
+          data-testid="blockly-drop-feedback"
+          aria-hidden={!isPaletteDragOver}
+          className={`pointer-events-none absolute inset-2 z-30 rounded-2xl border-2 border-dashed border-emerald-500 bg-emerald-50/75 backdrop-blur-[1px] flex items-center justify-center transition-all duration-150 ${
+            isPaletteDragOver
+              ? 'opacity-100 scale-100'
+              : 'opacity-0 scale-[0.99]'
+          }`}
+        >
+          <span className="rounded-xl border border-emerald-300 bg-white/95 px-4 py-2 text-sm font-extrabold text-emerald-800 shadow-sm">
+            Soltá para agregar el bloque aquí
+          </span>
+        </div>
 
         {/* Controles flotantes de zoom estilo referencia visual */}
         <div className="absolute top-3 right-3 z-20 flex flex-col gap-1 bg-white/95 backdrop-blur-xs p-1 rounded-xl border border-slate-200 shadow-xs">

@@ -66,7 +66,7 @@ export function registerBiTechBlocks(): void {
     init: function () {
       this.appendDummyInput().appendField('▶  al iniciar');
       this.setNextStatement(true, null);
-      this.setColour('#109856');
+      this.setColour('#15803d');
       this.setTooltip(
         'Se ejecuta una vez al encender o reiniciar el microcontrolador.'
       );
@@ -79,7 +79,7 @@ export function registerBiTechBlocks(): void {
       this.appendStatementInput('LOOP_DO').setCheck(null);
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour('#9b3df5');
+      this.setColour('#16a34a');
       this.setTooltip(
         'Repite continuamente las instrucciones mientras la placa está encendida.'
       );
@@ -94,7 +94,7 @@ export function registerBiTechBlocks(): void {
         .appendField('segundos');
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour('#2573e8');
+      this.setColour('#15803d');
       this.setTooltip('Pausa el programa la cantidad de segundos indicada (delay).');
     },
   };
@@ -176,7 +176,7 @@ export function registerBiTechBlocks(): void {
   Blockly.Blocks['bitech_if_sensor_compare'] = {
     init: function () {
       this.appendDummyInput()
-        .appendField('si')
+        .appendField('🔀  si')
         .appendField(new Blockly.FieldDropdown(SENSOR_DROPDOWN_OPTIONS), 'SENSOR')
         .appendField(new Blockly.FieldDropdown(OPERATOR_DROPDOWN_OPTIONS), 'OP')
         .appendField(new Blockly.FieldNumber(30, 0, 4095, 1), 'THRESHOLD')
@@ -184,7 +184,7 @@ export function registerBiTechBlocks(): void {
       this.appendStatementInput('DO').setCheck(null);
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour('#2e8af7');
+      this.setColour('#d97706');
       this.setTooltip(
         'Evalúa si la lectura del sensor cumple la condición numérica.'
       );
@@ -193,7 +193,7 @@ export function registerBiTechBlocks(): void {
 
   Blockly.Blocks['bitech_if_else'] = {
     init: function () {
-      this.appendValueInput('CONDITION').setCheck('Boolean').appendField('🔀 si');
+      this.appendValueInput('CONDITION').setCheck('Boolean').appendField('🔀  si');
       this.appendDummyInput().appendField('entonces');
       this.appendStatementInput('DO').setCheck(null);
       this.appendDummyInput().appendField('si no');
@@ -201,7 +201,7 @@ export function registerBiTechBlocks(): void {
       this.setInputsInline(true);
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour('#2e8af7');
+      this.setColour('#d97706');
       this.setTooltip(
         'Ejecuta el primer bloque si la condición se cumple, o el bloque "si no" en caso contrario.'
       );
@@ -262,7 +262,7 @@ export function registerBiTechBlocks(): void {
       this.appendDummyInput().appendField('⚙️  encender bomba');
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour('#0d8a52');
+      this.setColour('#7c3aed');
       this.setTooltip('Enciende la bomba de riego (Canal 1 del relay).');
     },
   };
@@ -272,7 +272,7 @@ export function registerBiTechBlocks(): void {
       this.appendDummyInput().appendField('⚙️  apagar bomba');
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour('#0d8a52');
+      this.setColour('#7c3aed');
       this.setTooltip('Apaga la bomba de riego (Canal 1 del relay).');
     },
   };
@@ -302,7 +302,7 @@ export function registerBiTechBlocks(): void {
       this.appendDummyInput().appendField('🔌  encender relay');
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour('#0d8a52');
+      this.setColour('#7c3aed');
       this.setTooltip('Activa el módulo relay conectado a la placa.');
     },
   };
@@ -312,7 +312,7 @@ export function registerBiTechBlocks(): void {
       this.appendDummyInput().appendField('🔌  apagar relay');
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour('#0d8a52');
+      this.setColour('#7c3aed');
       this.setTooltip('Desactiva el módulo relay dejándolo en estado seguro OFF.');
     },
   };
@@ -322,7 +322,7 @@ export function registerBiTechBlocks(): void {
       this.appendDummyInput().appendField('⚡  activar salida digital');
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour('#0284c7');
+      this.setColour('#7c3aed');
       this.setTooltip(
         'Pone la salida digital configurada en estado alto (HIGH).'
       );
@@ -334,7 +334,7 @@ export function registerBiTechBlocks(): void {
       this.appendDummyInput().appendField('⚡  desactivar salida digital');
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour('#0284c7');
+      this.setColour('#7c3aed');
       this.setTooltip(
         'Pone la salida digital configurada en estado bajo (LOW).'
       );
@@ -390,7 +390,7 @@ export function registerBiTechBlocks(): void {
       this.appendDummyInput().appendField('⚡  iniciar cámara');
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour('#059669');
+      this.setColour('#0891b2');
       this.setTooltip('Activa el sensor OV2640 con los parámetros configurados.');
     },
   };
@@ -402,7 +402,7 @@ export function registerBiTechBlocks(): void {
         .appendField(new Blockly.FieldTextInput('Red_Escolar_BiTech'), 'SSID');
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour('#2563eb');
+      this.setColour('#0d9488');
       this.setTooltip(
         'Conecta el dispositivo a la red Wi-Fi local (credenciales en configuración local).'
       );
@@ -468,7 +468,7 @@ export function registerBiTechBlocks(): void {
         .appendField(new Blockly.FieldDropdown(SENSOR_DROPDOWN_OPTIONS), 'SENSOR');
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour('#0284c7');
+      this.setColour('#0d9488');
       this.setTooltip('Publica conceptualmente el dato del sensor en un tópico IoT.');
     },
   };
