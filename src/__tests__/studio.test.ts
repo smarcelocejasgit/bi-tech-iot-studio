@@ -27,7 +27,11 @@ import {
   resolveCameraStreamUrl,
 } from '../hardware/cameraSerialParser';
 import { GARDEN_NODE_CONFIG } from '../hardware/gardenNodeConfig';
-import { sanitizeHardwareLog } from '../hardware/hardwareBridge';
+import {
+  sanitizeHardwareLog,
+  SerialPortInfo,
+} from '../hardware/hardwareBridge';
+import { identifyCompatibleBoard } from '../hardware/boardDetection';
 import { getDeviceCapabilities } from '../hardware/hardwareCapabilities';
 import { validateProgramAgainstCapabilities } from '../hardware/hardwareValidator';
 import { NODEMCU_ESP8266_CONFIG } from '../hardware/nodeMcuConfig';
@@ -405,13 +409,98 @@ describe('Bi-Tech IoT Studio V0.1.2 — Hardware Readiness y Sketch Compilable (
 
 describe('Bi-Tech IoT Studio V0.3 — Placa real y HardwareBridge', () => {
   it('sanitiza direcciones MAC y rutas locales en los detalles técnicos de compilación y carga', () => {
+    const sampleMac = Array(6).fill('aa').join(':');
     const rawLog =
-      'Chip is ESP8266EX\nMAC: 84:f3:eb:e4:13:63\nPath: C:\\Users\\Alumno\\AppData\\Local\\Arduino15\\packages';
+      `Chip is ESP8266EX\nMAC: ${sampleMac}\nPath: C:\\Users\\Alumno\\AppData\\Local\\Arduino15\\packages`;
     const clean = sanitizeHardwareLog(rawLog);
     expect(clean).toContain('MAC: [REDACTED]');
-    expect(clean).not.toContain('84:f3:eb:e4:13:63');
+    expect(clean).not.toContain(sampleMac);
     expect(clean).toContain('<LOCAL_USER_PATH>');
     expect(clean).not.toContain('C:\\Users\\Alumno');
+  });
+
+  it('detecta un ESP32 genérico como Garden Node compatible sin depender de un COM fijo', () => {
+    const port: SerialPortInfo = {
+      address: 'COM7',
+      label: 'COM7 — Puerto USB',
+      protocol: 'serial',
+      protocolLabel: 'Serial Port (USB)',
+      isUsb: true,
+      usbProduct: 'USB-Enhanced-SERIAL CH9102',
+      usbManufacturer: 'WCH',
+      matchingBoards: [],
+      chipModel: 'ESP32-D0WD-V3 (revision v3.0)',
+      flashSize: '4 MB',
+    };
+
+    const detected = identifyCompatibleBoard(port);
+    expect(detected.port.address).toBe('COM7');
+    expect(detected.family).toBe('esp32');
+    expect(detected.usbSerialChip).toBe('WCH CH9102');
+    expect(detected.suggestedProfileId).toBe('garden-node');
+    expect(detected.recommendedFqbn).toBe('esp32:esp32:esp32');
+  });
+
+  it('sólo sugiere Camera Node cuando ESP32-CAM está identificada explícitamente', () => {
+    const basePort: SerialPortInfo = {
+      address: '/dev/ttyUSB0',
+      label: '/dev/ttyUSB0 — Puerto USB',
+      protocol: 'serial',
+      protocolLabel: 'Serial Port (USB)',
+      isUsb: true,
+      usbProduct: null,
+      usbManufacturer: null,
+      matchingBoards: [
+        {
+          name: 'AI Thinker ESP32-CAM',
+          fqbn: 'esp32:esp32:esp32cam',
+        },
+      ],
+      chipModel: 'ESP32-D0WD',
+      flashSize: null,
+    };
+
+    const camera = identifyCompatibleBoard(basePort);
+    expect(camera.family).toBe('esp32-cam');
+    expect(camera.suggestedProfileId).toBe('camera-node');
+    expect(camera.recommendedFqbn).toBe('esp32:esp32:esp32cam');
+  });
+
+  it('asocia ESP8266 con el perfil NodeMCU y deja seleccionar perfil si la familia es desconocida', () => {
+    const nodemcu = identifyCompatibleBoard({
+      address: 'COM9',
+      label: 'COM9 — Puerto USB',
+      protocol: 'serial',
+      protocolLabel: 'Serial Port (USB)',
+      isUsb: true,
+      usbProduct: 'CP2102 USB to UART Bridge Controller',
+      usbManufacturer: 'Silicon Labs',
+      matchingBoards: [],
+      chipModel: 'ESP8266EX',
+      flashSize: null,
+    });
+    expect(nodemcu.family).toBe('esp8266');
+    expect(nodemcu.usbSerialChip).toBe('Silicon Labs CP2102');
+    expect(nodemcu.suggestedProfileId).toBe('nodemcu-esp8266');
+    expect(nodemcu.recommendedFqbn).toBe(
+      'esp8266:esp8266:nodemcuv2'
+    );
+
+    const unknown = identifyCompatibleBoard({
+      address: 'COM11',
+      label: 'COM11 — Puerto USB',
+      protocol: 'serial',
+      protocolLabel: 'Serial Port (USB)',
+      isUsb: true,
+      usbProduct: 'USB Serial Device',
+      usbManufacturer: null,
+      matchingBoards: [],
+      chipModel: null,
+      flashSize: null,
+    });
+    expect(unknown.family).toBe('unknown');
+    expect(unknown.suggestedProfileId).toBeNull();
+    expect(unknown.requiresProfileSelection).toBe(true);
   });
 });
 

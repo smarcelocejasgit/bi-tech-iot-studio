@@ -21,6 +21,7 @@ import {
   Upload,
   Wifi,
 } from 'lucide-react';
+import { BoardDetectionPanel } from './BoardDetectionPanel';
 import { CAMERA_NODE_CONFIG } from '../hardware/cameraNodeConfig';
 import {
   CameraStreamConnectionInput,
@@ -37,6 +38,7 @@ import {
   UploadPhase,
   UploadResult,
 } from '../hardware/hardwareBridge';
+import { identifyCompatibleBoard } from '../hardware/boardDetection';
 import { NODEMCU_ESP8266_CONFIG } from '../hardware/nodeMcuConfig';
 import { DeviceProfileId, HardwareValidationIssue } from '../types/hardware';
 
@@ -68,6 +70,7 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
   const [ports, setPorts] = useState<SerialPortInfo[]>([]);
   const [selectedPort, setSelectedPort] = useState<string>('');
   const [isScanningPorts, setIsScanningPorts] = useState<boolean>(false);
+  const [hasScannedPorts, setHasScannedPorts] = useState<boolean>(false);
   const [portScanMessage, setPortScanMessage] = useState<string | null>(null);
 
   // 4. Compilar
@@ -133,6 +136,14 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
     [effectiveStreamInput]
   );
 
+  const detectedBoards = useMemo(
+    () =>
+      ports
+        .filter((port) => port.isUsb)
+        .map((port) => identifyCompatibleBoard(port)),
+    [ports]
+  );
+
   const isSketchCurrentlyCompiled =
     compileStatus === 'success' && compiledSketchSnapshot === sketchCode;
 
@@ -171,20 +182,30 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
     try {
       const detected = await bridge.listPorts();
       setPorts(detected);
+      setHasScannedPorts(true);
 
-      if (detected.length === 0) {
+      const usbBoards = detected
+        .filter((port) => port.isUsb)
+        .map((port) => identifyCompatibleBoard(port));
+
+      if (usbBoards.length === 0) {
         setSelectedPort('');
-        setPortScanMessage(
-          'No se detectaron puertos serie. Conectá la placa por USB y volvé a buscar.'
+        setPortScanMessage('No se detectó ninguna placa compatible.');
+      } else {
+        const stillExists = usbBoards.some(
+          (board) => board.port.address === selectedPort
         );
-      } else if (activeDevice === 'nodemcu-esp8266') {
-        const stillExists = detected.some((p) => p.address === selectedPort);
         if (!stillExists) {
-          const preferredUsb = detected.find((p) => p.isUsb) ?? detected[0];
-          setSelectedPort(preferredUsb.address);
+          const compatibleWithActiveProfile = usbBoards.find(
+            (board) => board.suggestedProfileId === activeDevice
+          );
+          setSelectedPort(
+            (compatibleWithActiveProfile ?? usbBoards[0]).port.address
+          );
         }
       }
     } catch {
+      setHasScannedPorts(true);
       setPortScanMessage(
         'No fue posible consultar los puertos serie del equipo.'
       );
@@ -194,13 +215,20 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
   };
 
   useEffect(() => {
-    if (
-      !isHostedWebEnvironment() &&
-      (activeDevice === 'nodemcu-esp8266' || activeDevice === 'camera-node')
-    ) {
+    if (!isHostedWebEnvironment()) {
       void handleScanPorts();
     }
   }, [activeDevice]);
+
+  const handleUseDetectedBoard = (
+    profile: DeviceProfileId,
+    port: string
+  ) => {
+    setSelectedPort(port);
+    if (profile !== activeDevice) {
+      onSelectDevice(profile);
+    }
+  };
 
   const handleCompile = async () => {
     setCompileStatus('compiling');
@@ -389,15 +417,31 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
     );
   }
 
+  const boardDetectionPanel = (
+    <BoardDetectionPanel
+      boards={detectedBoards}
+      selectedPort={selectedPort}
+      activeDevice={activeDevice}
+      hasScanned={hasScannedPorts}
+      isScanning={isScanningPorts}
+      message={portScanMessage}
+      onDetect={handleScanPorts}
+      onSelectPort={setSelectedPort}
+      onUseBoard={handleUseDetectedBoard}
+    />
+  );
+
   // ============================================================================
   // MODO PLACA REAL PARA CAMERA NODE BI-TECH (ESP32-CAM · V0.4A SOFTWARE READINESS)
   // ============================================================================
   if (activeDevice === 'camera-node') {
     return (
-      <section
-        data-testid="real-board-panel-camera"
-        className="bg-white rounded-2xl border-2 border-cyan-600/80 shadow-sm p-4 space-y-4"
-      >
+      <div className="space-y-3">
+        {boardDetectionPanel}
+        <section
+          data-testid="real-board-panel-camera"
+          className="bg-white rounded-2xl border-2 border-cyan-600/80 shadow-sm p-4 space-y-4"
+        >
         {/* Cabecera Camera Node Placa real */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
           <div className="flex items-center gap-2.5">
@@ -1120,65 +1164,39 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
             </pre>
           </div>
         </div>
-      </section>
+        </section>
+      </div>
     );
   }
 
-  // Si el dispositivo activo es Garden Node (ESP32), informar alcance actual
+  // Garden Node usa la detección común. La compilación/carga no se amplía en esta iteración.
   if (activeDevice !== 'nodemcu-esp8266') {
     return (
-      <section
-        data-testid="real-board-panel-unsupported"
-        className="bg-white rounded-2xl border-2 border-indigo-200 p-5 shadow-xs"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-              <Cpu className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-extrabold text-slate-900">
-                Modo Placa real — Habilitado para NodeMCU ESP8266 y preparado
-                para Camera Node (ESP32-CAM)
-              </h2>
-              <p className="text-xs text-slate-600 mt-1 max-w-2xl">
-                Seleccioná <strong>NodeMCU — ESP8266</strong> para cargar en
-                placa física o <strong>Camera Node Bi-Tech — ESP32-CAM</strong>{' '}
-                para compilar y preparar el nodo de cámara.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              data-testid="switch-to-nodemcu-btn"
-              onClick={() => onSelectDevice('nodemcu-esp8266')}
-              className="px-4 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold transition cursor-pointer flex items-center gap-2 shadow-xs"
-            >
-              <Cpu className="w-4 h-4" />
-              NodeMCU — ESP8266
-            </button>
-            <button
-              type="button"
-              data-testid="switch-to-camera-btn"
-              onClick={() => onSelectDevice('camera-node')}
-              className="px-4 py-2 rounded-xl bg-cyan-700 hover:bg-cyan-800 text-white text-xs font-bold transition cursor-pointer flex items-center gap-2 shadow-xs"
-            >
-              <Camera className="w-4 h-4" />
-              Camera Node — ESP32-CAM
-            </button>
+      <div data-testid="real-board-panel-garden" className="space-y-3">
+        {boardDetectionPanel}
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-3 flex items-start gap-2.5">
+          <Cpu className="w-5 h-5 text-indigo-700 shrink-0" />
+          <div>
+            <p className="text-xs font-bold text-indigo-950">
+              Perfil activo: Garden Node Bi-Tech — ESP32
+            </p>
+            <p className="text-xs text-indigo-800 mt-0.5">
+              La detección identifica placa, puerto y FQBN sin cargar firmware ni
+              ejecutar pruebas de sensores o actuadores.
+            </p>
           </div>
         </div>
-      </section>
+      </div>
     );
   }
 
   return (
-    <section
-      data-testid="real-board-panel"
-      className="bg-white rounded-2xl border-2 border-indigo-500/80 shadow-sm p-4 space-y-4"
-    >
+    <div className="space-y-3">
+      {boardDetectionPanel}
+      <section
+        data-testid="real-board-panel"
+        className="bg-white rounded-2xl border-2 border-indigo-500/80 shadow-sm p-4 space-y-4"
+      >
       {/* Cabecera pedagógica: recorrido evidente del estudiante */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
         <div className="flex items-center gap-2.5">
@@ -1797,6 +1815,7 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
           </pre>
         </div>
       </div>
-    </section>
+      </section>
+    </div>
   );
 };

@@ -140,3 +140,60 @@ test('el modo Placa real conserva su vista independiente', async ({ page }) => {
   await expect(page.getByTestId('board-mode-view')).toBeVisible();
   await expect(page.getByTestId('program-mode-view')).toHaveCount(0);
 });
+
+test('Placa real identifica puerto, familia, perfil y FQBN automáticamente', async ({
+  page,
+}) => {
+  let boardConnected = true;
+  await page.route('**/api/hardware/ports', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ports: boardConnected
+          ? [
+              {
+                address: 'COM7',
+                label: 'COM7 — Puerto USB (Placa detectada)',
+                protocol: 'serial',
+                protocolLabel: 'Serial Port (USB)',
+                isUsb: true,
+                usbProduct: 'USB-Enhanced-SERIAL CH9102',
+                usbManufacturer: 'WCH',
+                matchingBoards: [],
+                chipModel: 'ESP32-D0WD-V3 (revision v3.0)',
+                flashSize: '4 MB',
+              },
+            ]
+          : [],
+      }),
+    });
+  });
+
+  await page.getByTestId('mode-board').click();
+
+  await expect(page.getByTestId('board-detection-panel')).toBeVisible();
+  await expect(page.getByTestId('detected-board-family')).toHaveText('ESP32');
+  await expect(page.getByTestId('detected-board-port')).toHaveText('COM7');
+  await expect(page.getByTestId('detected-board-usb-chip')).toHaveText(
+    'WCH CH9102'
+  );
+  await expect(page.getByTestId('detected-board-chip')).toContainText(
+    'ESP32-D0WD-V3'
+  );
+  await expect(page.getByTestId('detected-board-profile')).toHaveText(
+    'Garden Node Bi-Tech — ESP32'
+  );
+  await expect(page.getByTestId('detected-board-fqbn')).toHaveText(
+    'esp32:esp32:esp32'
+  );
+  await expect(page.getByTestId('use-detected-board-btn')).toHaveText(
+    'Placa en uso'
+  );
+
+  boardConnected = false;
+  await page.getByTestId('detect-board-btn').click();
+  await expect(page.getByTestId('detected-board-details')).toHaveCount(0);
+  await expect(page.getByTestId('board-detection-panel').locator('h2')).toHaveText(
+    'No se detectó ninguna placa compatible.'
+  );
+});

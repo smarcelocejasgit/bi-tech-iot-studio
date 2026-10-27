@@ -8,7 +8,7 @@
  */
 
 export interface SerialPortInfo {
-  /** Nombre del puerto en el sistema operativo (ej. COM3, COM15, /dev/ttyUSB0) */
+  /** Nombre dinámico del puerto en el sistema operativo (ej. COMx, /dev/ttyUSB0) */
   address: string;
   /** Etiqueta amigable para mostrar al estudiante */
   label: string;
@@ -18,6 +18,19 @@ export interface SerialPortInfo {
   protocolLabel: string;
   /** Indica si el puerto corresponde a un puente USB detectado */
   isUsb: boolean;
+  /** Descripción USB informada por el sistema operativo, sin número de serie */
+  usbProduct: string | null;
+  /** Fabricante USB informado por el sistema operativo, cuando está disponible */
+  usbManufacturer: string | null;
+  /** Placas que Arduino CLI asocia al puerto mediante su discovery */
+  matchingBoards: Array<{
+    name: string;
+    fqbn: string;
+  }>;
+  /** Modelo de chip obtenido sólo si fue necesario realizar una identificación adicional */
+  chipModel: string | null;
+  /** Tamaño de flash reportado durante la identificación, cuando está disponible */
+  flashSize: string | null;
 }
 
 export interface CompileRequest {
@@ -140,7 +153,14 @@ export class LocalArduinoCliHardwareBridge implements HardwareBridge {
       throw new Error('No se pudo consultar la lista de puertos disponibles.');
     }
     const data = (await response.json()) as { ports: SerialPortInfo[] };
-    return data.ports ?? [];
+    return (data.ports ?? []).map((port) => ({
+      ...port,
+      usbProduct: port.usbProduct ?? null,
+      usbManufacturer: port.usbManufacturer ?? null,
+      matchingBoards: port.matchingBoards ?? [],
+      chipModel: port.chipModel ?? null,
+      flashSize: port.flashSize ?? null,
+    }));
   }
 
   async compile(request: CompileRequest): Promise<CompileResult> {

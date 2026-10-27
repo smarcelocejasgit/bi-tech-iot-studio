@@ -46,6 +46,184 @@ function sanitizeTechnicalOutput(raw: string): string {
     .replace(/[A-Za-z]:\\Users\\[^\\/\r\n"]+/g, '<LOCAL_USER_PATH>');
 }
 
+interface LocalSerialMetadata {
+  product: string | null;
+  manufacturer: string | null;
+}
+
+interface EspChipProbe {
+  chipModel: string | null;
+  flashSize: string | null;
+}
+
+function readWindowsPnpSerialMetadata(): Promise<
+  Map<string, LocalSerialMetadata>
+> {
+  return new Promise((resolve) => {
+    execFile(
+      'pnputil.exe',
+      ['/enum-devices', '/class', 'Ports', '/connected'],
+      { timeout: 4000, windowsHide: true },
+      (error, stdout) => {
+        if (error || !stdout.trim()) {
+          resolve(new Map());
+          return;
+        }
+
+        const metadata = new Map<string, LocalSerialMetadata>();
+        const blocks = stdout.split(/\r?\n\s*\r?\n/);
+        for (const block of blocks) {
+          const addressMatch = block.match(/\((COM\d+)\)/i);
+          if (!addressMatch) continue;
+          const address = addressMatch[1].toUpperCase();
+          const lines = block.split(/\r?\n/).map((line) => line.trim());
+          const productLine = lines.find((line) =>
+            new RegExp(`\\(${address}\\)`, 'i').test(line)
+          );
+          const manufacturerLine = lines.find((line) =>
+            /fabricante|manufacturer/i.test(line)
+          );
+          const valueAfterColon = (line: string | undefined) => {
+            if (!line) return null;
+            const separator = line.indexOf(':');
+            const value = (separator >= 0 ? line.slice(separator + 1) : line).trim();
+            return value || null;
+          };
+          metadata.set(address, {
+            product: valueAfterColon(productLine),
+            manufacturer: valueAfterColon(manufacturerLine),
+          });
+        }
+        resolve(metadata);
+      }
+    );
+  });
+}
+
+function resolveEspToolPath(): string | null {
+  const roots = [
+    path.join(
+      os.homedir(),
+      'AppData',
+      'Local',
+      'Arduino15',
+      'packages',
+      'esp32',
+      'tools',
+      'esptool_py'
+    ),
+    path.join(
+      os.homedir(),
+      '.arduino15',
+      'packages',
+      'esp32',
+      'tools',
+      'esptool_py'
+    ),
+  ];
+
+  for (const root of roots) {
+    if (!fs.existsSync(root)) continue;
+    const versions = fs
+      .readdirSync(root, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+
+    for (const version of versions) {
+      const candidates = [
+        path.join(root, version, 'esptool.exe'),
+        path.join(root, version, 'esptool'),
+      ];
+      const found = candidates.find((candidate) => fs.existsSync(candidate));
+      if (found) return found;
+    }
+  }
+
+  return null;
+}
+
+function readWindowsSerialMetadata(): Promise<Map<string, LocalSerialMetadata>> {
+  if (process.platform !== 'win32') {
+    return Promise.resolve(new Map());
+  }
+
+  const script = [
+    '$ports = Get-CimInstance Win32_SerialPort -ErrorAction SilentlyContinue',
+    '| Select-Object DeviceID,Name,Description,Manufacturer',
+    '| ConvertTo-Json -Compress',
+  ].join(' ');
+
+  return new Promise((resolve) => {
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', script],
+      { timeout: 4000, windowsHide: true },
+      (error, stdout) => {
+        if (error || !stdout.trim()) {
+          void readWindowsPnpSerialMetadata().then(resolve);
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(stdout) as
+            | Record<string, unknown>
+            | Array<Record<string, unknown>>;
+          const entries = Array.isArray(parsed) ? parsed : [parsed];
+          const metadata = new Map<string, LocalSerialMetadata>();
+
+          for (const entry of entries) {
+            const address = String(entry.DeviceID ?? '').trim().toUpperCase();
+            if (!address) continue;
+            const product = String(entry.Description ?? entry.Name ?? '').trim();
+            const manufacturer = String(entry.Manufacturer ?? '').trim();
+            metadata.set(address, {
+              product: product || null,
+              manufacturer: manufacturer || null,
+            });
+          }
+          if (metadata.size > 0) {
+            resolve(metadata);
+          } else {
+            void readWindowsPnpSerialMetadata().then(resolve);
+          }
+        } catch {
+          void readWindowsPnpSerialMetadata().then(resolve);
+        }
+      }
+    );
+  });
+}
+
+/**
+ * Sólo se consulta esptool cuando Arduino CLI no pudo determinar la familia.
+ * La salida nunca se entrega completa al navegador: se extraen chip/flash y se
+ * descartan MAC, seriales y cualquier otro identificador único.
+ */
+function probeEspChip(port: string): Promise<EspChipProbe> {
+  const esptoolPath = resolveEspToolPath();
+  if (!esptoolPath) {
+    return Promise.resolve({ chipModel: null, flashSize: null });
+  }
+
+  return new Promise((resolve) => {
+    execFile(
+      esptoolPath,
+      ['--port', port, 'chip_id'],
+      { timeout: 10000, windowsHide: true },
+      (_error, stdout, stderr) => {
+        const output = `${stdout || ''}\n${stderr || ''}`;
+        const chipMatch = output.match(/Chip is\s+([^\r\n]+)/i);
+        const flashMatch = output.match(/Detected flash size:\s*([^\r\n]+)/i);
+        resolve({
+          chipModel: chipMatch?.[1]?.trim() ?? null,
+          flashSize: flashMatch?.[1]?.trim() ?? null,
+        });
+      }
+    );
+  });
+}
+
 function readJsonBody(
   req: import('node:http').IncomingMessage
 ): Promise<Record<string, unknown>> {
@@ -133,7 +311,7 @@ function createHardwareBridgeVitePlugin(): Plugin {
             cliPath,
             ['board', 'list', '--format', 'json'],
             { timeout: 10000 },
-            (err, stdout) => {
+            async (err, stdout) => {
               res.setHeader('Content-Type', 'application/json');
               if (err) {
                 res.statusCode = 200;
@@ -150,12 +328,18 @@ function createHardwareBridgeVitePlugin(): Plugin {
                       protocol_label?: string;
                       properties?: Record<string, string>;
                     };
+                    matching_boards?: Array<{
+                      name?: string;
+                      fqbn?: string;
+                    }>;
                   }>;
                 };
                 const rawList = parsed.detected_ports ?? [];
-                const ports = rawList
-                  .filter((item) => Boolean(item.port?.address))
-                  .map((item) => {
+                const windowsMetadata = await readWindowsSerialMetadata();
+                const ports = await Promise.all(
+                  rawList
+                    .filter((item) => Boolean(item.port?.address))
+                    .map(async (item) => {
                     const address = item.port?.address ?? '';
                     const protocol = item.port?.protocol ?? 'serial';
                     const protocolLabel =
@@ -163,6 +347,24 @@ function createHardwareBridgeVitePlugin(): Plugin {
                     const isUsb =
                       protocolLabel.toLowerCase().includes('usb') ||
                       Boolean(item.port?.properties?.vid);
+                    const matchingBoards = (item.matching_boards ?? [])
+                      .filter((board) => Boolean(board.name || board.fqbn))
+                      .map((board) => ({
+                        name: board.name ?? 'Placa compatible',
+                        fqbn: board.fqbn ?? '',
+                      }));
+                    const knownFamily = matchingBoards.some((board) =>
+                      /ESP32|ESP8266|NODEMCU/i.test(
+                        `${board.name} ${board.fqbn}`
+                      )
+                    );
+                    const chipProbe =
+                      isUsb && !knownFamily
+                        ? await probeEspChip(address)
+                        : { chipModel: null, flashSize: null };
+                    const systemMetadata = windowsMetadata.get(
+                      address.toUpperCase()
+                    );
                     const friendlySuffix = isUsb
                       ? 'Puerto USB (Placa detectada)'
                       : 'Puerto serie del sistema';
@@ -172,9 +374,16 @@ function createHardwareBridgeVitePlugin(): Plugin {
                       protocol,
                       protocolLabel,
                       isUsb,
+                      usbProduct: systemMetadata?.product ?? null,
+                      usbManufacturer:
+                        systemMetadata?.manufacturer ?? null,
+                      matchingBoards,
+                      chipModel: chipProbe.chipModel,
+                      flashSize: chipProbe.flashSize,
                     };
                   })
-                  .sort((a, b) => Number(b.isUsb) - Number(a.isUsb));
+                );
+                ports.sort((a, b) => Number(b.isUsb) - Number(a.isUsb));
 
                 res.statusCode = 200;
                 res.end(JSON.stringify({ ports }));

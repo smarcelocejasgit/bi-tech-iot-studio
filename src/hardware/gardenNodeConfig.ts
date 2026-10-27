@@ -9,7 +9,7 @@ export const GARDEN_NODE_CONFIG: GardenNodeHardwareConfig = {
   shortBadge: 'Garden Node Bi-Tech — ESP32',
   mcu: 'ESP32',
   simulatorKind: 'garden-system',
-  verifiedFqbn: null,
+  verifiedFqbn: 'esp32:esp32:esp32',
   capabilities: {
     digitalInputs: 6,
     digitalOutputs: 6,
