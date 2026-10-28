@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:functions": "npm --prefix functions test",
-    "test:emulator": "firebase emulators:exec --project bi-tech-iot-studio --only functions,database,hosting \"npm --prefix functions run test:emulator\""
+    "test:emulator": "firebase emulators:exec --project bi-tech-iot-studio --only functions,database,hosting \"npm --prefix functions run test:emulator\"",
+    "camera:gateway": "node tools/camera-gateway.mjs"
   },
   "dependencies": {
     "blockly": "^11.2.0",

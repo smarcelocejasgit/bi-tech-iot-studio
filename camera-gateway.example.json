@@ -1,0 +1,7 @@
+{
+  "listenHost": "127.0.0.1",
+  "listenPort": 8787,
+  "allowedOrigin": "https://iotstudio.web.app",
+  "captureUrl": "http://CAMERA_NODE_IP/capture",
+  "streamUrl": "http://CAMERA_NODE_IP:81/stream"
+}

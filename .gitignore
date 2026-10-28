@@ -27,6 +27,8 @@ hardware.local.json
 wifi_credentials.h
 device_credentials.h
 functions/.secret.local
+camera-gateway.local.json
+.tools/
 
 # Datos sensibles o de estudiantes
 student_data/

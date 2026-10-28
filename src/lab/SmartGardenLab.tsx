@@ -19,6 +19,7 @@ import {
   liveGardenLabDataSource,
   SmartGardenLiveState,
 } from './smartGardenLive';
+import { CAMERA_GATEWAY_CONFIG } from './cameraGateway';
 
 type LabSection = 'live' | 'captures' | 'monitor' | 'control';
 
@@ -86,10 +87,78 @@ interface SmartGardenLabProps {
   dataSource?: GardenLabDataSource;
 }
 
+function useCameraGatewayStatus(): {
+  configured: boolean;
+  connected: boolean;
+  streamUrl?: string;
+  markDisconnected: () => void;
+} {
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    const gatewayConfig = CAMERA_GATEWAY_CONFIG;
+    if (!gatewayConfig) return;
+
+    let cancelled = false;
+    let nextProbe: number | undefined;
+
+    const probe = async () => {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 8000);
+      let available = false;
+
+      try {
+        const probeUrl = new URL(gatewayConfig.captureUrl);
+        probeUrl.searchParams.set('probe', String(Date.now()));
+        const response = await fetch(probeUrl, {
+          headers: { Accept: 'image/jpeg' },
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        const contentType = response.headers.get('content-type') ?? '';
+        const payload = response.ok ? await response.arrayBuffer() : null;
+        available =
+          response.ok &&
+          contentType.toLowerCase().startsWith('image/jpeg') &&
+          Boolean(payload?.byteLength);
+      } catch {
+        available = false;
+      } finally {
+        window.clearTimeout(timeout);
+      }
+
+      if (cancelled) return;
+      setConnected(available);
+      nextProbe = window.setTimeout(probe, 5000);
+    };
+
+    void probe();
+    return () => {
+      cancelled = true;
+      if (nextProbe !== undefined) window.clearTimeout(nextProbe);
+    };
+  }, []);
+
+  return {
+    configured: CAMERA_GATEWAY_CONFIG !== null,
+    connected,
+    streamUrl: connected ? CAMERA_GATEWAY_CONFIG?.streamUrl : undefined,
+    markDisconnected: () => setConnected(false),
+  };
+}
+
 export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
   dataSource = liveGardenLabDataSource,
 }) => {
-  const state = useGardenLabState(dataSource);
+  const dataState = useGardenLabState(dataSource);
+  const cameraGateway = useCameraGatewayStatus();
+  const state: SmartGardenLiveState = cameraGateway.configured
+    ? {
+        ...dataState,
+        cameraNodeConnected: cameraGateway.connected,
+        cameraStreamUrl: cameraGateway.streamUrl,
+      }
+    : dataState;
   const clock = useClock();
   const [section, setSection] = useState<LabSection>('live');
   const activeSection = LAB_SECTIONS.find((s) => s.id === section)!;
@@ -217,7 +286,10 @@ export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
 
         <main className="mt-3">
           {section === 'live' ? (
-            <LiveView state={state} />
+            <LiveView
+              state={state}
+              onCameraStreamError={cameraGateway.markDisconnected}
+            />
           ) : (
             <NextStagePlaceholder
               testId={`lab-placeholder-${activeSection.id}`}
@@ -248,7 +320,10 @@ export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
 /* Vista EN VIVO                                                              */
 /* -------------------------------------------------------------------------- */
 
-const LiveView: React.FC<{ state: SmartGardenLiveState }> = ({ state }) => {
+const LiveView: React.FC<{
+  state: SmartGardenLiveState;
+  onCameraStreamError: () => void;
+}> = ({ state, onCameraStreamError }) => {
   const streamAvailable = state.cameraNodeConnected && !!state.cameraStreamUrl;
 
   return (
@@ -287,8 +362,10 @@ const LiveView: React.FC<{ state: SmartGardenLiveState }> = ({ state }) => {
           <div className="flex-1 rounded-2xl bg-[#18241b] border border-white/5 p-5 flex items-center justify-center min-h-[340px]">
             {streamAvailable ? (
               <img
+                data-testid="lab-camera-stream"
                 src={state.cameraStreamUrl}
                 alt="Streaming del Camera Node Bi-Tech"
+                onError={onCameraStreamError}
                 className="max-h-[420px] w-full object-contain rounded-lg"
               />
             ) : (

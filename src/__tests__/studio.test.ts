@@ -22,6 +22,7 @@ import {
 } from '../lab/smartGardenLive';
 import { resolveRoute } from '../routing/appRoute';
 import { CAMERA_NODE_CONFIG } from '../hardware/cameraNodeConfig';
+import { resolveCameraGatewayConfig } from '../lab/cameraGateway';
 import {
   parseCameraSerialOutput,
   resolveCameraStreamUrl,
@@ -539,6 +540,22 @@ describe('Bi-Tech IoT Studio V0.3 — Placa real y HardwareBridge', () => {
 });
 
 describe('Bi-Tech IoT Studio V0.4A — Preparación de Camera Node Bi-Tech (ESP32-CAM)', () => {
+  it('resuelve únicamente gateways HTTP(S) y exige HTTPS para producción', () => {
+    expect(resolveCameraGatewayConfig(undefined)).toBeNull();
+    expect(resolveCameraGatewayConfig('ftp://camera.example')).toBeNull();
+    expect(
+      resolveCameraGatewayConfig('http://127.0.0.1:8787', true)
+    ).toBeNull();
+
+    expect(
+      resolveCameraGatewayConfig('https://camera.example/')
+    ).toEqual({
+      baseUrl: 'https://camera.example',
+      captureUrl: 'https://camera.example/camera/capture',
+      streamUrl: 'https://camera.example/camera/stream',
+    });
+  });
+
   it('mantiene verifiedFqbn en null (pendiente de placa física) y define candidateFqbn esp32:esp32:esp32cam sin URLs hardcodeadas', () => {
     expect(CAMERA_NODE_CONFIG.verifiedFqbn).toBeNull();
     expect(CAMERA_NODE_CONFIG.candidateFqbn).toBe('esp32:esp32:esp32cam');
