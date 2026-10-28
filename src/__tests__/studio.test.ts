@@ -19,6 +19,7 @@ import {
   DEMO_LIVE_STATE,
   DemoGardenLabDataSource,
   HttpGardenLabDataSource,
+  UNAVAILABLE_LIVE_STATE,
 } from '../lab/smartGardenLive';
 import { resolveRoute } from '../routing/appRoute';
 import { CAMERA_NODE_CONFIG } from '../hardware/cameraNodeConfig';
@@ -812,5 +813,21 @@ describe('Bi-Tech IoT Studio V0.5A — Rutas y Smart Garden Lab (demostración)'
     expect(snap.pump).toBeNull();
     expect(snap.lighting).toBeNull();
     expect(snap.cameraNodeConnected).toBe(false);
+  });
+
+  it('la fuente HTTP inicia sin valores demo mientras espera telemetría real', () => {
+    const ds = new HttpGardenLabDataSource(
+      '/api/garden/latest',
+      undefined,
+      async () => new Response(null, { status: 503 })
+    );
+
+    const snap = ds.getSnapshot();
+    expect(snap).toEqual(UNAVAILABLE_LIVE_STATE);
+    expect(snap.source).toBe('unavailable');
+    expect(snap.temperature).toBeNull();
+    expect(snap.ambientHumidity).toBeNull();
+    expect(snap.soilMoisture).toBeNull();
+    expect(snap.lightLevel).toBeNull();
   });
 });

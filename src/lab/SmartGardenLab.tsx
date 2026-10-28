@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import {
+  AlertCircle,
   Camera,
   Clock,
-  Download,
   Droplets,
+  ImagePlus,
   Maximize2,
   Sprout,
   Sun,
@@ -28,20 +29,17 @@ const LAB_SECTIONS: { id: LabSection; label: string; description: string }[] = [
   {
     id: 'captures',
     label: 'Capturas',
-    description:
-      'Galería de capturas del Camera Node para comparar la evolución de la huerta.',
+    description: 'Documentar y comparar observaciones de la huerta.',
   },
   {
     id: 'monitor',
     label: 'Monitorear',
-    description:
-      'Historial y gráficos de las variables ambientales a lo largo del tiempo.',
+    description: 'Medir e interpretar las variables ambientales.',
   },
   {
     id: 'control',
     label: 'Control',
-    description:
-      'Panel para observar y gestionar los actuadores del Garden Node.',
+    description: 'Diferenciar órdenes solicitadas y acciones confirmadas.',
   },
 ];
 
@@ -91,6 +89,7 @@ function useCameraGatewayStatus(): {
   configured: boolean;
   connected: boolean;
   streamUrl?: string;
+  captureUrl?: string;
   markDisconnected: () => void;
 } {
   const [connected, setConnected] = useState(false);
@@ -143,6 +142,7 @@ function useCameraGatewayStatus(): {
     configured: CAMERA_GATEWAY_CONFIG !== null,
     connected,
     streamUrl: connected ? CAMERA_GATEWAY_CONFIG?.streamUrl : undefined,
+    captureUrl: CAMERA_GATEWAY_CONFIG?.captureUrl,
     markDisconnected: () => setConnected(false),
   };
 }
@@ -203,6 +203,12 @@ export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
                 Modo demostración
               </span>
             )}
+            {state.source === 'unavailable' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#ece8d6] text-[#6b5d2a] text-xs font-extrabold uppercase tracking-wider border border-[#d8cfaa]">
+                <span className="w-2 h-2 rounded-full bg-[#9b8542]" />
+                Garden Node sin telemetría
+              </span>
+            )}
             <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#e7e4d6] text-xs font-semibold text-[#3d5243]">
               <Clock className="w-3.5 h-3.5" />
               {clock}
@@ -234,31 +240,10 @@ export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
                   }`}
                 >
                   <span className="block">{item.label}</span>
-                  {item.id !== 'live' && (
-                    <span className="block mt-0.5 text-[8px] font-bold tracking-widest text-[#9a8a4a]">
-                      Próxima etapa
-                    </span>
-                  )}
                 </button>
               );
             })}
           </div>
-
-          <button
-            type="button"
-            disabled
-            data-testid="lab-export-btn"
-            className="px-4 py-2 rounded-xl bg-[#f3dfa6] border border-[#e0c776] text-[#6b5314] text-[11px] font-bold flex items-center gap-2 opacity-90 cursor-not-allowed"
-            title="Disponible en una próxima etapa"
-          >
-            <Download className="w-4 h-4" />
-            <span className="text-left leading-tight">
-              Exportar datos
-              <span className="block text-[9px] uppercase tracking-wider">
-                Próximamente
-              </span>
-            </span>
-          </button>
         </div>
 
         {/* Título de sección + Smart Garden activo */}
@@ -276,27 +261,32 @@ export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
               className="px-3 py-1.5 rounded-lg bg-[#fffdf6] text-[#1d4a2c] text-xs font-bold border border-[#ddd8c2] focus:outline-none"
             >
               <option value={state.nodeId ?? DEMO_SMART_GARDEN_NODE.id}>
-                {state.nodeLabel
+                {state.nodeLabel && state.source === 'real'
                   ? `${state.nodeLabel} — Real`
-                  : DEMO_SMART_GARDEN_NODE.label}
+                  : state.source === 'demo'
+                  ? DEMO_SMART_GARDEN_NODE.label
+                  : 'Garden Node — No conectado'}
               </option>
             </select>
           </label>
         </div>
 
         <main className="mt-3">
-          {section === 'live' ? (
+          {section === 'live' && (
             <LiveView
               state={state}
               onCameraStreamError={cameraGateway.markDisconnected}
-            />
-          ) : (
-            <NextStagePlaceholder
-              testId={`lab-placeholder-${activeSection.id}`}
-              label={activeSection.label}
-              description={activeSection.description}
+              onOpenCaptures={() => setSection('captures')}
             />
           )}
+          {section === 'captures' && (
+            <CapturesView
+              connected={cameraGateway.connected}
+              captureUrl={cameraGateway.captureUrl}
+            />
+          )}
+          {section === 'monitor' && <MonitorView state={state} />}
+          {section === 'control' && <ControlView state={state} />}
         </main>
 
         {/* Principio pedagógico */}
@@ -323,7 +313,8 @@ export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
 const LiveView: React.FC<{
   state: SmartGardenLiveState;
   onCameraStreamError: () => void;
-}> = ({ state, onCameraStreamError }) => {
+  onOpenCaptures: () => void;
+}> = ({ state, onCameraStreamError, onOpenCaptures }) => {
   const streamAvailable = state.cameraNodeConnected && !!state.cameraStreamUrl;
 
   return (
@@ -337,21 +328,21 @@ const LiveView: React.FC<{
               Cámara de observación
             </h3>
             <div className="flex items-center gap-2 text-[11px] text-[#b9c7b4]">
-              <span>Calidad</span>
-              <select
-                disabled
-                aria-label="Calidad del streaming"
-                defaultValue="media"
-                className="px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-[#e9efe4] text-[11px] opacity-80"
+              <span
+                data-testid="lab-camera-status"
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                  streamAvailable
+                    ? 'bg-[#2f7d46] text-white'
+                    : 'bg-[#9c3d2e] text-white'
+                }`}
               >
-                <option value="baja">Baja</option>
-                <option value="media">Media</option>
-                <option value="alta">Alta</option>
-              </select>
+                <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                {streamAvailable ? 'Conectado' : 'No conectado'}
+              </span>
               <button
                 type="button"
                 disabled
-                aria-label="Pantalla completa (disponible con streaming)"
+                aria-label="Pantalla completa no disponible"
                 className="p-1.5 rounded-full bg-white/10 border border-white/15 opacity-60 cursor-not-allowed"
               >
                 <Maximize2 className="w-3.5 h-3.5" />
@@ -373,13 +364,6 @@ const LiveView: React.FC<{
                 data-testid="lab-camera-placeholder"
                 className="relative w-full max-w-[420px] aspect-square rounded-xl bg-gradient-to-br from-[#1f2e22] to-[#2a3b2e] flex flex-col items-center justify-center text-center px-6"
               >
-                <span
-                  data-testid="lab-camera-status"
-                  className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#9c3d2e] text-white text-[10px] font-extrabold uppercase tracking-wider"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                  Camera Node no conectado
-                </span>
                 <p className="text-sm font-semibold text-[#f1f5ee]">
                   Camera Node no conectado
                 </p>
@@ -391,11 +375,20 @@ const LiveView: React.FC<{
             )}
           </div>
 
-          <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-[#b9c7b4]">
-            <Camera className="w-3.5 h-3.5" />
-            <span>ESP32-CAM</span>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[11px] text-[#b9c7b4]">
+            <span className="inline-flex items-center gap-1.5">
+              <Camera className="w-3.5 h-3.5" />
+              ESP32-CAM · Cámara de observación
+            </span>
+            <button
+              type="button"
+              onClick={onOpenCaptures}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-[#e9efe4] font-bold hover:bg-white/15 cursor-pointer"
+            >
+              <ImagePlus className="w-4 h-4" />
+              Capturar ahora
+            </button>
           </div>
-          <p className="mt-2 text-xs text-[#b9c7b4]">Cámara de observación</p>
         </section>
 
         {/* Variables ambientales + Estado del sistema */}
@@ -410,8 +403,8 @@ const LiveView: React.FC<{
               tint="#dcefe3"
               iconColor="#2f7d46"
               label="Temperatura"
-              value={state.temperature.toFixed(1)}
-              unit="°C"
+              value={formatMetric(state.temperature, 1)}
+              unit={state.temperature === null ? '' : '°C'}
             />
             <EnvCard
               testId="env-humidity"
@@ -419,8 +412,8 @@ const LiveView: React.FC<{
               tint="#dde8f6"
               iconColor="#3b6fb0"
               label="Humedad ambiente"
-              value={String(Math.round(state.ambientHumidity))}
-              unit="%"
+              value={formatMetric(state.ambientHumidity)}
+              unit={state.ambientHumidity === null ? '' : '%'}
             />
             <EnvCard
               testId="env-soil"
@@ -430,12 +423,12 @@ const LiveView: React.FC<{
               label="Humedad de suelo"
               value={
                 state.soilMoisture === null
-                  ? '—'
+                  ? 'No disponible'
                   : String(Math.round(state.soilMoisture))
               }
               unit={
                 state.soilMoisture === null
-                  ? 'Sin sensor real'
+                  ? ''
                   : 'lectura analógica'
               }
             />
@@ -447,10 +440,10 @@ const LiveView: React.FC<{
               label="Luminosidad"
               value={
                 state.lightLevel === null
-                  ? '—'
+                  ? 'No disponible'
                   : String(Math.round(state.lightLevel))
               }
-              unit={state.lightLevel === null ? 'Sin sensor real' : 'lectura LDR'}
+              unit={state.lightLevel === null ? '' : 'lectura LDR'}
             />
           </div>
 
@@ -465,7 +458,7 @@ const LiveView: React.FC<{
           ? 'datos simulados · Modo demostración'
           : state.lastUpdatedAt
           ? `${new Date(state.lastUpdatedAt).toLocaleString('es-AR')} · dato real`
-          : 'dato real'}
+          : 'sin telemetría real disponible'}
       </p>
     </div>
   );
@@ -496,7 +489,9 @@ const EnvCard: React.FC<{
     <div className="mt-1 flex items-baseline gap-1.5">
       <span
         data-testid={`${testId}-value`}
-        className="text-3xl font-bold text-[#1d4a2c] tabular-nums"
+        className={`${
+          value === 'No disponible' ? 'text-lg' : 'text-3xl'
+        } font-bold text-[#1d4a2c] tabular-nums`}
         style={SERIF}
       >
         {value}
@@ -509,31 +504,76 @@ const EnvCard: React.FC<{
 const SystemStatusCard: React.FC<{ state: SmartGardenLiveState }> = ({
   state,
 }) => {
-  const items: { label: string; icon: React.ReactNode; connected: boolean }[] = [
+  const realSensors =
+    state.source === 'real' &&
+    (state.temperature !== null || state.ambientHumidity !== null);
+  const items: {
+    label: string;
+    icon: React.ReactNode;
+    status: string;
+    tone: 'connected' | 'unavailable' | 'demo';
+  }[] = [
     {
       label: 'Garden Node',
       icon: <Cpu className="w-4 h-4" />,
-      connected: state.gardenNodeConnected,
+      status:
+        state.source === 'demo'
+          ? 'Simulado'
+          : state.gardenNodeConnected
+          ? 'Conectado'
+          : 'No conectado',
+      tone:
+        state.source === 'demo'
+          ? 'demo'
+          : state.gardenNodeConnected
+          ? 'connected'
+          : 'unavailable',
     },
     {
       label: 'Camera Node',
       icon: <Camera className="w-4 h-4" />,
-      connected: state.cameraNodeConnected,
+      status: state.cameraNodeConnected ? 'Conectado' : 'No conectado',
+      tone: state.cameraNodeConnected ? 'connected' : 'unavailable',
     },
     {
       label: 'Sensores',
       icon: <Activity className="w-4 h-4" />,
-      connected: state.gardenNodeConnected,
+      status:
+        state.source === 'demo'
+          ? 'Simulados'
+          : realSensors
+          ? 'Parcialmente operativos'
+          : 'No disponibles',
+      tone:
+        state.source === 'demo'
+          ? 'demo'
+          : realSensors
+          ? 'connected'
+          : 'unavailable',
     },
     {
       label: 'Actuadores',
       icon: <Power className="w-4 h-4" />,
-      connected: state.pump !== null || state.lighting !== null,
+      status:
+        state.pump !== null || state.lighting !== null
+          ? 'Estado disponible'
+          : 'No disponibles',
+      tone:
+        state.pump !== null || state.lighting !== null
+          ? 'connected'
+          : 'unavailable',
     },
     {
       label: 'Red',
       icon: <Wifi className="w-4 h-4" />,
-      connected: state.networkConnected,
+      status:
+        state.networkConnected || state.cameraNodeConnected
+          ? 'Operativa'
+          : 'No conectada',
+      tone:
+        state.networkConnected || state.cameraNodeConnected
+          ? 'connected'
+          : 'unavailable',
     },
   ];
 
@@ -552,7 +592,12 @@ const SystemStatusCard: React.FC<{ state: SmartGardenLiveState }> = ({
             data-testid={`status-${item.label.toLowerCase().replace(' ', '-')}`}
             className="rounded-xl bg-white border border-[#e4dfca] px-3 py-2 flex items-center gap-2.5 border-l-4"
             style={{
-              borderLeftColor: item.connected ? '#2f7d46' : '#c9a94b',
+              borderLeftColor:
+                item.tone === 'connected'
+                  ? '#2f7d46'
+                  : item.tone === 'demo'
+                  ? '#b8901f'
+                  : '#9b9280',
             }}
           >
             <span className="text-[#3d5243] shrink-0">{item.icon}</span>
@@ -560,10 +605,14 @@ const SystemStatusCard: React.FC<{ state: SmartGardenLiveState }> = ({
               <p className="text-xs font-bold text-[#1f3d2a]">{item.label}</p>
               <p
                 className={`text-[11px] ${
-                  item.connected ? 'text-[#2f7d46]' : 'text-[#8a6d16]'
+                  item.tone === 'connected'
+                    ? 'text-[#2f7d46]'
+                    : item.tone === 'demo'
+                    ? 'text-[#8a6d16]'
+                    : 'text-[#6f6a60]'
                 }`}
               >
-                {item.connected ? 'Conectado' : 'Demo / No conectado'}
+                {item.status}
               </p>
             </div>
           </div>
@@ -608,26 +657,265 @@ const ActuatorsCard: React.FC<{ state: SmartGardenLiveState }> = ({ state }) => 
   </section>
 );
 
+function formatMetric(value: number | null, digits = 0): string {
+  return value === null ? 'No disponible' : value.toFixed(digits);
+}
+
 /* -------------------------------------------------------------------------- */
-/* Secciones preparadas (próxima etapa)                                       */
+/* Vista CAPTURAS                                                             */
 /* -------------------------------------------------------------------------- */
 
-const NextStagePlaceholder: React.FC<{
+const CapturesView: React.FC<{
+  connected: boolean;
+  captureUrl?: string;
+}> = ({ connected, captureUrl }) => {
+  const [capture, setCapture] = useState<{ url: string; takenAt: Date } | null>(
+    null
+  );
+  const [capturing, setCapturing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(
+    () => () => {
+      if (capture) URL.revokeObjectURL(capture.url);
+    },
+    [capture]
+  );
+
+  const takeCapture = async () => {
+    if (!captureUrl || capturing) return;
+    setCapturing(true);
+    setError(null);
+    try {
+      const url = new URL(captureUrl);
+      url.searchParams.set('capture', String(Date.now()));
+      const response = await fetch(url, {
+        headers: { Accept: 'image/jpeg' },
+        cache: 'no-store',
+      });
+      const contentType = response.headers.get('content-type') ?? '';
+      if (!response.ok || !contentType.toLowerCase().startsWith('image/jpeg')) {
+        throw new Error('invalid-capture');
+      }
+      const blob = await response.blob();
+      if (!blob.size) throw new Error('empty-capture');
+      const objectUrl = URL.createObjectURL(blob);
+      setCapture((previous) => {
+        if (previous) URL.revokeObjectURL(previous.url);
+        return { url: objectUrl, takenAt: new Date() };
+      });
+    } catch {
+      setError('No fue posible obtener una captura de la Camera Node.');
+    } finally {
+      setCapturing(false);
+    }
+  };
+
+  return (
+    <div data-testid="lab-captures-view" className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <section className="lg:col-span-8 rounded-3xl bg-[#1f2e22] text-[#e9efe4] p-5 shadow-md">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-[11px] font-extrabold uppercase tracking-[0.14em] flex items-center gap-2">
+              <ImagePlus className="w-4 h-4" />
+              Captura actual
+            </h3>
+            <p className="text-xs text-[#b9c7b4] mt-1">
+              Imagen real obtenida desde Camera Node.
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="lab-capture-now"
+            onClick={() => void takeCapture()}
+            disabled={!connected || !captureUrl || capturing}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#f3dfa6] text-[#513f12] text-sm font-extrabold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <Camera className="w-4 h-4" />
+            {capturing ? 'Capturando…' : 'Capturar ahora'}
+          </button>
+        </div>
+
+        <div className="min-h-[430px] rounded-2xl bg-[#18241b] border border-white/5 flex items-center justify-center p-4">
+          {capture ? (
+            <img
+              data-testid="lab-current-capture"
+              src={capture.url}
+              alt="Captura real de la Camera Node"
+              className="max-h-[520px] w-full object-contain rounded-xl"
+            />
+          ) : (
+            <div className="text-center max-w-sm">
+              <Camera className="w-10 h-10 mx-auto text-[#7f927e]" />
+              <p className="mt-3 font-bold">
+                {connected ? 'Todavía no se realizó una captura' : 'Camera Node no conectado'}
+              </p>
+              <p className="text-xs text-[#b9c7b4] mt-2">
+                {connected
+                  ? 'Usá “Capturar ahora” para documentar el estado actual de la huerta.'
+                  : 'No se muestra ninguna imagen demo.'}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {capture && (
+          <p data-testid="lab-capture-timestamp" className="mt-3 text-xs text-[#dce5d9]">
+            Capturada el {capture.takenAt.toLocaleDateString('es-AR')} a las{' '}
+            {capture.takenAt.toLocaleTimeString('es-AR')}
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="mt-3 text-xs text-[#f0b6aa] flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" />
+            {error}
+          </p>
+        )}
+      </section>
+
+      <aside className="lg:col-span-4 rounded-3xl bg-[#fffdf6] border border-[#e4dfca] shadow-sm p-5 h-fit">
+        <h3 className="font-bold text-[#1d4a2c]" style={SERIF}>
+          Historial
+        </h3>
+        <p className="mt-3 text-sm text-[#5b6b5d] leading-relaxed">
+          Historial de capturas aún no disponible.
+        </p>
+        <p className="mt-3 text-xs text-[#7a7567]">
+          La captura actual permanece sólo durante esta sesión y no se guarda en un servidor.
+        </p>
+      </aside>
+    </div>
+  );
+};
+
+/* -------------------------------------------------------------------------- */
+/* Vista MONITOREAR                                                           */
+/* -------------------------------------------------------------------------- */
+
+const MonitorView: React.FC<{ state: SmartGardenLiveState }> = ({ state }) => (
+  <div data-testid="lab-monitor-view">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <MonitorCard
+        testId="monitor-temperature"
+        icon={<Thermometer className="w-6 h-6" />}
+        label="Temperatura"
+        value={formatMetric(state.temperature, 1)}
+        unit={state.temperature === null ? '' : '°C'}
+        real={state.source === 'real' && state.temperature !== null}
+      />
+      <MonitorCard
+        testId="monitor-humidity"
+        icon={<Droplets className="w-6 h-6" />}
+        label="Humedad ambiente"
+        value={formatMetric(state.ambientHumidity)}
+        unit={state.ambientHumidity === null ? '' : '%'}
+        real={state.source === 'real' && state.ambientHumidity !== null}
+      />
+      <MonitorCard
+        testId="monitor-soil"
+        icon={<Sprout className="w-6 h-6" />}
+        label="Humedad de suelo"
+        value={formatMetric(state.soilMoisture)}
+        unit={state.soilMoisture === null ? '' : 'lectura relativa'}
+        real={state.source === 'real' && state.soilMoisture !== null}
+      />
+      <MonitorCard
+        testId="monitor-light"
+        icon={<Sun className="w-6 h-6" />}
+        label="Luminosidad"
+        value={formatMetric(state.lightLevel)}
+        unit={state.lightLevel === null ? '' : 'lectura relativa'}
+        real={state.source === 'real' && state.lightLevel !== null}
+      />
+    </div>
+    <section className="mt-5 rounded-2xl bg-[#fffdf6] border border-[#e4dfca] p-5 text-sm text-[#5b6b5d] leading-relaxed">
+      <strong className="text-[#1d4a2c]">Cómo interpretar estas mediciones:</strong>{' '}
+      la humedad de suelo y la luminosidad pueden expresarse como escalas relativas según el sensor y su calibración. Antes de compararlas, hay que conocer qué representa el mínimo y el máximo en el dispositivo real.
+    </section>
+  </div>
+);
+
+const MonitorCard: React.FC<{
+  testId: string;
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  unit: string;
+  real: boolean;
+}> = ({ testId, icon, label, value, unit, real }) => (
+  <section data-testid={testId} className="rounded-3xl bg-[#fffdf6] border border-[#e4dfca] shadow-sm p-5 min-h-[210px] flex flex-col">
+    <div className="flex items-start justify-between gap-3">
+      <span className="w-11 h-11 rounded-full bg-[#e5eee2] text-[#2f7d46] flex items-center justify-center">
+        {icon}
+      </span>
+      <span className={`px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${real ? 'bg-[#dcefe3] text-[#246238]' : 'bg-[#ece8d6] text-[#6f6a60]'}`}>
+        {real ? 'Real' : 'No disponible'}
+      </span>
+    </div>
+    <p className="mt-5 text-xs font-extrabold uppercase tracking-wider text-[#4f6354]">{label}</p>
+    <div className="mt-auto pt-4 flex items-baseline gap-2">
+      <strong className={`${value === 'No disponible' ? 'text-lg' : 'text-4xl'} text-[#1d4a2c]`} style={SERIF}>
+        {value}
+      </strong>
+      {unit && <span className="text-xs font-semibold text-[#6b7b6d]">{unit}</span>}
+    </div>
+  </section>
+);
+
+/* -------------------------------------------------------------------------- */
+/* Vista CONTROL                                                              */
+/* -------------------------------------------------------------------------- */
+
+const ControlView: React.FC<{ state: SmartGardenLiveState }> = ({ state }) => (
+  <div data-testid="lab-control-view">
+    <div className="rounded-2xl bg-[#f3dfa6] border border-[#e0c776] p-4 text-sm text-[#624d13] flex items-start gap-3 mb-5">
+      <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+      <p>
+        <strong>Control remoto no disponible.</strong> Esta pantalla diferencia la orden solicitada de la acción confirmada, pero no envía órdenes al Garden Node.
+      </p>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <ActuatorControlCard
+        testId="control-lighting"
+        label="Luz de observación"
+        icon={<Sun className="w-6 h-6" />}
+        confirmed={state.lighting}
+      />
+      <ActuatorControlCard
+        testId="control-pump"
+        label="Bomba"
+        icon={<Droplets className="w-6 h-6" />}
+        confirmed={state.pump}
+      />
+    </div>
+  </div>
+);
+
+const ActuatorControlCard: React.FC<{
   testId: string;
   label: string;
-  description: string;
-}> = ({ testId, label, description }) => (
-  <section
-    data-testid={testId}
-    className="rounded-3xl bg-[#fffdf6] border-2 border-dashed border-[#d8c98a] p-12 text-center space-y-3"
-  >
-    <h3 className="text-xl font-bold text-[#1d4a2c]" style={SERIF}>
-      {label}
-    </h3>
-    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f3dfa6] text-[#6b5314] text-xs font-extrabold uppercase tracking-wider">
-      <Clock className="w-3.5 h-3.5" />
-      Próxima etapa
-    </span>
-    <p className="text-sm text-[#5b6b5d] max-w-md mx-auto">{description}</p>
+  icon: React.ReactNode;
+  confirmed: boolean | null;
+}> = ({ testId, label, icon, confirmed }) => (
+  <section data-testid={testId} className="rounded-3xl bg-[#fffdf6] border border-[#e4dfca] shadow-sm p-6">
+    <div className="flex items-center gap-3">
+      <span className="w-11 h-11 rounded-full bg-[#e5eee2] text-[#2f7d46] flex items-center justify-center">{icon}</span>
+      <div>
+        <h3 className="text-lg font-bold text-[#1d4a2c]" style={SERIF}>{label}</h3>
+        <p className="text-xs text-[#6b7b6d]">Sólo visualización</p>
+      </div>
+    </div>
+    <div className="mt-6 grid grid-cols-2 gap-3">
+      <div className="rounded-2xl bg-[#f3f0e5] border border-[#e4dfca] p-4">
+        <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#6b7b6d]">Solicitado</p>
+        <p className="mt-2 font-bold text-[#1f3d2a]">No disponible</p>
+      </div>
+      <div className="rounded-2xl bg-[#f3f0e5] border border-[#e4dfca] p-4">
+        <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#6b7b6d]">Confirmado</p>
+        <p className="mt-2 font-bold text-[#1f3d2a]">
+          {confirmed === null ? 'No disponible' : confirmed ? 'ON' : 'OFF'}
+        </p>
+      </div>
+    </div>
   </section>
 );

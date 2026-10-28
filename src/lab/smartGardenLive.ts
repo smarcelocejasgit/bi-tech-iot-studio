@@ -3,9 +3,9 @@
  * La fuente HTTP consulta únicamente la Function; RTDB nunca queda expuesta al navegador.
  */
 export interface SmartGardenLiveState {
-  source: 'demo' | 'real';
-  temperature: number;
-  ambientHumidity: number;
+  source: 'demo' | 'real' | 'unavailable';
+  temperature: number | null;
+  ambientHumidity: number | null;
   soilMoisture: number | null;
   lightLevel: number | null;
   pump: boolean | null;
@@ -70,6 +70,21 @@ export const DEMO_LIVE_STATE: SmartGardenLiveState = {
   lastUpdatedAt: null,
 };
 
+/** Estado inicial de la fuente real: no presenta valores demo como telemetría. */
+export const UNAVAILABLE_LIVE_STATE: SmartGardenLiveState = {
+  source: 'unavailable',
+  temperature: null,
+  ambientHumidity: null,
+  soilMoisture: null,
+  lightLevel: null,
+  pump: null,
+  lighting: null,
+  gardenNodeConnected: false,
+  cameraNodeConnected: false,
+  networkConnected: false,
+  lastUpdatedAt: null,
+};
+
 function cloneState(state: SmartGardenLiveState): SmartGardenLiveState {
   return { ...state };
 }
@@ -128,7 +143,7 @@ export class HttpGardenLabDataSource implements GardenLabDataSource {
 
   constructor(
     private readonly endpoint = '/api/garden/latest',
-    fallbackState: SmartGardenLiveState = DEMO_LIVE_STATE,
+    fallbackState: SmartGardenLiveState = UNAVAILABLE_LIVE_STATE,
     private readonly fetchImpl: FetchLike = globalThis.fetch.bind(globalThis),
     private readonly pollIntervalMs = 5000
   ) {
