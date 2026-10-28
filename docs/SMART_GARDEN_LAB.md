@@ -48,44 +48,65 @@ Smart Garden Lab
 
 No existe todavía: MQTT, streaming real, múltiples nodos ni autenticación de usuarios. El selector `Smart Garden activo` deja visible el lugar donde luego se distinguirán los grupos.
 
-## Primera telemetría real — preparación local (sin despliegue)
+## Telemetría real por canales Bi-Tech
 
-Se incorporó una arquitectura mínima preparada y validada con Firebase Emulator Suite, pero todavía no desplegada:
+La telemetría productiva utiliza el mismo gateway local que publica Camera Node mediante Cloudflare Tunnel:
 
 ```text
 Garden Node ESP32
-  → HTTPS + Authorization: Bearer <token local>
-  → gardenTelemetry (una única HTTPS Function)
-      POST /telemetry
-      GET  /latest
-  → Realtime Database: sólo la última lectura
+  → HTTPS + Authorization: Bearer <credencial técnica>
+  → Gateway Bi-Tech local
+      POST /garden/telemetry
+      GET  /garden/channel/:channel/latest
+  → Cloudflare Tunnel HTTPS
   → HttpGardenLabDataSource
   → Smart Garden Lab
 ```
 
-La identidad inicial es fija y deliberadamente mínima:
+El canal visible para el estudiante identifica el flujo mostrado en el Lab, pero no autentica al dispositivo. La escritura sigue protegida por una credencial técnica separada. El gateway acepta canales del 1 al 9 y conserva solamente la última lectura en memoria:
 
 ```text
-Escuela Estación → Lab 01 → Garden Node 01
+channels[1] → última lectura del Garden Node 01
+channels[2] → última lectura del Garden Node 02
+...
+channels[9] → última lectura del Garden Node 09
 ```
 
-La lectura se propone en RTDB bajo:
+Si el gateway se reinicia, esas lecturas se pierden y cada canal vuelve a `No disponible`. No existe historial ni base de datos en esta etapa.
 
-```text
-schools/escuela-estacion/labs/lab-01/nodes/garden-node-01/latest
-```
-
-El navegador no accede directamente a RTDB. Sus reglas niegan todas las lecturas y escrituras; la Function usa Admin SDK. `POST /telemetry` valida el token por su hash SHA-256 guardado como secreto, valida temperatura/humedad/estado y genera el timestamp en servidor. `GET /latest` devuelve sólo la identidad lógica y la última telemetría autorizada.
-
-`HttpGardenLabDataSource` consulta `/api/garden/latest`. Mientras no haya una respuesta real válida conserva `DemoGardenLabDataSource` como fallback. Cuando recibe telemetría real reemplaza únicamente temperatura y humedad; suelo, luz, actuadores y cámara quedan explícitamente como no conectados.
+`HttpGardenLabDataSource` consulta el endpoint HTTPS del canal seleccionado. Cuando recibe telemetría válida reemplaza únicamente temperatura y humedad; suelo y luminosidad permanecen explícitamente como no disponibles.
 
 Las credenciales permanecen separadas y excluidas de Git:
 
 - `wifi_credentials.h`: SSID y contraseña Wi-Fi.
-- `device_credentials.h`: token del Garden Node.
-- `functions/.secret.local`: hash de prueba exclusivo del emulador.
+- `device_credentials.h`: token técnico, URL HTTPS temporal y canal del Garden Node.
+- `camera-gateway.local.json` o `GARDEN_NODE_TOKEN_SHA256`: hash SHA-256 usado por el gateway.
+- `.env.production.local`: URL HTTPS pública del túnel usada al construir el frontend.
 
-Para producción quedan pendientes una acción manual sobre el plan Firebase, crear la instancia RTDB y configurar el secreto real. No se realizó ningún despliegue ni cambio de billing en esta etapa.
+Firebase queda limitado a Hosting. No se requieren Functions, Realtime Database, Secret Manager ni plan Blaze para esta telemetría.
+
+### PENDIENTE DE VALIDACIÓN EN ESCUELA
+
+Todavía no se validó físicamente el circuito extremo a extremo:
+
+```text
+Garden Node ESP32 + DHT11 GPIO21 + Canal 1
+  → gateway
+  → túnel HTTPS
+  → Smart Garden Lab
+```
+
+La primera prueba en la escuela debe realizarse en este orden:
+
+1. conectar la ESP32;
+2. detectar el puerto dinámico;
+3. cargar el firmware preparado para Canal 1;
+4. abrir el Monitor Serie a `115200`;
+5. comprobar el envío de temperatura y humedad;
+6. abrir `https://iotstudio.web.app/lab`;
+7. ingresar Canal 1 y verificar las mediciones reales;
+8. cambiar a Canal 2 y confirmar que no aparecen datos del Canal 1;
+9. revisar la red institucional o su proxy únicamente si bloquea el túnel HTTPS.
 
 ## Identidad visual
 

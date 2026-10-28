@@ -115,6 +115,27 @@ function hasStatementKind(
   return false;
 }
 
+function findBiTechChannel(stmts: StatementNode[]): {
+  channel: number;
+  blockId?: string;
+} | null {
+  for (const statement of stmts) {
+    if (statement.kind === 'iot_connect_channel') {
+      return {
+        channel: Math.min(9, Math.max(1, Math.round(statement.channel))),
+        blockId: statement.blockId,
+      };
+    }
+    if (statement.kind === 'if') {
+      const nested =
+        findBiTechChannel(statement.thenBranch) ??
+        findBiTechChannel(statement.elseBranch ?? []);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
 function emitStatementsC(
   stmts: StatementNode[],
   indent: string,
@@ -219,6 +240,12 @@ function emitStatementsC(
         });
         break;
       }
+      case 'iot_connect_channel':
+        out.push({
+          code: `${indent}conectarSmartGardenLab(BITECH_CHANNEL);`,
+          blockId: st.blockId,
+        });
+        break;
       case 'iot_publish': {
         const valExpr = useLocalVars
           ? SENSOR_CODE_META[st.sensor].varName
@@ -247,6 +274,7 @@ function buildNodeMcuCompilableSketch(
   const usesWifi = hasStatementKind(
     allStatements,
     (st) => st.kind === 'cam_wifi' || st.kind === 'iot_publish'
+      || st.kind === 'iot_connect_channel'
   );
   const usesDht =
     usedSensors.has('temperatura') || usedSensors.has('humedadAmbiente');
@@ -382,6 +410,11 @@ function buildNodeMcuCompilableSketch(
       '  WiFi.begin(ssid, pass);',
       '}',
       '',
+      'void conectarSmartGardenLab(uint8_t canal) {',
+      '  Serial.print("[BI-TECH] Canal Smart Garden Lab: ");',
+      '  Serial.println(canal);',
+      '}',
+      '',
       'void enviarDatoIoT(const char* topico, float valor) {',
       '  Serial.print("[BI-TECH IoT] ");',
       '  Serial.print(topico);',
@@ -439,6 +472,7 @@ function buildNodeMcuCompilableSketch(
     ...(usesWifi
       ? [
           'void conectarWiFi(const char* ssid, const char* pass);',
+          'void conectarSmartGardenLab(uint8_t canal);',
           'void enviarDatoIoT(const char* topico, float valor);',
         ]
       : []),
@@ -496,6 +530,10 @@ function buildGardenNodeCompilableSketch(compactCode: string): string {
     '}',
     'void enviarDatoIoT(const char* topico, float valor) {',
     '  Serial.print(topico); Serial.print(" -> "); Serial.println(valor);',
+    '}',
+    'void conectarSmartGardenLab(uint8_t canal) {',
+    '  Serial.print("[BI-TECH] Canal Smart Garden Lab: ");',
+    '  Serial.println(canal);',
     '}',
     '',
     compactCode,
@@ -729,6 +767,10 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
   const validationIssues = validateProgramAgainstCapabilities(program);
   const profile = getDeviceProfile(program.device);
   const rawLines: { code: string; blockId?: string }[] = [];
+  const selectedChannel = findBiTechChannel([
+    ...program.setupStatements,
+    ...program.loopStatements,
+  ]);
 
   const usedSensorsInLoop = new Set<SensorKey>();
   collectAllSensorsInStatements(program.loopStatements, usedSensorsInLoop);
@@ -750,6 +792,14 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
         code: `// ${issue.message}`,
       });
     }
+    rawLines.push({ code: '' });
+  }
+
+  if (selectedChannel) {
+    rawLines.push({
+      code: `const uint8_t BITECH_CHANNEL = ${selectedChannel.channel};`,
+      blockId: selectedChannel.blockId,
+    });
     rawLines.push({ code: '' });
   }
 

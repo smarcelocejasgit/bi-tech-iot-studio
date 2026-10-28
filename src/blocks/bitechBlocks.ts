@@ -57,6 +57,14 @@ const RESOLUTION_DROPDOWN_OPTIONS: [string, CameraResolutionOption][] = [
   ['XGA (1024x768)', 'XGA (1024x768)'],
 ];
 
+const BITECH_CHANNEL_DROPDOWN_OPTIONS: [string, string][] = Array.from(
+  { length: 9 },
+  (_, index) => {
+    const channel = String(index + 1);
+    return [channel, channel];
+  }
+);
+
 export function registerBiTechBlocks(): void {
   if (blocksRegistered) return;
   blocksRegistered = true;
@@ -459,6 +467,23 @@ export function registerBiTechBlocks(): void {
   };
 
   // ==================== CATEGORÍA: IoT ====================
+  Blockly.Blocks['bitech_iot_connect_channel'] = {
+    init: function () {
+      this.appendDummyInput()
+        .appendField('🔗  conectar a Smart Garden Lab — canal')
+        .appendField(
+          new Blockly.FieldDropdown(BITECH_CHANNEL_DROPDOWN_OPTIONS),
+          'CHANNEL'
+        );
+      this.setPreviousStatement(true, null);
+      this.setNextStatement(true, null);
+      this.setColour('#0d9488');
+      this.setTooltip(
+        'Establece el canal visible del 1 al 9 que permitirá encontrar este dispositivo en Smart Garden Lab.'
+      );
+    },
+  };
+
   Blockly.Blocks['bitech_iot_send_event'] = {
     init: function () {
       this.appendDummyInput()
@@ -482,6 +507,7 @@ export interface CatalogBlockItem {
   requiredActuator?: CompatibleActuatorId;
   requiresCamera?: boolean;
   requiresWifi?: boolean;
+  excludeCamera?: boolean;
 }
 
 export interface CategoryCatalogItem {
@@ -697,6 +723,13 @@ export const BLOCK_CATEGORIES_CATALOG: CategoryCatalogItem[] = [
     label: 'IoT',
     blocks: [
       {
+        type: 'bitech_iot_connect_channel',
+        label: 'conectar a Smart Garden Lab',
+        badge: 'Canal 1–9',
+        requiresWifi: true,
+        excludeCamera: true,
+      },
+      {
         type: 'bitech_cam_wifi',
         label: 'conectar a Wi-Fi',
         badge: 'Wi-Fi',
@@ -726,6 +759,7 @@ export function getCatalogForCapabilities(
     blocks: cat.blocks.filter((b) => {
       if (b.requiresCamera && !capabilities.camera) return false;
       if (b.requiresWifi && !capabilities.wifi) return false;
+      if (b.excludeCamera && capabilities.camera) return false;
       if (
         b.requiredSensor &&
         !capabilities.compatibleSensors.includes(b.requiredSensor)
@@ -1117,6 +1151,18 @@ function parseStatementChain(firstBlock: Blockly.Block | null): StatementNode[] 
           blockId: current.id,
         });
         break;
+      case 'bitech_iot_connect_channel': {
+        const rawChannel = Number(current.getFieldValue('CHANNEL'));
+        const channel = Number.isInteger(rawChannel)
+          ? Math.min(9, Math.max(1, rawChannel))
+          : 1;
+        statements.push({
+          kind: 'iot_connect_channel',
+          channel,
+          blockId: current.id,
+        });
+        break;
+      }
       default:
         break;
     }

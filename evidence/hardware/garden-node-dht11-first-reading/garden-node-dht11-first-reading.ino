@@ -4,7 +4,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <time.h>
-#include "firebase_hosting_root_ca.h"
+#include "bitech_gateway_root_ca.h"
 
 #if __has_include("wifi_credentials.h")
   #include "wifi_credentials.h"
@@ -22,12 +22,16 @@
 #ifndef BITECH_DEVICE_TOKEN
   #define BITECH_DEVICE_TOKEN "TOKEN_PENDIENTE_CONFIGURACION"
 #endif
+#ifndef BITECH_GATEWAY_URL
+  #define BITECH_GATEWAY_URL "HTTPS_GATEWAY_PENDIENTE_CONFIGURACION"
+#endif
+#ifndef BITECH_CHANNEL
+  #define BITECH_CHANNEL 1
+#endif
 
 // Pin temporal de validación física. No forma parte todavía del perfil permanente.
 constexpr uint8_t DHT_PIN = 21;
 constexpr uint8_t DHT_TYPE = DHT11;
-constexpr char TELEMETRY_URL[] =
-  "https://iotstudio.web.app/api/garden/telemetry";
 constexpr uint32_t TELEMETRY_INTERVAL_MS = 10000;
 
 DHT dht(DHT_PIN, DHT_TYPE);
@@ -81,16 +85,24 @@ void enviarTelemetria(float temperatura, float humedad) {
     Serial.println("TELEMETRY_ERROR: token local no configurado");
     return;
   }
+  if (strncmp(BITECH_GATEWAY_URL, "https://", 8) != 0) {
+    Serial.println("TELEMETRY_ERROR: gateway HTTPS local no configurado");
+    return;
+  }
+  if (BITECH_CHANNEL < 1 || BITECH_CHANNEL > 9) {
+    Serial.println("TELEMETRY_ERROR: canal fuera del rango 1-9");
+    return;
+  }
   if (time(nullptr) < 1700000000) {
     Serial.println("TELEMETRY_ERROR: reloj TLS no sincronizado");
     return;
   }
 
   WiFiClientSecure client;
-  client.setCACert(BITECH_FIREBASE_ROOT_CA);
+  client.setCACert(BITECH_GATEWAY_ROOT_CA);
 
   HTTPClient https;
-  if (!https.begin(client, TELEMETRY_URL)) {
+  if (!https.begin(client, BITECH_GATEWAY_URL)) {
     Serial.println("TELEMETRY_ERROR: no se pudo iniciar HTTPS");
     return;
   }
@@ -99,7 +111,8 @@ void enviarTelemetria(float temperatura, float humedad) {
   snprintf(
     payload,
     sizeof(payload),
-    "{\"temperature\":%.1f,\"humidity\":%.1f,\"status\":\"online\"}",
+    "{\"channel\":%u,\"temperature\":%.1f,\"humidity\":%.1f,\"status\":\"online\"}",
+    static_cast<unsigned>(BITECH_CHANNEL),
     temperatura,
     humedad
   );
@@ -117,6 +130,8 @@ void setup() {
 
   Serial.println();
   Serial.println("Bi-Tech Garden Node - DHT11 GPIO21");
+  Serial.print("Canal Bi-Tech: ");
+  Serial.println(BITECH_CHANNEL);
   Serial.println("Inicio de lectura fisica");
 
   // Diagnóstico eléctrico no destructivo del puerto de señal.

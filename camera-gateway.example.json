@@ -3,5 +3,6 @@
   "listenPort": 8787,
   "allowedOrigin": "https://iotstudio.web.app",
   "captureUrl": "http://CAMERA_NODE_IP/capture",
-  "streamUrl": "http://CAMERA_NODE_IP:81/stream"
+  "streamUrl": "http://CAMERA_NODE_IP:81/stream",
+  "gardenTokenSha256": "SHA256_DEL_TOKEN_TECNICO_DEL_GARDEN_NODE"
 }

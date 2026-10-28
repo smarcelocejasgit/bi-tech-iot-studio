@@ -25,6 +25,10 @@ import { resolveRoute } from '../routing/appRoute';
 import { CAMERA_NODE_CONFIG } from '../hardware/cameraNodeConfig';
 import { resolveCameraGatewayConfig } from '../lab/cameraGateway';
 import {
+  gardenLatestEndpoint,
+  parseBiTechChannel,
+} from '../lab/bitechChannels';
+import {
   parseCameraSerialOutput,
   resolveCameraStreamUrl,
 } from '../hardware/cameraSerialParser';
@@ -205,6 +209,51 @@ describe('Bi-Tech IoT Studio V0.1.1 — Restricciones de Hardware (NodeMCU A0)',
     const cameraIssues = validateProgramAgainstCapabilities(gardenWithCameraBlock);
     expect(cameraIssues).toHaveLength(1);
     expect(cameraIssues[0].code).toBe('UNSUPPORTED_CAMERA_ON_DEVICE');
+  });
+
+  it('vincula Garden Node a un canal Bi-Tech 1–9 sin usarlo como credencial', () => {
+    const gardenCatalog = getCatalogForDevice('garden-node');
+    const nodemcuCatalog = getCatalogForDevice('nodemcu-esp8266');
+    const cameraCatalog = getCatalogForDevice('camera-node');
+    const blockTypes = (catalog: ReturnType<typeof getCatalogForDevice>) =>
+      catalog.flatMap((category) => category.blocks.map((block) => block.type));
+
+    expect(blockTypes(gardenCatalog)).toContain('bitech_iot_connect_channel');
+    expect(blockTypes(nodemcuCatalog)).toContain('bitech_iot_connect_channel');
+    expect(blockTypes(cameraCatalog)).not.toContain('bitech_iot_connect_channel');
+    expect(parseBiTechChannel(1)).toBe(1);
+    expect(parseBiTechChannel('9')).toBe(9);
+    expect(parseBiTechChannel(0)).toBeNull();
+    expect(parseBiTechChannel(10)).toBeNull();
+    expect(gardenLatestEndpoint(2, 'https://gateway.example/')).toBe(
+      'https://gateway.example/garden/channel/2/latest'
+    );
+
+    const program: ParsedProgram = {
+      device: 'garden-node',
+      setupStatements: [
+        { kind: 'iot_connect_channel', channel: 2, blockId: 'channel-2' },
+      ],
+      loopStatements: [],
+    };
+    const output = generateArduinoCode(program);
+    expect(output.compactCode).toContain('const uint8_t BITECH_CHANNEL = 2;');
+    expect(output.compactCode).toContain(
+      'conectarSmartGardenLab(BITECH_CHANNEL);'
+    );
+    expect(output.compilableSketch).toContain(
+      'void conectarSmartGardenLab(uint8_t canal)'
+    );
+    expect(output.compilableSketch).not.toContain('Bearer');
+
+    const simulation = evaluateGardenProgram(program, {
+      temperatura: 20,
+      humedadAmbiente: 60,
+      humedadSuelo: 500,
+      nivelLuz: 500,
+    });
+    expect(simulation.bitechChannel).toBe(2);
+    expect(simulation.explanation).toContain('canal 2');
   });
 });
 
@@ -778,23 +827,16 @@ describe('Bi-Tech IoT Studio V0.5A — Rutas y Smart Garden Lab (demostración)'
     const fetchImpl = async () =>
       new Response(
         JSON.stringify({
-          identity: {
-            schoolId: 'escuela-estacion',
-            labId: 'lab-01',
-            nodeId: 'garden-node-01',
-            nodeLabel: 'Garden Node 01',
-          },
-          telemetry: {
-            temperature: 17.3,
-            humidity: 60,
-            status: 'online',
-            timestamp: 1793059200000,
-          },
+          channel: 1,
+          temperature: 17.3,
+          humidity: 60,
+          status: 'online',
+          timestamp: 1793059200000,
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     const ds = new HttpGardenLabDataSource(
-      '/api/garden/latest',
+      'https://gateway.example/garden/channel/1/latest',
       DEMO_LIVE_STATE,
       fetchImpl
     );
@@ -813,11 +855,12 @@ describe('Bi-Tech IoT Studio V0.5A — Rutas y Smart Garden Lab (demostración)'
     expect(snap.pump).toBeNull();
     expect(snap.lighting).toBeNull();
     expect(snap.cameraNodeConnected).toBe(false);
+    expect(snap.channel).toBe(1);
   });
 
   it('la fuente HTTP inicia sin valores demo mientras espera telemetría real', () => {
     const ds = new HttpGardenLabDataSource(
-      '/api/garden/latest',
+      'https://gateway.example/garden/channel/1/latest',
       undefined,
       async () => new Response(null, { status: 503 })
     );

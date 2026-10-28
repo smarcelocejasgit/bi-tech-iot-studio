@@ -592,6 +592,25 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     technicalNotes:
       'Tanto ESP32 como NodeMCU ESP8266 cuentan con conectividad Wi-Fi integrada para proyectos de Internet de las Cosas.',
   },
+
+  bitech_iot_connect_channel: {
+    blockType: 'bitech_iot_connect_channel',
+    title: 'Conectar a Smart Garden Lab por canal',
+    category: 'iot',
+    previewLabel: '🔗 conectar a Smart Garden Lab — canal [1]',
+    previewColor: '#0d9488',
+    description:
+      'Asocia el programa con un canal visible del 1 al 9 para encontrar sus datos en Smart Garden Lab.',
+    physicalComponent: 'Interfaz Wi-Fi del microcontrolador',
+    dataUsed: 'Número de canal Bi-Tech (1–9)',
+    dataType: 'Configuración de comunicación (entero)',
+    behavior:
+      'Define el canal que el estudiante ingresará en Smart Garden Lab para visualizar el dispositivo asociado.',
+    arduinoCode:
+      'const uint8_t BITECH_CHANNEL = 1;\nconectarSmartGardenLab(BITECH_CHANNEL);',
+    technicalNotes:
+      'El canal identifica el flujo visible; no es una contraseña ni reemplaza el token técnico interno que autoriza la escritura.',
+  },
 };
 
 export const DEFAULT_MANUAL_ENTRY: ContextualManualEntry =

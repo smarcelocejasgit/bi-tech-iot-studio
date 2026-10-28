@@ -210,6 +210,8 @@ export function formatActionsList(statements: StatementNode[]): string {
         return 'detiene la transmisión de video';
       case 'data_log':
         return `registra el dato “${statement.label}”`;
+      case 'iot_connect_channel':
+        return `conecta el dispositivo con el canal ${statement.channel} de Smart Garden Lab`;
       case 'iot_publish':
         return `publica un dato en “${statement.topic}”`;
       case 'cam_config':
@@ -322,8 +324,9 @@ function collectFeatures(
         collectFeatures(statement.elseBranch ?? [], features);
         break;
       case 'data_log':
+      case 'iot_connect_channel':
       case 'iot_publish':
-        features.read = true;
+        features.read ||= statement.kind !== 'iot_connect_channel';
         features.communicate = true;
         break;
       case 'cam_wifi':
@@ -519,6 +522,12 @@ function describeSimpleStatement(statement: Exclude<StatementNode, { kind: 'if' 
         kind: 'communication',
         blockLabel: 'enviar a IoT',
         explanation: `obtiene la lectura de ${formatSensorDisplayName(statement.sensor)} y la publica en el canal “${statement.topic}”.`,
+      };
+    case 'iot_connect_channel':
+      return {
+        kind: 'communication',
+        blockLabel: `conectar a Smart Garden Lab — canal ${statement.channel}`,
+        explanation: `establece el canal de comunicación ${statement.channel} para este dispositivo. Ese número permitirá identificar la placa y visualizar sus datos desde Smart Garden Lab; no funciona como contraseña ni reemplaza la credencial técnica interna.`,
       };
   }
 }

@@ -42,7 +42,7 @@ function renderHighlightedLine(line: string): React.ReactNode {
   }
 
   const tokenRegex =
-    /(".*?"|\b(?:void|int|float|bool|const|char|if|else|return|true|false)\b|\b(?:setup|loop|pinMode|digitalWrite|digitalRead|analogRead|Serial|begin|print|println|delay|WiFi|mode|leerTemperatura|leerHumedadAmbiente|leerHumedadSuelo|leerNivelLuz|leerEntradaAnalogicaA0|leerEntradaDigital|bombaOn|bombaOff|luzOn|luzOff|relayOn|relayOff|activarSalidaDigital|desactivarSalidaDigital|configurarCamara|seleccionarResolucion|configurarCalidad|iniciarCamara|conectarWiFi|iniciarStreaming|detenerStreaming|tomarCaptura|estadoCamara|registrarDato|enviarDatoIoT)\b|\b(?:OUTPUT|INPUT|HIGH|LOW|A0|WIFI_STA|BOMBA_PIN|LUZ_PIN|DHT_PIN|SUELO_PIN|LDR_PIN|RELAY_PIN|ANALOG_A0_PIN|ENTRADA_DIG_PIN|SALIDA_DIG_PIN|WIFI_SSID|WIFI_PASS)\b|\b\d+\b)/g;
+    /(".*?"|\b(?:void|int|float|bool|const|char|if|else|return|true|false)\b|\b(?:setup|loop|pinMode|digitalWrite|digitalRead|analogRead|Serial|begin|print|println|delay|WiFi|mode|leerTemperatura|leerHumedadAmbiente|leerHumedadSuelo|leerNivelLuz|leerEntradaAnalogicaA0|leerEntradaDigital|bombaOn|bombaOff|luzOn|luzOff|relayOn|relayOff|activarSalidaDigital|desactivarSalidaDigital|configurarCamara|seleccionarResolucion|configurarCalidad|iniciarCamara|conectarWiFi|conectarSmartGardenLab|iniciarStreaming|detenerStreaming|tomarCaptura|estadoCamara|registrarDato|enviarDatoIoT)\b|\b(?:OUTPUT|INPUT|HIGH|LOW|A0|WIFI_STA|BOMBA_PIN|LUZ_PIN|DHT_PIN|SUELO_PIN|LDR_PIN|RELAY_PIN|ANALOG_A0_PIN|ENTRADA_DIG_PIN|SALIDA_DIG_PIN|WIFI_SSID|WIFI_PASS|BITECH_CHANNEL)\b|\b\d+\b)/g;
 
   const parts = line.split(tokenRegex);
 
@@ -83,7 +83,7 @@ function renderHighlightedLine(line: string): React.ReactNode {
       );
     }
     if (
-      /^(setup|loop|pinMode|digitalWrite|digitalRead|analogRead|Serial|begin|print|println|delay|WiFi|mode|leerTemperatura|leerHumedadAmbiente|leerHumedadSuelo|leerNivelLuz|leerEntradaAnalogicaA0|leerEntradaDigital|bombaOn|bombaOff|luzOn|luzOff|relayOn|relayOff|activarSalidaDigital|desactivarSalidaDigital|configurarCamara|seleccionarResolucion|configurarCalidad|iniciarCamara|conectarWiFi|iniciarStreaming|detenerStreaming|tomarCaptura|estadoCamara|registrarDato|enviarDatoIoT)$/.test(
+      /^(setup|loop|pinMode|digitalWrite|digitalRead|analogRead|Serial|begin|print|println|delay|WiFi|mode|leerTemperatura|leerHumedadAmbiente|leerHumedadSuelo|leerNivelLuz|leerEntradaAnalogicaA0|leerEntradaDigital|bombaOn|bombaOff|luzOn|luzOff|relayOn|relayOff|activarSalidaDigital|desactivarSalidaDigital|configurarCamara|seleccionarResolucion|configurarCalidad|iniciarCamara|conectarWiFi|conectarSmartGardenLab|iniciarStreaming|detenerStreaming|tomarCaptura|estadoCamara|registrarDato|enviarDatoIoT)$/.test(
         part
       )
     ) {

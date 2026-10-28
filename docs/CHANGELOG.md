@@ -4,6 +4,17 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 
 ---
 
+## [0.5.7 (V0.5G)] — 2026-10-28
+### Canales Bi-Tech 1–9 y telemetría mediante gateway HTTPS
+- Se incorpora el bloque `conectar a Smart Garden Lab — canal [1–9]`, su constante Arduino `BITECH_CHANNEL`, interpretación didáctica, simulación y manual contextual. El canal identifica el flujo visible y no reemplaza la credencial técnica interna.
+- Smart Garden Lab permite ingresar un canal, cambiarlo y consultar únicamente la última telemetría de ese canal. Temperatura y humedad ambiente se muestran sólo cuando existe una lectura real; suelo y luminosidad permanecen como `No disponible`.
+- El gateway local existente suma `POST /garden/telemetry` con Bearer token y `GET /garden/channel/:channel/latest`, conserva una lectura en memoria por canal y mantiene sin cambios los endpoints de Camera Node.
+- Firebase queda limitado a Hosting: el frontend consume el gateway mediante la URL HTTPS configurada localmente y no requiere Functions, RTDB, Secret Manager ni Blaze.
+- Se validaron por software el aislamiento Canal 1 / Canal 2, el flujo completo del Lab y la compilación del firmware Garden Node para ESP32.
+- **PENDIENTE DE VALIDACIÓN EN ESCUELA:** `Garden Node ESP32 + DHT11 GPIO21 + Canal 1 → gateway → túnel HTTPS → Smart Garden Lab`. No se declara todavía validación física de este enlace extremo a extremo.
+
+---
+
 ## [0.5.6 (V0.5F)] — 2026-10-27
 ### Puente seguro Garden Node → Smart Garden Lab validado localmente
 - Se incorpora una única HTTPS Function `gardenTelemetry` con las rutas `POST /telemetry` y `GET /latest`, preparada para recibir temperatura, humedad y estado del Garden Node y conservar únicamente la lectura más reciente en Realtime Database.

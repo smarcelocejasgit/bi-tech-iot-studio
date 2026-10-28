@@ -23,6 +23,32 @@ test('el clic de la paleta continúa insertando y seleccionando el bloque', asyn
   await expect(page.getByTestId('interpreter-pipeline-badges')).toHaveCount(0);
 });
 
+test('el bloque de canal vincula Blockly, intérprete y código Arduino', async ({
+  page,
+}) => {
+  await page.getByTestId('category-iot').click();
+  await page.getByTestId('insert-block-bitech_iot_connect_channel').click();
+
+  const block = page.locator('.blocklyBlockCanvas .blocklyDraggable');
+  await expect(block).toHaveCount(1);
+  await expect(block).toContainText('conectar a Smart Garden Lab');
+  await expect(block).toContainText('1');
+  await expect(page.getByTestId('interpreter-narrative')).toContainText(
+    'canal de comunicación 1'
+  );
+  await expect(page.getByTestId('interpreter-narrative')).toContainText(
+    'no funciona como contraseña'
+  );
+
+  await page.getByTestId('tab-view-arduino-code').click();
+  await expect(page.getByTestId('arduino-code-display')).toContainText(
+    'const uint8_t BITECH_CHANNEL = 1;'
+  );
+  await expect(page.getByTestId('arduino-code-display')).toContainText(
+    'conectarSmartGardenLab(BITECH_CHANNEL);'
+  );
+});
+
 test('arrastrar desde la paleta crea una sola instancia válida en el punto de drop', async ({
   page,
 }) => {

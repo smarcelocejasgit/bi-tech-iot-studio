@@ -23,6 +23,7 @@ export interface GardenSensorState {
 export interface GardenActuatorState {
   bomba: boolean;
   iluminacion: boolean;
+  bitechChannel: number | null;
   lastDelaySeconds: number | null;
   explanation: string;
   triggeredConditions: string[];
@@ -40,6 +41,7 @@ export interface NodeMcuActuatorState {
   relay: boolean;
   iluminacion: boolean;
   salidaDigital: boolean;
+  bitechChannel: number | null;
   lastDelaySeconds: number | null;
   explanation: string;
   triggeredConditions: string[];
@@ -133,6 +135,7 @@ export type StatementNode =
   | { kind: 'cam_stream_stop'; blockId?: string }
   | { kind: 'cam_capture'; blockId?: string }
   | { kind: 'data_log'; label: string; sensor: SensorKey; blockId?: string }
+  | { kind: 'iot_connect_channel'; channel: number; blockId?: string }
   | { kind: 'iot_publish'; topic: string; sensor: SensorKey; blockId?: string };
 
 export interface ParsedProgram {

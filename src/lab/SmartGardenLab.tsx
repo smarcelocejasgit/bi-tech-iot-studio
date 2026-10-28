@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   Camera,
@@ -17,10 +17,16 @@ import {
 import {
   DEMO_SMART_GARDEN_NODE,
   GardenLabDataSource,
-  liveGardenLabDataSource,
+  createLiveGardenLabDataSource,
   SmartGardenLiveState,
+  UNAVAILABLE_LIVE_STATE,
 } from './smartGardenLive';
 import { CAMERA_GATEWAY_CONFIG } from './cameraGateway';
+import {
+  BITECH_CHANNEL_MAX,
+  BITECH_CHANNEL_MIN,
+  parseBiTechChannel,
+} from './bitechChannels';
 
 type LabSection = 'live' | 'captures' | 'monitor' | 'control';
 
@@ -85,6 +91,15 @@ interface SmartGardenLabProps {
   dataSource?: GardenLabDataSource;
 }
 
+const IDLE_GARDEN_DATA_SOURCE: GardenLabDataSource = {
+  isDemo: false,
+  getSnapshot: () => ({ ...UNAVAILABLE_LIVE_STATE }),
+  subscribe(listener) {
+    listener({ ...UNAVAILABLE_LIVE_STATE });
+    return () => undefined;
+  },
+};
+
 function useCameraGatewayStatus(): {
   configured: boolean;
   connected: boolean;
@@ -148,20 +163,56 @@ function useCameraGatewayStatus(): {
 }
 
 export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
-  dataSource = liveGardenLabDataSource,
+  dataSource,
 }) => {
-  const dataState = useGardenLabState(dataSource);
+  const [selectedChannel, setSelectedChannel] = useState<number | null>(null);
+  const [channelInput, setChannelInput] = useState('');
+  const [channelError, setChannelError] = useState<string | null>(null);
+  const resolvedDataSource = useMemo(
+    () =>
+      dataSource ??
+      (selectedChannel === null
+        ? IDLE_GARDEN_DATA_SOURCE
+        : createLiveGardenLabDataSource(selectedChannel)),
+    [dataSource, selectedChannel]
+  );
+  const dataState = useGardenLabState(resolvedDataSource);
   const cameraGateway = useCameraGatewayStatus();
+  const channelDataState =
+    !dataSource &&
+    selectedChannel !== null &&
+    dataState.source === 'real' &&
+    dataState.channel !== selectedChannel
+      ? UNAVAILABLE_LIVE_STATE
+      : dataState;
   const state: SmartGardenLiveState = cameraGateway.configured
     ? {
-        ...dataState,
+        ...channelDataState,
         cameraNodeConnected: cameraGateway.connected,
         cameraStreamUrl: cameraGateway.streamUrl,
       }
-    : dataState;
+    : channelDataState;
   const clock = useClock();
   const [section, setSection] = useState<LabSection>('live');
   const activeSection = LAB_SECTIONS.find((s) => s.id === section)!;
+
+  const connectChannel = () => {
+    const channel = parseBiTechChannel(channelInput);
+    if (channel === null) {
+      setChannelError('Ingresá un canal válido del 1 al 9.');
+      return;
+    }
+    setChannelError(null);
+    setSelectedChannel(channel);
+    setSection('live');
+  };
+
+  const changeChannel = () => {
+    setSelectedChannel(null);
+    setChannelInput('');
+    setChannelError(null);
+    setSection('live');
+  };
 
   return (
     <div
@@ -194,7 +245,7 @@ export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {state.source === 'demo' && (
+            {selectedChannel !== null && state.source === 'demo' && (
               <span
                 data-testid="lab-demo-badge"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#f3dfa6] text-[#6b5314] text-xs font-extrabold uppercase tracking-wider border border-[#e0c776]"
@@ -203,7 +254,7 @@ export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
                 Modo demostración
               </span>
             )}
-            {state.source === 'unavailable' && (
+            {selectedChannel !== null && state.source === 'unavailable' && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#ece8d6] text-[#6b5d2a] text-xs font-extrabold uppercase tracking-wider border border-[#d8cfaa]">
                 <span className="w-2 h-2 rounded-full bg-[#9b8542]" />
                 Garden Node sin telemetría
@@ -217,76 +268,87 @@ export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
         </header>
 
         {/* Navegación interna */}
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <div
-            role="tablist"
-            aria-label="Secciones de Smart Garden Lab"
-            className="flex flex-wrap gap-2.5"
-          >
-            {LAB_SECTIONS.map((item) => {
-              const isActive = section === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  data-testid={`lab-tab-${item.id}`}
-                  onClick={() => setSection(item.id)}
-                  className={`min-w-[150px] px-6 py-3 rounded-xl border text-[11px] font-extrabold uppercase tracking-[0.14em] transition cursor-pointer ${
-                    isActive
-                      ? 'bg-[#2f7d46] border-[#2f7d46] text-white shadow-sm'
-                      : 'bg-[#fffdf6] border-[#ddd8c2] text-[#3d5243] hover:bg-white'
-                  }`}
-                >
-                  <span className="block">{item.label}</span>
-                </button>
-              );
-            })}
+        {selectedChannel !== null && (
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+            <div
+              role="tablist"
+              aria-label="Secciones de Smart Garden Lab"
+              className="flex flex-wrap gap-2.5"
+            >
+              {LAB_SECTIONS.map((item) => {
+                const isActive = section === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    data-testid={`lab-tab-${item.id}`}
+                    onClick={() => setSection(item.id)}
+                    className={`min-w-[150px] px-6 py-3 rounded-xl border text-[11px] font-extrabold uppercase tracking-[0.14em] transition cursor-pointer ${
+                      isActive
+                        ? 'bg-[#2f7d46] border-[#2f7d46] text-white shadow-sm'
+                        : 'bg-[#fffdf6] border-[#ddd8c2] text-[#3d5243] hover:bg-white'
+                    }`}
+                  >
+                    <span className="block">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Título de sección + Smart Garden activo */}
         <div className="mt-6 flex flex-wrap items-end justify-between gap-3">
           <h2 className="text-2xl font-bold text-[#1d4a2c]" style={SERIF}>
-            {activeSection.label}
+            {selectedChannel === null
+              ? 'Conectar con un dispositivo'
+              : activeSection.label}
           </h2>
-          <label className="flex items-center gap-2 text-xs font-semibold text-[#4f6354]">
-            <span>Smart Garden activo</span>
-            <select
-              data-testid="lab-active-garden-select"
-              aria-label="Smart Garden activo"
-              value={state.nodeId ?? DEMO_SMART_GARDEN_NODE.id}
-              onChange={() => undefined}
-              className="px-3 py-1.5 rounded-lg bg-[#fffdf6] text-[#1d4a2c] text-xs font-bold border border-[#ddd8c2] focus:outline-none"
+          {selectedChannel !== null && (
+            <button
+              type="button"
+              data-testid="lab-change-channel"
+              onClick={changeChannel}
+              className="px-4 py-2 rounded-xl bg-[#fffdf6] border border-[#cfc8ad] text-[#1d4a2c] text-xs font-extrabold hover:bg-white cursor-pointer"
             >
-              <option value={state.nodeId ?? DEMO_SMART_GARDEN_NODE.id}>
-                {state.nodeLabel && state.source === 'real'
-                  ? `${state.nodeLabel} — Real`
-                  : state.source === 'demo'
-                  ? DEMO_SMART_GARDEN_NODE.label
-                  : 'Garden Node — No conectado'}
-              </option>
-            </select>
-          </label>
+              Cambiar canal
+            </button>
+          )}
         </div>
 
         <main className="mt-3">
-          {section === 'live' && (
-            <LiveView
-              state={state}
-              onCameraStreamError={cameraGateway.markDisconnected}
-              onOpenCaptures={() => setSection('captures')}
+          {selectedChannel === null ? (
+            <ChannelConnectView
+              value={channelInput}
+              error={channelError}
+              onChange={(value) => {
+                setChannelInput(value);
+                setChannelError(null);
+              }}
+              onConnect={connectChannel}
             />
+          ) : (
+            <>
+              <ChannelStatus channel={selectedChannel} state={state} />
+              {section === 'live' && (
+                <LiveView
+                  state={state}
+                  onCameraStreamError={cameraGateway.markDisconnected}
+                  onOpenCaptures={() => setSection('captures')}
+                />
+              )}
+              {section === 'captures' && (
+                <CapturesView
+                  connected={cameraGateway.connected}
+                  captureUrl={cameraGateway.captureUrl}
+                />
+              )}
+              {section === 'monitor' && <MonitorView state={state} />}
+              {section === 'control' && <ControlView state={state} />}
+            </>
           )}
-          {section === 'captures' && (
-            <CapturesView
-              connected={cameraGateway.connected}
-              captureUrl={cameraGateway.captureUrl}
-            />
-          )}
-          {section === 'monitor' && <MonitorView state={state} />}
-          {section === 'control' && <ControlView state={state} />}
         </main>
 
         {/* Principio pedagógico */}
@@ -305,6 +367,80 @@ export const SmartGardenLab: React.FC<SmartGardenLabProps> = ({
     </div>
   );
 };
+
+const ChannelConnectView: React.FC<{
+  value: string;
+  error: string | null;
+  onChange: (value: string) => void;
+  onConnect: () => void;
+}> = ({ value, error, onChange, onConnect }) => (
+  <section
+    data-testid="lab-channel-connect"
+    className="max-w-xl mx-auto mt-8 rounded-3xl bg-[#fffdf6] border border-[#e4dfca] shadow-md p-7 sm:p-10 text-center"
+  >
+    <div className="w-14 h-14 mx-auto rounded-2xl bg-[#dcefe3] text-[#2f7d46] flex items-center justify-center">
+      <Wifi className="w-7 h-7" />
+    </div>
+    <h3 className="mt-5 text-2xl font-bold text-[#1d4a2c]" style={SERIF}>
+      Conectar con un dispositivo
+    </h3>
+    <p className="mt-2 text-sm text-[#5b6b5d]">
+      Ingresá el canal utilizado al programar la placa.
+    </p>
+    <div className="mt-6 flex flex-col sm:flex-row items-stretch justify-center gap-3">
+      <input
+        data-testid="lab-channel-input"
+        aria-label="Canal Bi-Tech"
+        type="number"
+        inputMode="numeric"
+        min={BITECH_CHANNEL_MIN}
+        max={BITECH_CHANNEL_MAX}
+        step={1}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') onConnect();
+        }}
+        placeholder="1–9"
+        className="w-full sm:w-36 px-4 py-3 rounded-xl bg-white border border-[#cfc8ad] text-center text-xl font-bold text-[#1d4a2c] focus:outline-none focus:ring-2 focus:ring-[#2f7d46]"
+      />
+      <button
+        type="button"
+        data-testid="lab-connect-channel"
+        onClick={onConnect}
+        className="px-6 py-3 rounded-xl bg-[#2f7d46] text-white text-sm font-extrabold hover:bg-[#286d3d] cursor-pointer"
+      >
+        Conectar
+      </button>
+    </div>
+    {error && (
+      <p role="alert" className="mt-3 text-sm font-semibold text-[#9c3d2e]">
+        {error}
+      </p>
+    )}
+    <p className="mt-6 text-xs text-[#7a7567] leading-relaxed">
+      El canal identifica el dispositivo que querés visualizar. No es una contraseña ni reemplaza la credencial técnica interna de la placa.
+    </p>
+  </section>
+);
+
+const ChannelStatus: React.FC<{
+  channel: number;
+  state: SmartGardenLiveState;
+}> = ({ channel, state }) => (
+  <div
+    data-testid="lab-channel-status"
+    className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-bold ${
+      state.source === 'real' && state.gardenNodeConnected
+        ? 'bg-[#dcefe3] border-[#9fcdae] text-[#1d5c31]'
+        : 'bg-[#f3f0e5] border-[#d8cfaa] text-[#6b5d2a]'
+    }`}
+  >
+    {state.source === 'real' && state.gardenNodeConnected
+      ? `Canal ${channel} — ${state.nodeLabel ?? DEMO_SMART_GARDEN_NODE.label} conectado`
+      : `No se encontró un dispositivo activo en el canal ${channel}.`}
+  </div>
+);
 
 /* -------------------------------------------------------------------------- */
 /* Vista EN VIVO                                                              */

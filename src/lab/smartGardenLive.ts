@@ -1,7 +1,10 @@
 /**
  * Contrato mínimo que desacopla Smart Garden Lab del origen de datos.
- * La fuente HTTP consulta únicamente la Function; RTDB nunca queda expuesta al navegador.
+ * La fuente HTTP consulta únicamente el gateway HTTPS Bi-Tech.
  */
+import { gardenLatestEndpoint } from './bitechChannels';
+import { CAMERA_GATEWAY_CONFIG } from './cameraGateway';
+
 export interface SmartGardenLiveState {
   source: 'demo' | 'real' | 'unavailable';
   temperature: number | null;
@@ -17,6 +20,7 @@ export interface SmartGardenLiveState {
   nodeId?: string;
   nodeLabel?: string;
   cameraStreamUrl?: string;
+  channel?: number;
 }
 
 export interface GardenLabDataSource {
@@ -32,18 +36,11 @@ export interface SmartGardenNodeOption {
 }
 
 interface LatestTelemetryResponse {
-  identity: {
-    schoolId: string;
-    labId: string;
-    nodeId: string;
-    nodeLabel: string;
-  };
-  telemetry: {
-    temperature: number;
-    humidity: number;
-    status: 'online';
-    timestamp: number;
-  };
+  channel: number;
+  temperature: number;
+  humidity: number;
+  status: 'online';
+  timestamp: number;
 }
 
 type FetchLike = (
@@ -94,20 +91,18 @@ function isLatestTelemetryResponse(
 ): payload is LatestTelemetryResponse {
   if (!payload || typeof payload !== 'object') return false;
   const candidate = payload as Partial<LatestTelemetryResponse>;
-  const identity = candidate.identity;
-  const telemetry = candidate.telemetry;
   return Boolean(
-    identity &&
-      typeof identity.nodeId === 'string' &&
-      typeof identity.nodeLabel === 'string' &&
-      telemetry &&
-      typeof telemetry.temperature === 'number' &&
-      Number.isFinite(telemetry.temperature) &&
-      typeof telemetry.humidity === 'number' &&
-      Number.isFinite(telemetry.humidity) &&
-      telemetry.status === 'online' &&
-      typeof telemetry.timestamp === 'number' &&
-      Number.isFinite(telemetry.timestamp)
+    typeof candidate.channel === 'number' &&
+      Number.isInteger(candidate.channel) &&
+      candidate.channel >= 1 &&
+      candidate.channel <= 9 &&
+      typeof candidate.temperature === 'number' &&
+      Number.isFinite(candidate.temperature) &&
+      typeof candidate.humidity === 'number' &&
+      Number.isFinite(candidate.humidity) &&
+      candidate.status === 'online' &&
+      typeof candidate.timestamp === 'number' &&
+      Number.isFinite(candidate.timestamp)
   );
 }
 
@@ -131,8 +126,7 @@ export class DemoGardenLabDataSource implements GardenLabDataSource {
 }
 
 /**
- * Fuente real mínima: consulta GET /latest y conserva el modo demo mientras no
- * exista una lectura válida. No accede directamente a Realtime Database.
+ * Fuente real mínima: consulta el último dato del canal en el gateway HTTPS.
  */
 export class HttpGardenLabDataSource implements GardenLabDataSource {
   readonly isDemo = false;
@@ -142,7 +136,7 @@ export class HttpGardenLabDataSource implements GardenLabDataSource {
   private refreshing = false;
 
   constructor(
-    private readonly endpoint = '/api/garden/latest',
+    private readonly endpoint: string | null,
     fallbackState: SmartGardenLiveState = UNAVAILABLE_LIVE_STATE,
     private readonly fetchImpl: FetchLike = globalThis.fetch.bind(globalThis),
     private readonly pollIntervalMs = 5000
@@ -155,7 +149,7 @@ export class HttpGardenLabDataSource implements GardenLabDataSource {
   }
 
   async refresh(): Promise<boolean> {
-    if (this.refreshing) return false;
+    if (this.refreshing || !this.endpoint) return false;
     this.refreshing = true;
     try {
       const response = await this.fetchImpl(this.endpoint, {
@@ -169,8 +163,8 @@ export class HttpGardenLabDataSource implements GardenLabDataSource {
 
       this.state = {
         source: 'real',
-        temperature: payload.telemetry.temperature,
-        ambientHumidity: payload.telemetry.humidity,
+        temperature: payload.temperature,
+        ambientHumidity: payload.humidity,
         soilMoisture: null,
         lightLevel: null,
         pump: null,
@@ -178,9 +172,10 @@ export class HttpGardenLabDataSource implements GardenLabDataSource {
         gardenNodeConnected: true,
         cameraNodeConnected: false,
         networkConnected: true,
-        lastUpdatedAt: new Date(payload.telemetry.timestamp).toISOString(),
-        nodeId: payload.identity.nodeId,
-        nodeLabel: payload.identity.nodeLabel,
+        lastUpdatedAt: new Date(payload.timestamp).toISOString(),
+        nodeId: `garden-node-${String(payload.channel).padStart(2, '0')}`,
+        nodeLabel: `Garden Node ${String(payload.channel).padStart(2, '0')}`,
+        channel: payload.channel,
       };
       this.emit();
       return true;
@@ -219,4 +214,13 @@ export class HttpGardenLabDataSource implements GardenLabDataSource {
 }
 
 export const demoGardenLabDataSource = new DemoGardenLabDataSource();
-export const liveGardenLabDataSource = new HttpGardenLabDataSource();
+export function createLiveGardenLabDataSource(
+  channel: number
+): HttpGardenLabDataSource {
+  const endpoint = CAMERA_GATEWAY_CONFIG
+    ? gardenLatestEndpoint(channel, CAMERA_GATEWAY_CONFIG.baseUrl)
+    : null;
+  return new HttpGardenLabDataSource(endpoint);
+}
+
+export const liveGardenLabDataSource = createLiveGardenLabDataSource(1);

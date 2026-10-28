@@ -76,6 +76,7 @@ const CAMERA_ONLY_STATEMENT_KINDS = new Set<StatementNode['kind']>([
 
 const WIFI_STATEMENT_KINDS = new Set<StatementNode['kind']>([
   'cam_wifi',
+  'iot_connect_channel',
   'iot_publish',
 ]);
 

@@ -222,4 +222,26 @@ describe('Intérprete didáctico narrativo del programa', () => {
       'activa el relay, activa la salida digital y espera 1 segundo(s)'
     );
   });
+
+  it('explica el canal Bi-Tech como identificación visible y no como contraseña', () => {
+    const result = interpretProgram({
+      device: 'garden-node',
+      setupStatements: [
+        { kind: 'iot_connect_channel', channel: 1, blockId: 'channel-1' },
+      ],
+      loopStatements: [],
+    });
+
+    const channelStep = result.narrativeSteps.find(
+      (step) => step.blockId === 'channel-1'
+    );
+    expect(channelStep?.blockLabel).toBe(
+      'conectar a Smart Garden Lab — canal 1'
+    );
+    expect(channelStep?.explanation).toContain(
+      'permitirá identificar la placa'
+    );
+    expect(channelStep?.explanation).toContain('no funciona como contraseña');
+    expect(result.summarySentence).toBe('Este programa: comunica.');
+  });
 });

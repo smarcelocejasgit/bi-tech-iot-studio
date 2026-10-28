@@ -1,9 +1,9 @@
-#ifndef BITECH_FIREBASE_HOSTING_ROOT_CA_H
-#define BITECH_FIREBASE_HOSTING_ROOT_CA_H
+#ifndef BITECH_GATEWAY_ROOT_CA_H
+#define BITECH_GATEWAY_ROOT_CA_H
 
-// GlobalSign Root CA usada actualmente por la cadena TLS de iotstudio.web.app.
+// GlobalSign Root CA usada por la cadena TLS del gateway HTTPS Bi-Tech.
 // Certificado público; revisar su vigencia antes del 28-01-2028.
-static const char BITECH_FIREBASE_ROOT_CA[] PROGMEM = R"EOF(
+static const char BITECH_GATEWAY_ROOT_CA[] PROGMEM = R"EOF(
 -----BEGIN CERTIFICATE-----
 MIIDdTCCAl2gAwIBAgILBAAAAAABFUtaw5QwDQYJKoZIhvcNAQEFBQAwVzELMAkGA1UEBhMCQkUx
 GTAXBgNVBAoTEEdsb2JhbFNpZ24gbnYtc2ExEDAOBgNVBAsTB1Jvb3QgQ0ExGzAZBgNVBAMTEkds

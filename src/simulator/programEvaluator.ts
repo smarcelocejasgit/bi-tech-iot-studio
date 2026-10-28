@@ -146,6 +146,7 @@ interface BranchExecutionContext {
   relay: boolean;
   iluminacion: boolean;
   salidaDigital: boolean;
+  bitechChannel: number | null;
   lastDelaySeconds: number | null;
   explanations: string[];
   triggeredConditions: string[];
@@ -273,6 +274,13 @@ function runSystemBranch(
         ctx.lastDelaySeconds = st.seconds;
         break;
 
+      case 'iot_connect_channel':
+        ctx.bitechChannel = st.channel;
+        ctx.explanations.push(
+          `El dispositivo queda asociado al canal ${st.channel} de Smart Garden Lab para identificar sus datos.`
+        );
+        break;
+
       case 'if': {
         const isTrue = evaluateConditionWithMap(st.condition, values);
         if (isTrue) {
@@ -343,6 +351,7 @@ export function evaluateGardenProgram(
     relay: false,
     iluminacion: false,
     salidaDigital: false,
+    bitechChannel: null,
     lastDelaySeconds: null,
     explanations: [],
     triggeredConditions: [],
@@ -365,6 +374,7 @@ export function evaluateGardenProgram(
   return {
     bomba: ctx.bomba,
     iluminacion: ctx.iluminacion,
+    bitechChannel: ctx.bitechChannel,
     lastDelaySeconds: ctx.lastDelaySeconds,
     explanation: primaryExplanation,
     triggeredConditions: ctx.triggeredConditions,
@@ -385,6 +395,7 @@ export function evaluateNodeMcuProgram(
     relay: false,
     iluminacion: false,
     salidaDigital: false,
+    bitechChannel: null,
     lastDelaySeconds: null,
     explanations: [],
     triggeredConditions: [],
@@ -417,6 +428,7 @@ export function evaluateNodeMcuProgram(
     relay: ctx.relay || ctx.bomba,
     iluminacion: ctx.iluminacion,
     salidaDigital: ctx.salidaDigital,
+    bitechChannel: ctx.bitechChannel,
     lastDelaySeconds: ctx.lastDelaySeconds,
     explanation: primaryExplanation,
     triggeredConditions: ctx.triggeredConditions,

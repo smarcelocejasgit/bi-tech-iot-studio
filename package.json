@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:gateway": "node --test tools/test/*.node-test.mjs",
     "test:functions": "npm --prefix functions test",
     "test:emulator": "firebase emulators:exec --project bi-tech-iot-studio --only functions,database,hosting \"npm --prefix functions run test:emulator\"",
     "camera:gateway": "node tools/camera-gateway.mjs"
