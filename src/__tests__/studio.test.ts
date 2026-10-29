@@ -13,6 +13,11 @@ import { getComponentsForProfile } from '../guide/componentsCatalog';
 import { getConnectionDiagramsForProfile } from '../guide/connectionDiagrams';
 import { PROJECT_GUIDE_PROFILES } from '../guide/projectGuideData';
 import {
+  algorithmToGuideResource,
+  componentToGuideResource,
+  diagramToGuideResource,
+} from '../guide/guideResources';
+import {
   createStudioProject,
   loadActiveProjectId,
   loadStudioProjects,
@@ -115,6 +120,34 @@ describe('Guía didáctica contextual por perfil', () => {
     expect(PROJECT_GUIDE_PROFILES['garden-node'].purpose).toContain(
       'observar condiciones ambientales'
     );
+  });
+
+  it('normaliza componentes, diagramas y algoritmos como láminas didácticas', () => {
+    const dht = getComponentsForProfile('garden-node').find(
+      (component) => component.id === 'dht11'
+    );
+    const dhtDiagram = getConnectionDiagramsForProfile('garden-node').find(
+      (diagram) => diagram.id === 'garden-dht11-gpio21'
+    );
+    const monitoring = getAlgorithmsForProfile('garden-node').find(
+      (algorithm) => algorithm.id === 'environment-monitoring'
+    );
+
+    expect(dht && componentToGuideResource(dht)).toMatchObject({
+      kind: 'component',
+      title: 'DHT11',
+      imageSrc: '/resources/components/dht11.svg',
+      badges: expect.arrayContaining(['Validado en hardware', 'Garden Node']),
+      profileScope: expect.arrayContaining(['garden-node']),
+    });
+    expect(dhtDiagram && diagramToGuideResource(dhtDiagram)).toMatchObject({
+      kind: 'diagram',
+      imageSrc: '/resources/diagrams/garden-dht11-gpio21.svg',
+    });
+    expect(monitoring && algorithmToGuideResource(monitoring)).toMatchObject({
+      kind: 'algorithm',
+      imageSrc: '/resources/algorithms/environment-monitoring.svg',
+    });
   });
 });
 

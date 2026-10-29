@@ -25,20 +25,34 @@ test('la Guía del proyecto acompaña Garden Node y vuelve a Blockly sin perder 
   await expect(page.getByTestId('guide-component-pump')).toBeVisible();
   await expect(page.getByTestId('guide-component-ov3660')).toHaveCount(0);
 
-  await page.getByTestId('guide-component-dht11').getByRole('button', {
-    name: 'Ver ficha',
-  }).click();
+  const dhtOpenButton = page
+    .getByTestId('guide-component-dht11')
+    .getByRole('button', { name: 'Abrir lámina' });
+  await dhtOpenButton.click();
+  await expect(page.getByTestId('guide-resource-viewer')).toBeVisible();
+  await expect(
+    page.getByRole('img', { name: 'Lámina didáctica del componente DHT11' })
+  ).toBeVisible();
+  await expect(page.getByText('Garden Node', { exact: true })).toBeVisible();
   await expect(page.getByText('Produce temperatura en °C y humedad relativa en %.')).toBeVisible();
-  await page.getByRole('button', { name: 'Cerrar detalle' }).click();
+  await page.getByRole('button', { name: 'Abrir lámina en grande' }).click();
+  await expect(page.getByRole('button', { name: 'Reducir lámina' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cerrar lámina' }).click();
+  await expect(dhtOpenButton).toBeFocused();
 
   await page.getByTestId('guide-step-3').click();
   const dhtConnection = page.getByTestId(
     'guide-connection-garden-dht11-gpio21'
   );
   await expect(dhtConnection).toContainText('Validado en hardware');
-  await dhtConnection.getByRole('button', { name: 'Ver conexión' }).click();
+  await dhtConnection.getByRole('button', { name: 'Abrir lámina' }).click();
+  await expect(
+    page.getByRole('img', {
+      name: 'Diagrama de conexiones: DHT11 → Garden Node',
+    })
+  ).toBeVisible();
   await expect(page.getByText('DATA / S → GPIO21')).toBeVisible();
-  await page.getByRole('button', { name: 'Cerrar detalle' }).click();
+  await page.getByRole('button', { name: 'Cerrar lámina' }).click();
 
   await page.getByTestId('guide-step-4').click();
   await page.getByRole('button', { name: 'Riego automático' }).click();
@@ -48,6 +62,21 @@ test('la Guía del proyecto acompaña Garden Node y vuelve a Blockly sin perder 
   await expect(page.getByTestId('guide-algorithm-step')).toContainText(
     'si humedad < umbral'
   );
+  await page
+    .getByRole('button', {
+      name: 'Abrir lámina del algoritmo Riego automático',
+    })
+    .click();
+  await expect(
+    page.getByRole('img', { name: 'Lámina del algoritmo Riego automático' })
+  ).toBeVisible();
+  const algorithmViewer = page.getByTestId('guide-resource-viewer');
+  await expect(
+    algorithmViewer.getByRole('heading', { name: 'Pseudocódigo sencillo' })
+  ).toBeVisible();
+  await expect(algorithmViewer.getByText('Relación con Blockly')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('guide-resource-viewer')).toHaveCount(0);
 
   await page.getByTestId('guide-step-5').click();
   await page.getByTestId('guide-go-program').click();

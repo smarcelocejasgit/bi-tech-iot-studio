@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,21 +12,24 @@ import {
   FlaskConical,
   Image as ImageIcon,
   Microscope,
+  Maximize2,
+  Minimize2,
   X,
 } from 'lucide-react';
 import {
   DidacticAlgorithm,
   getAlgorithmsForProfile,
 } from '../guide/algorithmsCatalog';
-import {
-  DidacticComponent,
-  getComponentsForProfile,
-} from '../guide/componentsCatalog';
-import {
-  ConnectionDiagram,
-  getConnectionDiagramsForProfile,
-} from '../guide/connectionDiagrams';
+import { getComponentsForProfile } from '../guide/componentsCatalog';
+import { getConnectionDiagramsForProfile } from '../guide/connectionDiagrams';
 import { PROJECT_GUIDE_PROFILES } from '../guide/projectGuideData';
+import {
+  algorithmToGuideResource,
+  componentToGuideResource,
+  diagramToGuideResource,
+  GuideResource,
+  GuideResourceDetail,
+} from '../guide/guideResources';
 import { DeviceProfileId } from '../types/hardware';
 
 const GUIDE_STEPS = [
@@ -74,10 +77,8 @@ export const ProjectGuideDrawer: React.FC<ProjectGuideDrawerProps> = ({
   onGoProgram,
 }) => {
   const [step, setStep] = useState(0);
-  const [componentDetail, setComponentDetail] =
-    useState<DidacticComponent | null>(null);
-  const [diagramDetail, setDiagramDetail] =
-    useState<ConnectionDiagram | null>(null);
+  const [selectedResource, setSelectedResource] =
+    useState<GuideResource | null>(null);
   const [selectedAlgorithmId, setSelectedAlgorithmId] = useState<string | null>(
     null
   );
@@ -233,10 +234,12 @@ export const ProjectGuideDrawer: React.FC<ProjectGuideDrawerProps> = ({
                       <p className="text-sm leading-relaxed text-slate-600">{component.whatDoes}</p>
                       <button
                         type="button"
-                        onClick={() => setComponentDetail(component)}
+                        onClick={() =>
+                          setSelectedResource(componentToGuideResource(component))
+                        }
                         className="inline-flex items-center gap-1 text-sm font-extrabold text-emerald-700 hover:text-emerald-900 cursor-pointer"
                       >
-                        Ver ficha <ChevronRight className="h-4 w-4" />
+                        Abrir lámina <ChevronRight className="h-4 w-4" />
                       </button>
                     </div>
                   </article>
@@ -266,10 +269,12 @@ export const ProjectGuideDrawer: React.FC<ProjectGuideDrawerProps> = ({
                       <p className="mt-1 text-sm text-slate-600">{diagram.summary}</p>
                       <button
                         type="button"
-                        onClick={() => setDiagramDetail(diagram)}
+                        onClick={() =>
+                          setSelectedResource(diagramToGuideResource(diagram))
+                        }
                         className="mt-3 inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3.5 py-2 text-sm font-extrabold text-white hover:bg-emerald-800 cursor-pointer"
                       >
-                        <ImageIcon className="h-4 w-4" /> Ver conexión
+                        <ImageIcon className="h-4 w-4" /> Abrir lámina
                       </button>
                     </div>
                   </article>
@@ -302,7 +307,21 @@ export const ProjectGuideDrawer: React.FC<ProjectGuideDrawerProps> = ({
                 ))}
               </div>
               <article className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-                <img src={selectedAlgorithm.image} alt={selectedAlgorithm.title} className="h-56 w-full bg-slate-50 object-contain" />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedResource(
+                      algorithmToGuideResource(selectedAlgorithm)
+                    )
+                  }
+                  className="group relative block w-full cursor-zoom-in overflow-hidden bg-slate-50"
+                  aria-label={`Abrir lámina del algoritmo ${selectedAlgorithm.title}`}
+                >
+                  <img src={selectedAlgorithm.image} alt={selectedAlgorithm.title} className="h-64 w-full object-contain transition duration-200 group-hover:scale-[1.015]" />
+                  <span className="absolute bottom-3 right-3 inline-flex items-center gap-2 rounded-full bg-slate-950/80 px-3 py-2 text-xs font-extrabold text-white shadow-lg">
+                    <Maximize2 className="h-4 w-4" /> Abrir lámina
+                  </span>
+                </button>
                 <div className="grid gap-5 p-5 sm:grid-cols-2">
                   <div>
                     <h3 className="text-2xl font-extrabold text-slate-900">{selectedAlgorithm.title}</h3>
@@ -427,31 +446,11 @@ export const ProjectGuideDrawer: React.FC<ProjectGuideDrawerProps> = ({
           </button>
         </footer>
 
-        {componentDetail && (
-          <DetailModal title={componentDetail.name} onClose={() => setComponentDetail(null)}>
-            <img src={componentDetail.image} alt={componentDetail.name} className="h-56 w-full rounded-2xl bg-slate-50 object-contain" />
-            <ValidationBadge status={componentDetail.validationStatus} />
-            <DetailRow title="Qué es" text={componentDetail.whatIs} />
-            <DetailRow title="Qué hace" text={componentDetail.whatDoes} />
-            <DetailRow title="Dato o acción" text={componentDetail.dataOrAction} />
-            <DetailRow title="Alimentación / interfaz" text={componentDetail.powerInterface} />
-            <p className="rounded-xl bg-slate-100 p-3 text-sm text-slate-600">{componentDetail.validationDetail}</p>
-          </DetailModal>
-        )}
-
-        {diagramDetail && (
-          <DetailModal title={diagramDetail.title} onClose={() => setDiagramDetail(null)}>
-            <img src={diagramDetail.image} alt={diagramDetail.title} className="max-h-[360px] w-full rounded-2xl bg-slate-50 object-contain" />
-            <ValidationBadge status={diagramDetail.validationStatus} />
-            <ul className="space-y-2">
-              {diagramDetail.connections.map((connection) => (
-                <li key={connection} className="flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-950">
-                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0" /> {connection}
-                </li>
-              ))}
-            </ul>
-            <p className="text-sm text-slate-600">{diagramDetail.validationDetail}</p>
-          </DetailModal>
+        {selectedResource && (
+          <ResourceViewer
+            resource={selectedResource}
+            onClose={() => setSelectedResource(null)}
+          />
         )}
       </aside>
     </div>
@@ -484,27 +483,202 @@ const TestCard: React.FC<{
   </article>
 );
 
-const DetailRow: React.FC<{ title: string; text: string }> = ({ title, text }) => (
-  <div>
-    <h4 className="text-xs font-extrabold uppercase tracking-wide text-emerald-700">{title}</h4>
-    <p className="mt-1 text-sm leading-relaxed text-slate-700">{text}</p>
-  </div>
-);
+const RESOURCE_KIND_LABELS: Record<GuideResource['kind'], string> = {
+  component: 'Componente',
+  diagram: 'Diagrama de conexión',
+  algorithm: 'Algoritmo',
+};
 
-const DetailModal: React.FC<{
-  title: string;
+const ResourceViewer: React.FC<{
+  resource: GuideResource;
   onClose: () => void;
-  children: React.ReactNode;
-}> = ({ title, onClose, children }) => (
-  <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/45 p-4">
-    <section className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:p-7">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <h3 className="text-2xl font-extrabold text-slate-900">{title}</h3>
-        <button type="button" onClick={onClose} aria-label="Cerrar detalle" className="rounded-full border border-slate-300 p-2 text-slate-600 cursor-pointer">
-          <X className="h-5 w-5" />
-        </button>
-      </div>
-      <div className="space-y-4">{children}</div>
+}> = ({ resource, onClose }) => {
+  const [expanded, setExpanded] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      data-testid="guide-resource-viewer"
+      className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/60 p-2 backdrop-blur-sm sm:p-5"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`guide-resource-title-${resource.id}`}
+        className={`flex max-h-[96vh] w-full flex-col overflow-hidden rounded-[2rem] bg-white shadow-2xl transition-all ${
+          expanded ? 'max-w-[96vw]' : 'max-w-5xl'
+        }`}
+      >
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
+          <div className="min-w-0">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">
+              Lámina de estudio · {RESOURCE_KIND_LABELS[resource.kind]}
+            </p>
+            <h3
+              id={`guide-resource-title-${resource.id}`}
+              className="truncate text-lg font-extrabold text-slate-900 sm:text-xl"
+            >
+              {resource.title}
+            </h3>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setExpanded((current) => !current)}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-extrabold text-slate-700 hover:bg-slate-100 cursor-pointer"
+              aria-label={expanded ? 'Reducir lámina' : 'Abrir lámina en grande'}
+              aria-pressed={expanded}
+            >
+              {expanded ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">
+                {expanded ? 'Reducir' : 'Abrir en grande'}
+              </span>
+            </button>
+            <button
+              ref={closeButtonRef}
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar lámina"
+              className="rounded-full border border-slate-300 bg-white p-2 text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-600 cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </header>
+
+        <div className="overflow-y-auto">
+          <div className="border-b border-slate-200 bg-[radial-gradient(circle_at_center,_#ffffff_0%,_#f8fafc_72%)] p-4 sm:p-7">
+            <img
+              src={resource.imageSrc}
+              alt={resource.imageAlt}
+              className={`mx-auto w-full object-contain transition-all ${
+                expanded
+                  ? 'h-[72vh] min-h-[420px]'
+                  : 'h-[48vh] min-h-[340px] max-h-[580px]'
+              }`}
+            />
+          </div>
+
+          <div className="space-y-6 px-5 py-6 sm:px-8 sm:py-8">
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {resource.badges.map((badge) => (
+                  <span
+                    key={badge}
+                    className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-extrabold text-emerald-800"
+                  >
+                    {badge}
+                  </span>
+                ))}
+              </div>
+              <h3 className="text-3xl font-extrabold text-slate-900">
+                {resource.title}
+              </h3>
+              <p className="max-w-4xl text-base leading-relaxed text-slate-600 sm:text-lg">
+                {resource.summary}
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {resource.details.map((detail) => (
+                <ResourceDetail key={detail.title} detail={detail} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+const ResourceDetail: React.FC<{ detail: GuideResourceDetail }> = ({
+  detail,
+}) => {
+  const content = Array.isArray(detail.content)
+    ? detail.content
+    : [detail.content];
+
+  if (detail.kind === 'code') {
+    return (
+      <section className="rounded-2xl bg-slate-900 p-5 text-slate-100 sm:col-span-2">
+        <h4 className="text-xs font-extrabold uppercase tracking-wide text-emerald-300">
+          {detail.title}
+        </h4>
+        <pre className="mt-3 whitespace-pre-wrap font-mono text-sm leading-7">
+          {content.join('\n')}
+        </pre>
+      </section>
+    );
+  }
+
+  if (detail.kind === 'flow') {
+    return (
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 sm:col-span-2">
+        <h4 className="text-xs font-extrabold uppercase tracking-wide text-emerald-800">
+          {detail.title}
+        </h4>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {content.map((item, index) => (
+            <React.Fragment key={item}>
+              <span className="rounded-xl bg-white px-3 py-2 text-sm font-bold text-slate-800 shadow-sm">
+                {item}
+              </span>
+              {index < content.length - 1 && (
+                <ArrowRight className="h-4 w-4 text-emerald-700" />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+      <h4 className="text-xs font-extrabold uppercase tracking-wide text-emerald-700">
+        {detail.title}
+      </h4>
+      {detail.kind === 'list' ? (
+        <ul className="mt-3 space-y-2">
+          {content.map((item) => (
+            <li key={item} className="flex items-start gap-2 text-sm leading-relaxed text-slate-700">
+              <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
+              {item}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-sm leading-relaxed text-slate-700">
+          {content[0]}
+        </p>
+      )}
     </section>
-  </div>
-);
+  );
+};
