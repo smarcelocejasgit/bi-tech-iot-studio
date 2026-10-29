@@ -8,6 +8,68 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(0);
 });
 
+test('la Guía del proyecto acompaña Garden Node y vuelve a Blockly sin perder el programa', async ({
+  page,
+}) => {
+  await page.getByTestId('insert-block-bitech_wait').click();
+  await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(1);
+
+  await page.getByTestId('open-project-guide').click();
+  await expect(page.getByTestId('project-guide-drawer')).toBeVisible();
+  await expect(page.getByTestId('guide-project-step')).toContainText(
+    'Garden Node Bi-Tech — ESP32'
+  );
+
+  await page.getByTestId('guide-step-2').click();
+  await expect(page.getByTestId('guide-component-dht11')).toBeVisible();
+  await expect(page.getByTestId('guide-component-pump')).toBeVisible();
+  await expect(page.getByTestId('guide-component-ov3660')).toHaveCount(0);
+
+  await page.getByTestId('guide-component-dht11').getByRole('button', {
+    name: 'Ver ficha',
+  }).click();
+  await expect(page.getByText('Produce temperatura en °C y humedad relativa en %.')).toBeVisible();
+  await page.getByRole('button', { name: 'Cerrar detalle' }).click();
+
+  await page.getByTestId('guide-step-3').click();
+  const dhtConnection = page.getByTestId(
+    'guide-connection-garden-dht11-gpio21'
+  );
+  await expect(dhtConnection).toContainText('Validado en hardware');
+  await dhtConnection.getByRole('button', { name: 'Ver conexión' }).click();
+  await expect(page.getByText('DATA / S → GPIO21')).toBeVisible();
+  await page.getByRole('button', { name: 'Cerrar detalle' }).click();
+
+  await page.getByTestId('guide-step-4').click();
+  await page.getByRole('button', { name: 'Riego automático' }).click();
+  await expect(page.getByTestId('guide-algorithm-step')).toContainText(
+    'leer humedad'
+  );
+  await expect(page.getByTestId('guide-algorithm-step')).toContainText(
+    'si humedad < umbral'
+  );
+
+  await page.getByTestId('guide-step-5').click();
+  await page.getByTestId('guide-go-program').click();
+  await expect(page.getByTestId('project-guide-drawer')).toHaveCount(0);
+  await expect(page.getByTestId('program-mode-view')).toBeVisible();
+  await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(1);
+});
+
+test('la Guía del proyecto filtra componentes para Camera Node', async ({
+  page,
+}) => {
+  await page.getByTestId('select-camera-node').click();
+  await page.getByTestId('open-project-guide').click();
+  await page.getByTestId('guide-step-2').click();
+
+  await expect(page.getByTestId('guide-component-esp32-cam')).toBeVisible();
+  await expect(page.getByTestId('guide-component-ov2640')).toBeVisible();
+  await expect(page.getByTestId('guide-component-ov3660')).toBeVisible();
+  await expect(page.getByTestId('guide-component-wifi')).toBeVisible();
+  await expect(page.getByTestId('guide-component-pump')).toHaveCount(0);
+});
+
 test('el clic de la paleta continúa insertando y seleccionando el bloque', async ({
   page,
 }) => {

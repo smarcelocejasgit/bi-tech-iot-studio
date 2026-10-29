@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">LED</title><desc id="desc">Ilustración didáctica local del componente LED</desc>
+  <rect width="640" height="360" rx="36" fill="#f8fafc"/><circle cx="320" cy="156" r="104" fill="#d97706" opacity=".12"/>
+  <rect x="218" y="72" width="204" height="168" rx="28" fill="#d97706"/><rect x="244" y="98" width="152" height="92" rx="14" fill="#fff" opacity=".94"/>
+  <circle cx="274" cy="144" r="12" fill="#d97706"/><circle cx="320" cy="144" r="12" fill="#d97706" opacity=".65"/><circle cx="366" cy="144" r="12" fill="#d97706" opacity=".35"/>
+  <path d="M248 240v34m48-34v34m48-34v34m48-34v34" stroke="#d97706" stroke-width="10" stroke-linecap="round"/>
+  <text x="320" y="216" text-anchor="middle" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#fff">LUZ</text>
+  <text x="320" y="324" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="800" fill="#0f172a">LED</text>
+</svg>

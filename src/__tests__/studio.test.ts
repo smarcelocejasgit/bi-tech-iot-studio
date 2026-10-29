@@ -8,6 +8,10 @@ import {
   getCatalogForDevice,
 } from '../blocks/bitechBlocks';
 import { generateArduinoCode } from '../generators/arduinoGenerator';
+import { getAlgorithmsForProfile } from '../guide/algorithmsCatalog';
+import { getComponentsForProfile } from '../guide/componentsCatalog';
+import { getConnectionDiagramsForProfile } from '../guide/connectionDiagrams';
+import { PROJECT_GUIDE_PROFILES } from '../guide/projectGuideData';
 import {
   createStudioProject,
   loadActiveProjectId,
@@ -54,6 +58,65 @@ import {
   evaluateNodeMcuProgram,
 } from '../simulator/programEvaluator';
 import { ParsedProgram } from '../types/studio';
+
+describe('Guía didáctica contextual por perfil', () => {
+  it('muestra componentes del perfil activo y conserva la conexión DHT11 validada', () => {
+    const gardenComponents = getComponentsForProfile('garden-node');
+    const cameraComponents = getComponentsForProfile('camera-node');
+    const dhtDiagram = getConnectionDiagramsForProfile('garden-node').find(
+      (diagram) => diagram.id === 'garden-dht11-gpio21'
+    );
+
+    expect(gardenComponents.map((component) => component.id)).toEqual(
+      expect.arrayContaining([
+        'esp32',
+        'dht11',
+        'soil-moisture',
+        'ldr',
+        'relay',
+        'pump',
+        'led',
+      ])
+    );
+    expect(cameraComponents.map((component) => component.id)).toEqual(
+      expect.arrayContaining(['esp32-cam', 'ov2640', 'ov3660', 'wifi'])
+    );
+    expect(cameraComponents.some((component) => component.id === 'pump')).toBe(
+      false
+    );
+    expect(dhtDiagram?.validationStatus).toBe('validated');
+    expect(dhtDiagram?.connections).toEqual([
+      'VCC → 3,3 V',
+      'GND → GND',
+      'DATA / S → GPIO21',
+    ]);
+  });
+
+  it('explica algoritmos antes que código y el Canal Bi-Tech como agrupador del proyecto', () => {
+    const algorithms = getAlgorithmsForProfile('garden-node');
+    const irrigation = algorithms.find(
+      (algorithm) => algorithm.id === 'automatic-irrigation'
+    );
+    const channel = algorithms.find(
+      (algorithm) => algorithm.id === 'bitech-channel'
+    );
+
+    expect(irrigation?.flow).toEqual([
+      'leer humedad',
+      'comparar con umbral',
+      'decidir',
+      'activar bomba',
+      'esperar',
+      'apagar',
+      'volver a medir',
+    ]);
+    expect(channel?.purpose).toContain('dispositivos');
+    expect(channel?.purpose).toContain('mismo proyecto');
+    expect(PROJECT_GUIDE_PROFILES['garden-node'].purpose).toContain(
+      'observar condiciones ambientales'
+    );
+  });
+});
 
 describe('Bi-Tech IoT Studio V0.1.1 — Capacidades de Hardware y Perfiles', () => {
   it('mantiene los pines GPIO físicos sin inventar (null) en los 3 perfiles y estados iniciales seguros OFF', () => {

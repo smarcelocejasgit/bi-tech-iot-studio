@@ -18,6 +18,7 @@ import {
   MyProjectsModal,
   NewProjectModal,
 } from './components/ProjectManagerModals';
+import { ProjectGuideDrawer } from './components/ProjectGuideDrawer';
 import { RealBoardPanel } from './components/RealBoardPanel';
 import { SimulatorControlsPanel } from './components/SimulatorControlsPanel';
 import { VirtualSystemPanel } from './components/VirtualSystemPanel';
@@ -90,6 +91,8 @@ export const App: React.FC = () => {
   const [isMyProjectsModalOpen, setIsMyProjectsModalOpen] =
     useState<boolean>(false);
   const [isAssistantOpen, setIsAssistantOpen] = useState<boolean>(false);
+  const [isProjectGuideOpen, setIsProjectGuideOpen] =
+    useState<boolean>(false);
 
   // Programa lógico extraído del lienzo Blockly
   const [parsedProgram, setParsedProgram] = useState<ParsedProgram>(() => ({
@@ -333,13 +336,14 @@ export const App: React.FC = () => {
   );
 
   useEffect(() => {
-    if (!isAssistantOpen) return;
+    if (!isAssistantOpen && !isProjectGuideOpen) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setIsAssistantOpen(false);
+      if (event.key === 'Escape') setIsProjectGuideOpen(false);
     };
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [isAssistantOpen]);
+  }, [isAssistantOpen, isProjectGuideOpen]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#eaf3ec] text-slate-800 pb-4">
@@ -355,11 +359,27 @@ export const App: React.FC = () => {
           if (mode !== 'program') setIsAssistantOpen(false);
         }}
         onOpenHardwareModal={() => setIsHardwareModalOpen(true)}
+        onOpenProjectGuide={() => {
+          setIsAssistantOpen(false);
+          setIsProjectGuideOpen(true);
+        }}
         onOpenNewProjectModal={() => setIsNewProjectModalOpen(true)}
         onOpenMyProjectsModal={() => setIsMyProjectsModalOpen(true)}
         projectsCount={projects.length}
         hasValidationIssues={generatedCode.validationIssues.length > 0}
       />
+
+      {isProjectGuideOpen && (
+        <ProjectGuideDrawer
+          activeDevice={activeDevice}
+          projectName={projectName}
+          onClose={() => setIsProjectGuideOpen(false)}
+          onGoProgram={() => {
+            setWorkMode('program');
+            setIsProjectGuideOpen(false);
+          }}
+        />
+      )}
 
       {/* Contenedor principal separado por modo de trabajo */}
       <main className="max-w-[1600px] w-full mx-auto px-3 mt-2.5 flex-1 flex flex-col gap-2.5">

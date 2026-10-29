@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Camera,
   Check,
+  BookOpen,
   Code2,
   Cpu,
   FolderOpen,
@@ -27,6 +28,7 @@ interface HeaderBarProps {
   workMode: WorkMode;
   onSelectWorkMode: (mode: WorkMode) => void;
   onOpenHardwareModal: () => void;
+  onOpenProjectGuide: () => void;
   onOpenNewProjectModal?: () => void;
   onOpenMyProjectsModal?: () => void;
   projectsCount?: number;
@@ -41,6 +43,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   workMode,
   onSelectWorkMode,
   onOpenHardwareModal,
+  onOpenProjectGuide,
   onOpenNewProjectModal,
   onOpenMyProjectsModal,
   projectsCount = 1,
@@ -76,6 +79,16 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         </div>
 
         <div className="flex items-center gap-3 text-sm">
+          <button
+            type="button"
+            data-testid="open-project-guide"
+            onClick={onOpenProjectGuide}
+            className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/70 bg-white/80 px-3 py-1.5 font-extrabold text-emerald-900 shadow-sm transition hover:bg-white cursor-pointer"
+          >
+            <BookOpen className="h-4 w-4 text-emerald-700" />
+            <span>Guía del proyecto</span>
+          </button>
+
           <div
             className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/70 border border-emerald-300/70 text-emerald-900 font-medium shadow-2xs"
             title="Entorno alineado al Diseño Curricular CABA 2024 y Plan de Bialfabetización"
