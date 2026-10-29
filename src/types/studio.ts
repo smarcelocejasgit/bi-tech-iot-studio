@@ -53,6 +53,7 @@ export interface CameraSimulationState {
   resolucion: CameraResolutionOption;
   calidad: number;
   wifiConectado: boolean;
+  wifiSsid: string | null;
   streaming: boolean;
   capturas: number;
   ultimaCaptura: string | null;
@@ -130,7 +131,7 @@ export type StatementNode =
     }
   | { kind: 'cam_quality'; quality: number; blockId?: string }
   | { kind: 'cam_init'; blockId?: string }
-  | { kind: 'cam_wifi'; ssid: string; blockId?: string }
+  | { kind: 'cam_wifi'; ssid: string; password: string; blockId?: string }
   | { kind: 'cam_stream_start'; blockId?: string }
   | { kind: 'cam_stream_stop'; blockId?: string }
   | { kind: 'cam_capture'; blockId?: string }

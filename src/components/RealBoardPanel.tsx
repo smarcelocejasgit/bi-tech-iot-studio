@@ -914,9 +914,9 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-700">
-                  Placeholders seguros activos (<code>WIFI_SSID</code> /{' '}
-                  <code>WIFI_PASS</code> en <code>wifi_credentials.h</code>{' '}
-                  excluido por <code>.gitignore</code>).
+                  Credenciales definidas por el bloque (<code>WIFI_SSID</code>{' '}
+                  / <code>WIFI_PASSWORD</code>) y ocultas por defecto en la
+                  interfaz.
                 </p>
               </div>
 

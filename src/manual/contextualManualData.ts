@@ -494,11 +494,11 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
       'Conecta el microcontrolador (ESP32, ESP32-CAM o NodeMCU ESP8266) a la red Wi-Fi del laboratorio.',
     physicalComponent: 'Módulo de radio Wi-Fi 2.4 GHz integrado',
     dataUsed:
-      'Identificador de red simbólico (WIFI_SSID / WIFI_PASS desde configuración local)',
+      'Identificador de red y credencial protegida (WIFI_SSID / WIFI_PASSWORD)',
     dataType: 'Acción de conectividad (void)',
     behavior:
       'Habilita el canal de comunicación inalámbrico necesario para streaming o telemetría IoT.',
-    arduinoCode: 'conectarWiFi(WIFI_SSID, WIFI_PASS);',
+    arduinoCode: 'conectarWiFi(WIFI_SSID, WIFI_PASSWORD);',
     technicalNotes:
       'Por seguridad y privacidad, nunca se escriben contraseñas Wi-Fi reales dentro del código subido a Git.',
   },

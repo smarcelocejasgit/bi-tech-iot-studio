@@ -43,7 +43,11 @@ function sanitizeTechnicalOutput(raw: string): string {
       /MAC:\s*([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}/g,
       'MAC: [REDACTED]'
     )
-    .replace(/[A-Za-z]:\\Users\\[^\\/\r\n"]+/g, '<LOCAL_USER_PATH>');
+    .replace(/[A-Za-z]:\\Users\\[^\\/\r\n"]+/g, '<LOCAL_USER_PATH>')
+    .replace(
+      /((?:const\s+char\s*\*\s*WIFI_PASSWORD\s*=|#define\s+WIFI_PASSWORD)\s*)"(?:\\.|[^"\\])*"/g,
+      '$1"[REDACTED]"'
+    );
 }
 
 interface LocalSerialMetadata {

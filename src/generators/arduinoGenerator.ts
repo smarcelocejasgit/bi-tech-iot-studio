@@ -136,6 +136,64 @@ function findBiTechChannel(stmts: StatementNode[]): {
   return null;
 }
 
+interface WifiCredentials {
+  ssid: string;
+  password: string;
+}
+
+function findWifiCredentials(stmts: StatementNode[]): WifiCredentials | null {
+  for (const statement of stmts) {
+    if (statement.kind === 'cam_wifi') {
+      return { ssid: statement.ssid, password: statement.password };
+    }
+    if (statement.kind === 'if') {
+      const nested =
+        findWifiCredentials(statement.thenBranch) ??
+        findWifiCredentials(statement.elseBranch ?? []);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+function escapeArduinoString(value: string): string {
+  return Array.from(value, (character) => {
+    switch (character) {
+      case '\\':
+        return '\\\\';
+      case '"':
+        return '\\"';
+      case '\n':
+        return '\\n';
+      case '\r':
+        return '\\r';
+      case '\t':
+        return '\\t';
+      default: {
+        const code = character.charCodeAt(0);
+        return code < 32 || code === 127
+          ? `\\${code.toString(8).padStart(3, '0')}`
+          : character;
+      }
+    }
+  }).join('');
+}
+
+function wifiCredentialLines(program: ParsedProgram): string[] {
+  const credentials =
+    findWifiCredentials(program.setupStatements) ??
+    findWifiCredentials(program.loopStatements);
+  const ssid = credentials?.ssid || 'SSID_PENDIENTE_CONFIGURACION';
+  const password =
+    credentials?.password || 'PASSWORD_PENDIENTE_CONFIGURACION';
+
+  return [
+    '// --- Credenciales Wi-Fi definidas por el bloque conectar a Wi-Fi ---',
+    `const char* WIFI_SSID = "${escapeArduinoString(ssid)}";`,
+    `const char* WIFI_PASSWORD = "${escapeArduinoString(password)}";`,
+  ];
+}
+
 function emitStatementsC(
   stmts: StatementNode[],
   indent: string,
@@ -217,7 +275,7 @@ function emitStatementsC(
         break;
       case 'cam_wifi':
         out.push({
-          code: `${indent}conectarWiFi(WIFI_SSID, WIFI_PASS); // Red: ${st.ssid}`,
+          code: `${indent}conectarWiFi(WIFI_SSID, WIFI_PASSWORD);`,
           blockId: st.blockId,
         });
         break;
@@ -402,9 +460,6 @@ function buildNodeMcuCompilableSketch(
   if (usesWifi) {
     helperLines.push(
       '',
-      'const char* WIFI_SSID = "Red_Escolar_BiTech";',
-      'const char* WIFI_PASS = "pendiente_configuracion";',
-      '',
       'void conectarWiFi(const char* ssid, const char* pass) {',
       '  WiFi.mode(WIFI_STA);',
       '  WiFi.begin(ssid, pass);',
@@ -451,6 +506,7 @@ function buildNodeMcuCompilableSketch(
           'DHT dht(DHT_PIN, DHT_TYPE);',
         ]
       : []),
+    ...(usesWifi ? ['', ...wifiCredentialLines(program)] : []),
     '',
     '// --- Prototipos de funciones ---',
     'int leerEntradaAnalogicaA0();',
@@ -487,7 +543,18 @@ function buildNodeMcuCompilableSketch(
 /**
  * Construye el Sketch Completo (.ino) para Garden Node Bi-Tech (ESP32).
  */
-function buildGardenNodeCompilableSketch(compactCode: string): string {
+function buildGardenNodeCompilableSketch(
+  program: ParsedProgram,
+  compactCode: string
+): string {
+  const allStatements = [...program.setupStatements, ...program.loopStatements];
+  const usesWifi = hasStatementKind(
+    allStatements,
+    (statement) =>
+      statement.kind === 'cam_wifi' ||
+      statement.kind === 'iot_publish' ||
+      statement.kind === 'iot_connect_channel'
+  );
   const { pins } = GARDEN_NODE_CONFIG;
   const dhtGpio = pins.dht11.verifiedGpio ?? pins.dht11.candidateGpio ?? 4;
   const soilGpio =
@@ -510,12 +577,14 @@ function buildGardenNodeCompilableSketch(compactCode: string): string {
     '// ============================================================================',
     '',
     '#include <Arduino.h>',
+    ...(usesWifi ? ['#include <WiFi.h>'] : []),
     '',
     `#define DHT_PIN   ${dhtGpio}  // ${pins.dht11.candidateBoardLabel} -> GPIO${dhtGpio}`,
     `#define SUELO_PIN ${soilGpio} // ${pins.soilMoisture.candidateBoardLabel} -> GPIO${soilGpio}`,
     `#define LDR_PIN   ${ldrGpio} // ${pins.ldr.candidateBoardLabel} -> GPIO${ldrGpio}`,
     `#define BOMBA_PIN ${pumpGpio} // ${pins.relayChannel1Pump.candidateBoardLabel} -> GPIO${pumpGpio}`,
     `#define LUZ_PIN   ${lightGpio} // ${pins.relayChannel2Light.candidateBoardLabel} -> GPIO${lightGpio}`,
+    ...(usesWifi ? ['', ...wifiCredentialLines(program)] : []),
     '',
     'float leerTemperatura() { return 24.0f; }',
     'float leerHumedadAmbiente() { return 55.0f; }',
@@ -535,6 +604,14 @@ function buildGardenNodeCompilableSketch(compactCode: string): string {
     '  Serial.print("[BI-TECH] Canal Smart Garden Lab: ");',
     '  Serial.println(canal);',
     '}',
+    ...(usesWifi
+      ? [
+          'void conectarWiFi(const char* ssid, const char* password) {',
+          '  WiFi.mode(WIFI_STA);',
+          '  WiFi.begin(ssid, password);',
+          '}',
+        ]
+      : []),
     '',
     compactCode,
     '',
@@ -546,7 +623,10 @@ function buildGardenNodeCompilableSketch(compactCode: string): string {
  * Soporta configuración de cámara, resolución, calidad JPEG, inicialización OV2640,
  * conexión Wi-Fi con placeholders seguros, servidor HTTP MJPEG de streaming y captura de fotogramas.
  */
-function buildCameraNodeCompilableSketch(compactCode: string): string {
+function buildCameraNodeCompilableSketch(
+  program: ParsedProgram,
+  compactCode: string
+): string {
   return [
     '// ============================================================================',
     '// BI-TECH IoT STUDIO · SKETCH COMPILABLE PARA HARDWARE REAL (.ino)',
@@ -554,7 +634,7 @@ function buildCameraNodeCompilableSketch(compactCode: string): string {
     `// FQBN candidato de compilación: ${CAMERA_NODE_CONFIG.candidateFqbn}`,
     `// Supuesto de modelo: ${CAMERA_NODE_CONFIG.boardModelAssumption}`,
     '// Canal programación: USB | Canal streaming: Wi-Fi',
-    '// Credenciales Wi-Fi: Placeholders seguros (configurar en wifi_credentials.h excluido de Git)',
+    '// Credenciales Wi-Fi: definidas por el bloque y ocultas por defecto en la interfaz',
     '// ============================================================================',
     '',
     '#include <Arduino.h>',
@@ -562,16 +642,7 @@ function buildCameraNodeCompilableSketch(compactCode: string): string {
     '#include "esp_camera.h"',
     '#include "esp_http_server.h"',
     '',
-    '// --- Configuración segura de credenciales Wi-Fi (sin secretos en el repositorio) ---',
-    '#if __has_include("wifi_credentials.h")',
-    '  #include "wifi_credentials.h"',
-    '#endif',
-    '#ifndef WIFI_SSID',
-    '  #define WIFI_SSID "SSID_PENDIENTE_CONFIGURACION"',
-    '#endif',
-    '#ifndef WIFI_PASS',
-    '  #define WIFI_PASS "PASS_PENDIENTE_CONFIGURACION"',
-    '#endif',
+    ...wifiCredentialLines(program),
     '',
     '// --- Mapa de pines candidato: AI-Thinker ESP32-CAM (OV2640) ---',
     '// NOTA: Sujeto a verificación física al conectar la placa en V0.4B.',
@@ -938,7 +1009,7 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
       '',
       compactCode,
     ].join('\n');
-    compilableSketch = buildGardenNodeCompilableSketch(compactCode);
+    compilableSketch = buildGardenNodeCompilableSketch(program, compactCode);
   } else if (profile.simulatorKind === 'nodemcu-system') {
     headerAndHelpers = [
       '// ============================================================================',
@@ -963,7 +1034,7 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
       '',
       compactCode,
     ].join('\n');
-    compilableSketch = buildCameraNodeCompilableSketch(compactCode);
+    compilableSketch = buildCameraNodeCompilableSketch(program, compactCode);
   }
 
   return {

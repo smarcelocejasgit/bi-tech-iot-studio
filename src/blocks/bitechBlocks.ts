@@ -24,6 +24,51 @@ import {
 
 let blocksRegistered = false;
 
+const MASKED_WIFI_PASSWORD = '••••••••••••';
+
+/**
+ * Campo de contraseña para Blockly.
+ *
+ * Conserva el valor real para serializar/generar el sketch, pero nunca lo
+ * dibuja sobre el bloque. El editor HTML también nace como input password.
+ */
+export class WifiPasswordField extends Blockly.FieldTextInput {
+  private revealed = false;
+
+  constructor(value = '') {
+    super(value, undefined, { spellcheck: false });
+  }
+
+  setRevealed(revealed: boolean): void {
+    this.revealed = revealed;
+    if (
+      typeof HTMLInputElement !== 'undefined' &&
+      this.htmlInput_ instanceof HTMLInputElement
+    ) {
+      this.htmlInput_.type = revealed ? 'text' : 'password';
+    }
+    this.forceRerender();
+  }
+
+  protected getText_(): string {
+    if (!this.revealed) return MASKED_WIFI_PASSWORD;
+    return String(this.getValue() || '');
+  }
+
+  protected widgetCreate_(): HTMLInputElement | HTMLTextAreaElement {
+    const input = super.widgetCreate_();
+    if (
+      typeof HTMLInputElement !== 'undefined' &&
+      input instanceof HTMLInputElement
+    ) {
+      input.type = this.revealed ? 'text' : 'password';
+      input.autocomplete = 'off';
+      input.setAttribute('aria-label', 'Contraseña Wi-Fi');
+    }
+    return input;
+  }
+}
+
 const SENSOR_DROPDOWN_OPTIONS: [string, SensorKey][] = [
   ['💧 humedad del suelo', 'humedadSuelo'],
   ['📈 entrada analógica A0', 'entradaAnalogicaA0'],
@@ -405,14 +450,28 @@ export function registerBiTechBlocks(): void {
 
   Blockly.Blocks['bitech_cam_wifi'] = {
     init: function () {
+      const passwordField = new WifiPasswordField('');
+      const revealField = new Blockly.FieldCheckbox('FALSE', (value) => {
+        passwordField.setRevealed(value === 'TRUE');
+        return value;
+      });
+      // Mostrar/ocultar es un estado efímero: al recargar siempre queda oculto.
+      revealField.SERIALIZABLE = false;
+
+      this.appendDummyInput().appendField('📶  conectar a Wi-Fi');
       this.appendDummyInput()
-        .appendField('📶  conectar a Wi-Fi')
-        .appendField(new Blockly.FieldTextInput('Red_Escolar_BiTech'), 'SSID');
+        .appendField('SSID')
+        .appendField(new Blockly.FieldTextInput('', undefined, { spellcheck: false }), 'SSID');
+      this.appendDummyInput()
+        .appendField('Contraseña')
+        .appendField(passwordField, 'PASSWORD')
+        .appendField('mostrar')
+        .appendField(revealField);
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setColour('#0d9488');
       this.setTooltip(
-        'Conecta el dispositivo a la red Wi-Fi local (credenciales en configuración local).'
+        'Conecta el dispositivo a la red Wi-Fi indicada.'
       );
     },
   };
@@ -1120,7 +1179,8 @@ function parseStatementChain(firstBlock: Blockly.Block | null): StatementNode[] 
       case 'bitech_cam_wifi':
         statements.push({
           kind: 'cam_wifi',
-          ssid: String(current.getFieldValue('SSID') || 'Red_Escolar_BiTech'),
+          ssid: String(current.getFieldValue('SSID') || ''),
+          password: String(current.getFieldValue('PASSWORD') || ''),
           blockId: current.id,
         });
         break;

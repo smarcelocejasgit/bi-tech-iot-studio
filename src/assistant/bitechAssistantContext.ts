@@ -4,6 +4,10 @@ import {
   GeneratedArduinoOutput,
   ParsedProgram,
 } from '../types/studio';
+import {
+  redactProgramWifiPasswords,
+  redactWifiCredentials,
+} from '../security/wifiCredentials';
 
 export const BITECH_ASSISTANT_SUGGESTIONS: readonly string[] = [
   '¿Qué hace este bloque?',
@@ -43,9 +47,9 @@ export function buildBiTechAssistantContext(
     projectName,
     selectedBlockType,
     selectedBlockId,
-    parsedProgram,
+    parsedProgram: redactProgramWifiPasswords(parsedProgram),
     generatedEducationalCode: generatedCode.compactCode,
-    generatedSketch: generatedCode.compilableSketch,
+    generatedSketch: redactWifiCredentials(generatedCode.compilableSketch),
     validationIssues: generatedCode.validationIssues.map((i) => i.message),
   };
 }

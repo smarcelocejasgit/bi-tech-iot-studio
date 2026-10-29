@@ -113,7 +113,7 @@ export const SimulatorControlsPanel: React.FC<SimulatorControlsPanelProps> = ({
                 </div>
                 <div className="text-xs font-bold text-slate-800">
                   {cameraState.wifiConectado
-                    ? 'Conectado a red local'
+                    ? `Conectando a: ${cameraState.wifiSsid || 'SSID pendiente'}`
                     : 'Sin conexión Wi-Fi'}
                 </div>
               </div>

@@ -275,7 +275,11 @@ describe('Bi-Tech IoT Studio V0.1.1 — Restricciones de Hardware (NodeMCU A0)',
     const gardenWifiIotProgram: ParsedProgram = {
       device: 'garden-node',
       setupStatements: [
-        { kind: 'cam_wifi', ssid: 'Red_Escolar_BiTech' },
+        {
+          kind: 'cam_wifi',
+          ssid: 'SSID_PRUEBA',
+          password: 'PASSWORD_PRUEBA_NO_REAL',
+        },
       ],
       loopStatements: [
         {
@@ -293,7 +297,15 @@ describe('Bi-Tech IoT Studio V0.1.1 — Restricciones de Hardware (NodeMCU A0)',
     const codeOut = generateArduinoCode(gardenWifiIotProgram);
     expect(codeOut.validationIssues).toHaveLength(0);
     expect(codeOut.compactCode).not.toContain('OV2640');
-    expect(codeOut.compactCode).toContain('conectarWiFi(WIFI_SSID, WIFI_PASS); // Red: Red_Escolar_BiTech');
+    expect(codeOut.compactCode).toContain(
+      'conectarWiFi(WIFI_SSID, WIFI_PASSWORD);'
+    );
+    expect(codeOut.compilableSketch).toContain(
+      'const char* WIFI_SSID = "SSID_PRUEBA";'
+    );
+    expect(codeOut.compilableSketch).toContain(
+      'const char* WIFI_PASSWORD = "PASSWORD_PRUEBA_NO_REAL";'
+    );
     expect(codeOut.compactCode).toContain('enviarDatoIoT("bitech/nodo1", suelo);');
 
     // En cambio, un bloque real de cámara OV2640 en Garden Node sí debe advertir sobre cámara
@@ -558,15 +570,18 @@ describe('Bi-Tech IoT Studio V0.1.2 — Hardware Readiness y Sketch Compilable (
 });
 
 describe('Bi-Tech IoT Studio V0.3 — Placa real y HardwareBridge', () => {
-  it('sanitiza direcciones MAC y rutas locales en los detalles técnicos de compilación y carga', () => {
+  it('sanitiza direcciones MAC, rutas locales y contraseñas en detalles técnicos', () => {
     const sampleMac = Array(6).fill('aa').join(':');
     const rawLog =
-      `Chip is ESP8266EX\nMAC: ${sampleMac}\nPath: C:\\Users\\Alumno\\AppData\\Local\\Arduino15\\packages`;
+      `Chip is ESP8266EX\nMAC: ${sampleMac}\nPath: C:\\Users\\Alumno\\AppData\\Local\\Arduino15\\packages\n` +
+      'const char* WIFI_PASSWORD = "PASSWORD_PRUEBA_NO_REAL";';
     const clean = sanitizeHardwareLog(rawLog);
     expect(clean).toContain('MAC: [REDACTED]');
     expect(clean).not.toContain(sampleMac);
     expect(clean).toContain('<LOCAL_USER_PATH>');
     expect(clean).not.toContain('C:\\Users\\Alumno');
+    expect(clean).not.toContain('PASSWORD_PRUEBA_NO_REAL');
+    expect(clean).toContain('WIFI_PASSWORD = "[REDACTED]"');
   });
 
   it('selecciona Garden Node automáticamente cuando Arduino CLI identifica ESP32 Dev Module', () => {
@@ -718,7 +733,11 @@ describe('Bi-Tech IoT Studio V0.4A — Preparación de Camera Node Bi-Tech (ESP3
         { kind: 'cam_resolution', resolution: 'SVGA (800x600)' },
         { kind: 'cam_quality', quality: 10 },
         { kind: 'cam_init' },
-        { kind: 'cam_wifi', ssid: 'SSID_PENDIENTE_CONFIGURACION' },
+        {
+          kind: 'cam_wifi',
+          ssid: 'SSID_PRUEBA',
+          password: 'PASSWORD_PRUEBA_NO_REAL',
+        },
         { kind: 'cam_stream_start' },
       ],
       loopStatements: [
@@ -732,9 +751,15 @@ describe('Bi-Tech IoT Studio V0.4A — Preparación de Camera Node Bi-Tech (ESP3
     expect(output.compilableSketch).toContain('#include "esp_camera.h"');
     expect(output.compilableSketch).toContain('#include <WiFi.h>');
     expect(output.compilableSketch).toContain('#include "esp_http_server.h"');
-    expect(output.compilableSketch).toContain('#if __has_include("wifi_credentials.h")');
-    expect(output.compilableSketch).toContain('#define WIFI_SSID "SSID_PENDIENTE_CONFIGURACION"');
-    expect(output.compilableSketch).toContain('#define WIFI_PASS "PASS_PENDIENTE_CONFIGURACION"');
+    expect(output.compilableSketch).toContain(
+      'const char* WIFI_SSID = "SSID_PRUEBA";'
+    );
+    expect(output.compilableSketch).toContain(
+      'const char* WIFI_PASSWORD = "PASSWORD_PRUEBA_NO_REAL";'
+    );
+    expect(output.compilableSketch).toContain(
+      'conectarWiFi(WIFI_SSID, WIFI_PASSWORD);'
+    );
     expect(output.compilableSketch).toContain('esp_camera_init(&cameraConfig)');
     expect(output.compilableSketch).toContain('httpd_start(&streamHttpd, &config)');
     expect(output.compilableSketch).toContain('esp_camera_fb_get()');

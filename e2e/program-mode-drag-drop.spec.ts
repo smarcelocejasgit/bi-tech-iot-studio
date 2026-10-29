@@ -99,6 +99,69 @@ test('la Guía del proyecto filtra componentes para Camera Node', async ({
   await expect(page.getByTestId('guide-component-pump')).toHaveCount(0);
 });
 
+test('el bloque Wi-Fi edita SSID y protege la contraseña en toda la interfaz', async ({
+  page,
+}) => {
+  const testPassword = 'PASSWORD_E2E_NO_REAL';
+
+  await page.getByTestId('select-camera-node').click();
+  await page.getByTestId('insert-block-bitech_cam_wifi').click();
+  const wifiBlock = page
+    .locator('.blocklyBlockCanvas .blocklyDraggable')
+    .filter({ hasText: 'conectar a Wi-Fi' });
+
+  await expect(wifiBlock).toContainText('SSID');
+  await expect(wifiBlock).toContainText('Contraseña');
+  await expect(wifiBlock).toContainText('••••••••••••');
+  await expect(wifiBlock).toContainText('mostrar');
+
+  const editableFields = wifiBlock.locator('.blocklyEditableText');
+  await editableFields.nth(0).click();
+  const editor = page.locator('.blocklyHtmlInput');
+  await expect(editor).toBeVisible();
+  await editor.fill('SSID_E2E_AULA');
+  await editor.press('Enter');
+
+  await editableFields.nth(1).click();
+  await expect(editor).toHaveAttribute('type', 'password');
+  await editor.fill(testPassword);
+  await editor.press('Enter');
+
+  await expect(wifiBlock).not.toContainText(testPassword);
+  await editableFields.nth(2).click();
+  await expect(wifiBlock).toContainText(testPassword);
+  await editableFields.nth(2).click();
+  await expect(wifiBlock).not.toContainText(testPassword);
+  await expect(page.getByTestId('interpreter-narrative')).toContainText(
+    'Este bloque conecta la placa a la red Wi-Fi indicada para que pueda comunicarse con otros dispositivos o servicios.'
+  );
+  await expect(page.getByTestId('interpreter-narrative')).not.toContainText(
+    testPassword
+  );
+
+  await page.getByTestId('tab-view-arduino-code').click();
+  await page.getByTestId('tab-compilable-sketch').click();
+  await expect(page.getByTestId('arduino-code-display')).toContainText(
+    'WIFI_PASSWORD'
+  );
+  await expect(page.getByTestId('arduino-code-display')).not.toContainText(
+    testPassword
+  );
+  await page.getByTestId('toggle-wifi-credentials').click();
+  await expect(page.getByTestId('arduino-code-display')).toContainText(
+    testPassword
+  );
+  await page.getByTestId('toggle-wifi-credentials').click();
+
+  await page.getByTestId('mode-simulate').click();
+  await expect(page.getByTestId('simulate-mode-view')).toContainText(
+    'Conectando a: SSID_E2E_AULA'
+  );
+  await expect(page.getByTestId('simulate-mode-view')).not.toContainText(
+    testPassword
+  );
+});
+
 test('el clic de la paleta continúa insertando y seleccionando el bloque', async ({
   page,
 }) => {

@@ -166,7 +166,11 @@ describe('Intérprete didáctico narrativo del programa', () => {
       setupStatements: [
         { kind: 'cam_config' },
         { kind: 'cam_resolution', resolution: 'QVGA (320x240)' },
-        { kind: 'cam_wifi', ssid: 'Escuela_BiTech' },
+        {
+          kind: 'cam_wifi',
+          ssid: 'SSID_PRUEBA',
+          password: 'PASSWORD_PRUEBA_NO_REAL',
+        },
         { kind: 'cam_init' },
       ],
       loopStatements: [
@@ -179,7 +183,10 @@ describe('Intérprete didáctico narrativo del programa', () => {
       .map((step) => step.explanation)
       .join(' ');
     expect(narrative).toContain('placa Camera Node');
-    expect(narrative).toContain('red “Escuela_BiTech”');
+    expect(narrative).toContain(
+      'Este bloque conecta la placa a la red Wi-Fi indicada para que pueda comunicarse con otros dispositivos o servicios.'
+    );
+    expect(narrative).not.toContain('PASSWORD_PRUEBA_NO_REAL');
     expect(narrative).toContain('canal “escuela/camara”');
     expect(result.summarySentence).toBe(
       'Este programa: configura → mide → actúa → comunica → vuelve a medir.'

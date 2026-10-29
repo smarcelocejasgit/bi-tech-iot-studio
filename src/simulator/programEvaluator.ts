@@ -449,6 +449,7 @@ export function evaluateCameraProgram(
     resolucion: CAMERA_NODE_CONFIG.defaultResolution,
     calidad: CAMERA_NODE_CONFIG.defaultQuality,
     wifiConectado: false,
+    wifiSsid: null,
     streaming: false,
     capturas: 0,
     ultimaCaptura: null,
@@ -475,6 +476,7 @@ export function evaluateCameraProgram(
           break;
         case 'cam_wifi':
           state.wifiConectado = true;
+          state.wifiSsid = st.ssid;
           break;
         case 'cam_stream_start':
           if (state.activa) {

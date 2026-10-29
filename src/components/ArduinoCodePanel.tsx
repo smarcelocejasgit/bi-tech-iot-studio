@@ -6,12 +6,18 @@ import {
   Code2,
   Copy,
   Download,
+  Eye,
+  EyeOff,
   FileCode2,
 } from 'lucide-react';
 import { DidacticInterpreterView } from './DidacticInterpreterView';
 import { interpretProgram } from '../interpreter/programInterpreter';
 import { WorkMode } from '../types/hardware';
 import { GeneratedArduinoOutput, ParsedProgram } from '../types/studio';
+import {
+  containsWifiCredentials,
+  redactWifiCredentials,
+} from '../security/wifiCredentials';
 
 interface ArduinoCodePanelProps {
   generatedCode: GeneratedArduinoOutput;
@@ -42,7 +48,7 @@ function renderHighlightedLine(line: string): React.ReactNode {
   }
 
   const tokenRegex =
-    /(".*?"|\b(?:void|int|float|bool|const|char|if|else|return|true|false)\b|\b(?:setup|loop|pinMode|digitalWrite|digitalRead|analogRead|Serial|begin|print|println|delay|WiFi|mode|leerTemperatura|leerHumedadAmbiente|leerHumedadSuelo|leerNivelLuz|leerEntradaAnalogicaA0|leerEntradaDigital|bombaOn|bombaOff|luzOn|luzOff|relayOn|relayOff|activarSalidaDigital|desactivarSalidaDigital|configurarCamara|seleccionarResolucion|configurarCalidad|iniciarCamara|conectarWiFi|conectarSmartGardenLab|iniciarStreaming|detenerStreaming|tomarCaptura|estadoCamara|registrarDato|enviarDatoIoT)\b|\b(?:OUTPUT|INPUT|HIGH|LOW|A0|WIFI_STA|BOMBA_PIN|LUZ_PIN|DHT_PIN|SUELO_PIN|LDR_PIN|RELAY_PIN|ANALOG_A0_PIN|ENTRADA_DIG_PIN|SALIDA_DIG_PIN|WIFI_SSID|WIFI_PASS|BITECH_CHANNEL)\b|\b\d+\b)/g;
+    /(".*?"|\b(?:void|int|float|bool|const|char|if|else|return|true|false)\b|\b(?:setup|loop|pinMode|digitalWrite|digitalRead|analogRead|Serial|begin|print|println|delay|WiFi|mode|leerTemperatura|leerHumedadAmbiente|leerHumedadSuelo|leerNivelLuz|leerEntradaAnalogicaA0|leerEntradaDigital|bombaOn|bombaOff|luzOn|luzOff|relayOn|relayOff|activarSalidaDigital|desactivarSalidaDigital|configurarCamara|seleccionarResolucion|configurarCalidad|iniciarCamara|conectarWiFi|conectarSmartGardenLab|iniciarStreaming|detenerStreaming|tomarCaptura|estadoCamara|registrarDato|enviarDatoIoT)\b|\b(?:OUTPUT|INPUT|HIGH|LOW|A0|WIFI_STA|BOMBA_PIN|LUZ_PIN|DHT_PIN|SUELO_PIN|LDR_PIN|RELAY_PIN|ANALOG_A0_PIN|ENTRADA_DIG_PIN|SALIDA_DIG_PIN|WIFI_SSID|WIFI_PASSWORD|BITECH_CHANNEL)\b|\b\d+\b)/g;
 
   const parts = line.split(tokenRegex);
 
@@ -72,7 +78,7 @@ function renderHighlightedLine(line: string): React.ReactNode {
       );
     }
     if (
-      /^(OUTPUT|INPUT|HIGH|LOW|A0|WIFI_STA|BOMBA_PIN|LUZ_PIN|DHT_PIN|SUELO_PIN|LDR_PIN|RELAY_PIN|ANALOG_A0_PIN|ENTRADA_DIG_PIN|SALIDA_DIG_PIN|WIFI_SSID|WIFI_PASS)$/.test(
+      /^(OUTPUT|INPUT|HIGH|LOW|A0|WIFI_STA|BOMBA_PIN|LUZ_PIN|DHT_PIN|SUELO_PIN|LDR_PIN|RELAY_PIN|ANALOG_A0_PIN|ENTRADA_DIG_PIN|SALIDA_DIG_PIN|WIFI_SSID|WIFI_PASSWORD)$/.test(
         part
       )
     ) {
@@ -104,6 +110,7 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
   workMode = 'program',
 }) => {
   const [copied, setCopied] = useState(false);
+  const [showWifiCredentials, setShowWifiCredentials] = useState(false);
   const [primaryTab, setPrimaryTab] = useState<ProgramTab>('interpret');
   const [viewMode, setViewMode] = useState<CodeViewMode>(
     workMode === 'board' ? 'compilable' : 'educational'
@@ -120,9 +127,15 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
     });
   }, [parsedProgram]);
 
+  const hasWifiCredentials = containsWifiCredentials(
+    generatedCode.compilableSketch
+  );
+  const visibleCompilableSketch = showWifiCredentials
+    ? generatedCode.compilableSketch
+    : redactWifiCredentials(generatedCode.compilableSketch);
   const activeText =
     viewMode === 'compilable'
-      ? generatedCode.compilableSketch
+      ? visibleCompilableSketch
       : generatedCode.compactCode;
 
   const handleCopy = async () => {
@@ -149,7 +162,7 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const compilableLines = generatedCode.compilableSketch.split('\n');
+  const compilableLines = visibleCompilableSketch.split('\n');
   const hasIssues = generatedCode.validationIssues.length > 0;
 
   // En Modo Placa Real, el código Arduino puro es el único protagonista
@@ -318,13 +331,35 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
               </button>
             </div>
 
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 shadow-2xs text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer"
-              title="Copiar código visible"
-              aria-label="Copiar código"
-            >
+            <div className="flex items-center gap-1.5">
+              {viewMode === 'compilable' && hasWifiCredentials && (
+                <button
+                  type="button"
+                  data-testid="toggle-wifi-credentials"
+                  aria-pressed={showWifiCredentials}
+                  onClick={() => setShowWifiCredentials((visible) => !visible)}
+                  className="px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 shadow-2xs text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer"
+                  title={
+                    showWifiCredentials
+                      ? 'Ocultar credenciales Wi-Fi'
+                      : 'Mostrar credenciales Wi-Fi'
+                  }
+                >
+                  {showWifiCredentials ? (
+                    <EyeOff className="w-3.5 h-3.5" />
+                  ) : (
+                    <Eye className="w-3.5 h-3.5" />
+                  )}
+                  <span>{showWifiCredentials ? 'Ocultar' : 'Mostrar'}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 shadow-2xs text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer"
+                title="Copiar código visible"
+                aria-label="Copiar código"
+              >
               {copied ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-emerald-600" />
@@ -336,7 +371,8 @@ export const ArduinoCodePanel: React.FC<ArduinoCodePanelProps> = ({
                   <span>Copiar</span>
                 </>
               )}
-            </button>
+              </button>
+            </div>
           </div>
 
           {/* Advertencia pedagógica visible cuando el programa excede capacidades del dispositivo */}

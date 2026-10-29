@@ -62,6 +62,9 @@ interface ProgramFeatures {
 const EMPTY_MESSAGE =
   'Tu programa todavía no tiene instrucciones. Agregá bloques para comenzar a construir y después vas a poder leer aquí, paso a paso, qué hace tu algoritmo.';
 
+export const WIFI_INTERPRETER_EXPLANATION =
+  'Este bloque conecta la placa a la red Wi-Fi indicada para que pueda comunicarse con otros dispositivos o servicios.';
+
 export function formatSensorDisplayName(sensor: SensorKey): string {
   switch (sensor) {
     case 'temperatura':
@@ -223,7 +226,7 @@ export function formatActionsList(statements: StatementNode[]): string {
       case 'cam_init':
         return 'inicia la cámara';
       case 'cam_wifi':
-        return `conecta la placa a la red “${statement.ssid}”`;
+        return WIFI_INTERPRETER_EXPLANATION;
       case 'if':
         return 'evalúa una decisión anidada';
     }
@@ -488,7 +491,7 @@ function describeSimpleStatement(statement: Exclude<StatementNode, { kind: 'if' 
       return {
         kind: 'communication',
         blockLabel: 'conectar a Wi-Fi',
-        explanation: `cumple una función de comunicación: intenta conectar la placa a la red “${statement.ssid}”.`,
+        explanation: WIFI_INTERPRETER_EXPLANATION,
       };
     case 'cam_stream_start':
       return {
@@ -561,7 +564,10 @@ function buildNarrative(program: ParsedProgram): DidacticNarrativeStep[] {
           id,
           kind: description.kind,
           blockLabel: description.blockLabel,
-          explanation: `${opening} el bloque ${description.blockLabel} ${description.explanation}`,
+          explanation:
+            statement.kind === 'cam_wifi'
+              ? WIFI_INTERPRETER_EXPLANATION
+              : `${opening} el bloque ${description.blockLabel} ${description.explanation}`,
           depth,
           blockId: statement.blockId,
         });

@@ -26,6 +26,7 @@ firebase-adminsdk*.json
 hardware.local.json
 wifi_credentials.h
 device_credentials.h
+bitech_hardware_sketch.ino
 functions/.secret.local
 camera-gateway.local.json
 .tools/
