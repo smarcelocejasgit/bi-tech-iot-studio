@@ -1,8 +1,14 @@
 import { DeviceProfileId } from '../types/hardware';
 import {
+  evaluatePinSelection,
+  getSelectedPinId,
+  getSignalRequirement,
+} from '../hardware/pinModel';
+import {
   ConditionNode,
   NumericExpressionNode,
   ParsedProgram,
+  PinBinding,
   SensorKey,
   StatementNode,
 } from '../types/studio';
@@ -45,6 +51,8 @@ interface ConditionSummary {
 
 interface SensorReference {
   sensor: SensorKey;
+  pin?: string;
+  bindings?: PinBinding[];
   blockId?: string;
 }
 
@@ -98,10 +106,16 @@ export function formatSensorUnit(sensor: SensorKey): string {
 
 export function formatNumericExpression(expr: NumericExpressionNode): string {
   switch (expr.kind) {
-    case 'sensor_read':
+    case 'sensor_read': {
+      const selectedPin = getSelectedPinId(
+        expr.sensor,
+        expr.bindings,
+        expr.pin
+      );
       return `${formatSensorDisplayName(expr.sensor)}${
-        expr.pin ? ` conectada a ${expr.pin}` : ''
+        selectedPin ? ` conectada a ${selectedPin}` : ''
       }`;
+    }
     case 'number_literal':
       return String(expr.value);
     case 'math_op':
@@ -109,18 +123,31 @@ export function formatNumericExpression(expr: NumericExpressionNode): string {
   }
 }
 
-function describePhysicalInput(sensor: SensorKey, pin?: string): string | null {
-  if (sensor === 'entradaAnalogicaA0') {
-    return pin
-      ? `Lee una señal analógica conectada al ${pin}`
-      : 'Lee una señal analógica conectada a un pin compatible';
+function describePhysicalInput(
+  device: DeviceProfileId,
+  sensor: SensorKey,
+  pin?: string,
+  bindings?: PinBinding[]
+): string {
+  const selectedPin = getSelectedPinId(sensor, bindings, pin);
+  if (!selectedPin) {
+    return 'Todavía falta elegir un GPIO compatible para este sensor.';
   }
-  if (sensor === 'entradaDigital') {
-    return pin
-      ? `Lee el estado digital del ${pin}`
-      : 'Lee el estado digital de un pin compatible';
+  const requirement = getSignalRequirement(sensor);
+  const evaluation = evaluatePinSelection(
+    device,
+    requirement,
+    selectedPin,
+    sensor
+  );
+  if (!evaluation.valid) return evaluation.feedback[0].message;
+  if (requirement.signalType === 'digital-protocol') {
+    return `El DHT11 utiliza comunicación digital temporizada por una línea de datos. Elegiste ${selectedPin}.`;
   }
-  return null;
+  if (requirement.signalType === 'analog') {
+    return `El sensor produce una señal analógica. Elegiste ${selectedPin}, que admite lectura ADC.`;
+  }
+  return `El componente produce una señal digital simple. Elegiste ${selectedPin}, que admite entrada digital.`;
 }
 
 function formatOperator(operator: string): string {
@@ -142,7 +169,10 @@ function formatOperator(operator: string): string {
   }
 }
 
-export function describeCondition(cond: ConditionNode | null): ConditionSummary {
+export function describeCondition(
+  cond: ConditionNode | null,
+  device: DeviceProfileId = 'garden-node'
+): ConditionSummary {
   if (!cond) {
     return {
       subject: 'condición sin configurar',
@@ -162,8 +192,8 @@ export function describeCondition(cond: ConditionNode | null): ConditionSummary 
   }
 
   if (cond.kind === 'logical') {
-    const left = describeCondition(cond.left);
-    const right = describeCondition(cond.right);
+    const left = describeCondition(cond.left, device);
+    const right = describeCondition(cond.right, device);
     const connector = cond.operator === 'AND' ? 'y además' : 'o bien';
     return {
       subject: `${left.subject} ${cond.operator} ${right.subject}`,
@@ -188,8 +218,12 @@ export function describeCondition(cond: ConditionNode | null): ConditionSummary 
         ? String(cond.leftNumber)
         : 'el valor disponible';
   const leftWithPin =
-    sensor && cond.leftPin
-      ? `${formatSensorDisplayName(sensor)} conectada a ${cond.leftPin}`
+    sensor && getSelectedPinId(sensor, cond.leftBindings, cond.leftPin)
+      ? `${formatSensorDisplayName(sensor)} conectada a ${getSelectedPinId(
+          sensor,
+          cond.leftBindings,
+          cond.leftPin
+        )}`
       : left;
   const unit = sensor ? formatSensorUnit(sensor) : '';
   const right = unit ? `${cond.rightNumber} ${unit}` : String(cond.rightNumber);
@@ -274,7 +308,12 @@ function collectSensorsFromExpression(
 ): void {
   if (!expression) return;
   if (expression.kind === 'sensor_read') {
-    target.push({ sensor: expression.sensor, blockId: expression.blockId });
+    target.push({
+      sensor: expression.sensor,
+      pin: expression.pin,
+      bindings: expression.bindings,
+      blockId: expression.blockId,
+    });
   } else if (expression.kind === 'math_op') {
     collectSensorsFromExpression(expression.left, target);
   }
@@ -287,7 +326,12 @@ function collectSensorsFromCondition(
   if (!condition) return;
   if (condition.kind === 'comparison') {
     if (condition.leftSensor) {
-      target.push({ sensor: condition.leftSensor, blockId: condition.blockId });
+      target.push({
+        sensor: condition.leftSensor,
+        pin: condition.leftPin,
+        bindings: condition.leftBindings,
+        blockId: condition.blockId,
+      });
     }
     if (condition.rightSensor) {
       target.push({ sensor: condition.rightSensor, blockId: condition.blockId });
@@ -413,7 +457,10 @@ function sequenceOpening(
   }
 }
 
-function describeSimpleStatement(statement: Exclude<StatementNode, { kind: 'if' }>): {
+function describeSimpleStatement(
+  statement: Exclude<StatementNode, { kind: 'if' }>,
+  device: DeviceProfileId
+): {
   kind: NarrativeStepKind;
   blockLabel: string;
   explanation: string;
@@ -536,28 +583,28 @@ function describeSimpleStatement(statement: Exclude<StatementNode, { kind: 'if' 
       };
     case 'data_log': {
       const inputDescription = describePhysicalInput(
+        device,
         statement.sensor,
-        statement.pin
+        statement.pin,
+        statement.bindings
       );
       return {
         kind: 'communication',
         blockLabel: 'registrar dato',
-        explanation: inputDescription
-          ? `${inputDescription} y registra ese valor por el puerto serie con la etiqueta “${statement.label}”.`
-          : `obtiene la lectura de ${formatSensorDisplayName(statement.sensor)} y la envía por el puerto serie con la etiqueta “${statement.label}”.`,
+        explanation: `${inputDescription} Luego registra ese valor por el puerto serie con la etiqueta “${statement.label}”.`,
       };
     }
     case 'iot_publish': {
       const inputDescription = describePhysicalInput(
+        device,
         statement.sensor,
-        statement.pin
+        statement.pin,
+        statement.bindings
       );
       return {
         kind: 'communication',
         blockLabel: 'enviar a IoT',
-        explanation: inputDescription
-          ? `${inputDescription} y envía ese valor al Smart Garden Lab.`
-          : `obtiene la lectura de ${formatSensorDisplayName(statement.sensor)} y la publica en el canal “${statement.topic}”.`,
+        explanation: `${inputDescription} Luego envía ese valor al Smart Garden Lab.`,
       };
     }
     case 'iot_connect_channel':
@@ -593,7 +640,7 @@ function buildNarrative(program: ParsedProgram): DidacticNarrativeStep[] {
       const opening = sequenceOpening(index, context);
 
       if (statement.kind !== 'if') {
-        const description = describeSimpleStatement(statement);
+        const description = describeSimpleStatement(statement, program.device);
         steps.push({
           id,
           kind: description.kind,
@@ -608,7 +655,7 @@ function buildNarrative(program: ParsedProgram): DidacticNarrativeStep[] {
         return;
       }
 
-      const condition = describeCondition(statement.condition);
+      const condition = describeCondition(statement.condition, program.device);
       const sensors = uniqueSensors(statement.condition);
       sensors.forEach((sensor, sensorIndex) => {
         const sensorName = formatSensorDisplayName(sensor.sensor);
@@ -618,7 +665,12 @@ function buildNarrative(program: ParsedProgram): DidacticNarrativeStep[] {
           blockLabel: `leer ${sensorName}`,
           explanation: `${
             sensorIndex === 0 ? opening : 'También,'
-          } el bloque de lectura obtiene un dato de ${sensorName}. Ese valor queda disponible para la decisión que viene a continuación.`,
+          } ${describePhysicalInput(
+            program.device,
+            sensor.sensor,
+            sensor.pin,
+            sensor.bindings
+          )} Ese valor queda disponible para la decisión que viene a continuación.`,
           depth,
           blockId: sensor.blockId ?? statement.blockId,
         });

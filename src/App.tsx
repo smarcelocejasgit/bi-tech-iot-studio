@@ -28,6 +28,7 @@ import {
   resolveCameraStreamUrl,
 } from './hardware/cameraSerialParser';
 import { getDeviceCapabilities } from './hardware/hardwareCapabilities';
+import { getSelectedBlockPinFeedback } from './hardware/hardwareValidator';
 import { getManualEntryForDevice } from './manual/contextualManualData';
 import {
   createStudioProject,
@@ -314,6 +315,10 @@ export const App: React.FC = () => {
     () => getManualEntryForDevice(selectedBlockType, activeDevice),
     [selectedBlockType, activeDevice]
   );
+  const pinFeedback = useMemo(
+    () => getSelectedBlockPinFeedback(parsedProgram, selectedBlockId),
+    [parsedProgram, selectedBlockId]
+  );
 
   const assistantContext = useMemo(
     () =>
@@ -426,7 +431,10 @@ export const App: React.FC = () => {
             </div>
 
             {/* Ayuda contextual compacta del bloque seleccionado */}
-            <ContextualManualPanel entry={manualEntry} />
+            <ContextualManualPanel
+              entry={manualEntry}
+              pinFeedback={pinFeedback}
+            />
 
             {!isAssistantOpen && (
               <button
