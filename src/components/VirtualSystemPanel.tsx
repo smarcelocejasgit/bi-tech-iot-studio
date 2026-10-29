@@ -33,12 +33,20 @@ const InputReadingsSummary: React.FC<{
     >
       {readings.map((reading) => (
         <span
-          key={`${reading.type}:${reading.pin}`}
+          key={`${reading.component}:${reading.role}:${reading.pin}`}
           className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-950"
         >
-          <code>{reading.pin}</code> · entrada{' '}
-          {reading.type === 'analog' ? 'analógica' : 'digital'} · valor:{' '}
-          <strong>{reading.value}</strong>
+          {reading.component} ·{' '}
+          {reading.signalType === 'analog'
+            ? 'señal analógica'
+            : reading.signalType === 'digital-protocol'
+              ? 'protocolo digital'
+              : 'señal digital'}{' '}
+          · {reading.role} <code>{reading.pin}</code> · valor{' '}
+          <strong>
+            {reading.value}
+            {reading.unit ? ` ${reading.unit}` : ''}
+          </strong>
         </span>
       ))}
     </div>

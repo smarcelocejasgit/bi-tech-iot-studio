@@ -51,7 +51,10 @@ test('la Guía del proyecto acompaña Garden Node y vuelve a Blockly sin perder 
       name: 'Diagrama de conexiones: DHT11 → Garden Node',
     })
   ).toBeVisible();
-  await expect(page.getByText('DATA / S → GPIO21')).toBeVisible();
+  await expect(page.getByText('DATA / S → GPIO digital disponible')).toBeVisible();
+  await expect(
+    page.getByText('Conexión validada en Smart Garden Lab: GPIO21')
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Cerrar lámina' }).click();
 
   await page.getByTestId('guide-step-4').click();
@@ -176,17 +179,36 @@ test('los selectores de entrada cambian sus pines con el perfil de hardware', as
   await expect(page.getByTestId('contextual-manual-panel')).toContainText(
     'No todos los GPIO'
   );
+  await expect(analogBlock).toContainText('Elegir GPIO');
+  await page.getByTestId('select-nodemcu-esp8266').click();
+  await page.getByTestId('mode-board').click();
+  await expect(page.getByTestId('board-compile-btn')).toBeDisabled();
+  await page.getByTestId('mode-program').click();
+  await page.getByTestId('select-garden-node').click();
+  await analogBlock.click();
+  await analogBlock.locator('.blocklyEditableText').last().click();
+  await page
+    .locator('.blocklyDropDownDiv .blocklyMenuItemContent')
+    .filter({ hasText: 'GPIO34' })
+    .click();
+  await expect(page.getByTestId('pin-selection-feedback')).toContainText(
+    'GPIO34 admite lectura analógica mediante ADC'
+  );
+  await expect(page.getByTestId('pin-selection-feedback')).toContainText(
+    'GPIO34 es sólo entrada'
+  );
 
+  await page.getByTestId('category-sensores').click();
   await page.getByTestId('insert-block-bitech_sensor_digital_in').click();
   const digitalBlock = page
     .locator('.blocklyBlockCanvas .blocklyDraggable')
     .filter({ hasText: 'entrada digital' });
   await expect(analogBlock).toContainText('GPIO34');
-  await expect(digitalBlock).toContainText('GPIO4');
+  await expect(digitalBlock).toContainText('Elegir GPIO');
 
   await page.getByTestId('select-nodemcu-esp8266').click();
-  await expect(analogBlock).toContainText('A0');
-  await expect(digitalBlock).toContainText('D1');
+  await expect(analogBlock).toContainText('Elegir GPIO');
+  await expect(digitalBlock).toContainText('Elegir GPIO');
 
   await page.getByTestId('select-camera-node').click();
   await expect(
@@ -212,10 +234,17 @@ test('una entrada IoT conserva el GPIO en intérprete, Arduino y simulador', asy
     .filter({ hasText: 'entrada analógica' })
     .click();
 
+  await expect(iotBlock).toContainText('Elegir GPIO');
+  await iotBlock.locator('.blocklyEditableText').last().click();
+  await page
+    .locator('.blocklyDropDownDiv .blocklyMenuItemContent')
+    .filter({ hasText: 'GPIO34' })
+    .click();
+
   await expect(iotBlock).toContainText('pin');
   await expect(iotBlock).toContainText('GPIO34');
   await expect(page.getByTestId('interpreter-narrative')).toContainText(
-    'señal analógica conectada al GPIO34'
+    'Elegiste GPIO34, que admite lectura ADC'
   );
 
   await page.getByTestId('tab-view-arduino-code').click();
@@ -228,7 +257,7 @@ test('una entrada IoT conserva el GPIO en intérprete, Arduino y simulador', asy
 
   await page.getByTestId('mode-simulate').click();
   await expect(page.getByTestId('gpio-input-readings')).toContainText(
-    'GPIO34 · entrada analógica · valor:'
+    'Entrada analógica · señal analógica · AO GPIO34 · valor'
   );
 });
 

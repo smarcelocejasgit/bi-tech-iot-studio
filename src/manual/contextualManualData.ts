@@ -201,14 +201,14 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewLabel: '🌱 humedad del suelo',
     previewColor: '#0284c7',
     description:
-      'Lee el sensor de humedad del suelo para saber si la tierra está seca o húmeda.',
+      'La sonda produce una señal analógica. Elegí un GPIO con capacidad ADC para leerla.',
     physicalComponent:
-      'Sonda de humedad de suelo conectada a entrada analógica (SUELO_PIN / A0)',
+      'Sonda de humedad de suelo: AO conectado al GPIO ADC elegido por el estudiante',
     dataUsed: 'Lectura analógica del conversor ADC',
     dataType: 'Numérico entero (int)',
     behavior:
       'Entrega un valor numérico que disminuye cuando la tierra se seca y aumenta cuando el suelo está húmedo.',
-    arduinoCode: 'leerHumedadSuelo()',
+    arduinoCode: 'analogRead(GPIO_ELEGIDO)',
     technicalNotes:
       'IMPORTANTE: No debe asumirse automáticamente como un porcentaje real si antes no se calibró el sensor midiendo sus valores en tierra seca y húmeda (SP-06).',
     deviceNotes: {
@@ -224,13 +224,13 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewLabel: '🌡️ temperatura (°C)',
     previewColor: '#0284c7',
     description:
-      'Obtiene la temperatura del aire medida en grados Celsius (°C) a través del sensor digital DHT11.',
-    physicalComponent: 'Sensor digital DHT11 conectado a DHT_PIN',
+      'Obtiene temperatura mediante un DHT11, sensor digital con protocolo temporizado sobre una línea DATA.',
+    physicalComponent: 'DHT11: VCC, GND y DATA en el GPIO digital elegido',
     dataUsed: 'Magnitud térmica ambiental en °C',
     dataType: 'Numérico decimal (float)',
     behavior:
-      'Devuelve la temperatura actual sin consumir entradas analógicas (usa un pin digital).',
-    arduinoCode: 'leerTemperatura()',
+      'El estudiante elige un GPIO digital disponible. La librería inicia el protocolo DHT11 en esa línea DATA.',
+    arduinoCode: 'DHT dht(GPIO_ELEGIDO, DHT11);',
     technicalNotes:
       'Como el DHT11 es un sensor digital, en NodeMCU deja libre la entrada analógica A0 para otro sensor.',
   },
@@ -242,12 +242,12 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewLabel: '💧 humedad ambiente (%)',
     previewColor: '#0284c7',
     description:
-      'Mide el porcentaje de humedad relativa presente en el aire mediante el sensor digital DHT11.',
-    physicalComponent: 'Sensor digital DHT11 conectado a DHT_PIN',
+      'Mide humedad relativa mediante el protocolo digital temporizado de una línea del DHT11.',
+    physicalComponent: 'DHT11: VCC, GND y DATA en el GPIO digital elegido',
     dataUsed: 'Humedad relativa del aire (0 a 100 %)',
     dataType: 'Numérico decimal (float)',
     behavior:
-      'Permite evaluar si el ambiente está seco o húmedo usando el mismo pin digital del DHT11.',
+      'Temperatura y humedad del mismo DHT11 deben compartir la línea DATA elegida.',
     arduinoCode: 'leerHumedadAmbiente()',
     technicalNotes:
       'El mismo encapsulado físico DHT11 entrega tanto temperatura como humedad ambiente por un único pin digital.',
@@ -260,13 +260,13 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewLabel: '☀️ nivel de luz',
     previewColor: '#0284c7',
     description:
-      'Lee cuánta luz recibe el entorno mediante una fotorresistencia (LDR) conectada a una entrada analógica.',
-    physicalComponent: 'Sensor LDR en divisor resistivo conectado a ADC (LDR_PIN / A0)',
+      'El divisor resistivo con LDR produce una señal analógica. Elegí un GPIO con capacidad ADC.',
+    physicalComponent: 'LDR en divisor resistivo: AO al GPIO ADC elegido',
     dataUsed: 'Nivel de intensidad lumínica (escala 0 a 1023)',
     dataType: 'Numérico entero (int)',
     behavior:
       'Cuando hay poca luz el valor baja, permitiendo decidir cuándo encender la iluminación artificial.',
-    arduinoCode: 'leerNivelLuz()',
+    arduinoCode: 'analogRead(GPIO_ELEGIDO)',
     technicalNotes:
       'En NodeMCU ESP8266 este sensor utiliza el canal analógico A0. Si intentas combinarlo con otro sensor analógico a la vez, se superará el límite físico de 1 ADC de la placa.',
   },
@@ -627,15 +627,23 @@ export function getManualEntryForDevice(
   const base = CONTEXTUAL_MANUAL_ENTRIES[blockType] ?? DEFAULT_MANUAL_ENTRY;
   const profile = getDeviceProfile(deviceId);
   const specificNote = base.deviceNotes?.[deviceId];
+  const gpioConcepts =
+    base.category === 'sensores'
+      ? ' · GPIO significa pin de entrada/salida de propósito general. Entrada: la placa lee; salida: la placa escribe. Una señal analógica necesita ADC; una digital puede ser simple o usar un protocolo temporizado. No todos los GPIO tienen las mismas capacidades. Compatible indica que el pin cumple el requisito; validado en nuestro prototipo registra una conexión probada, no una obligación universal.'
+      : '';
 
-  if (!specificNote && deviceId !== 'nodemcu-esp8266') {
+  if (!specificNote && deviceId !== 'nodemcu-esp8266' && !gpioConcepts) {
     return base;
   }
 
   return {
     ...base,
-    technicalNotes: specificNote
-      ? `${specificNote} (${base.technicalNotes})`
-      : `${base.technicalNotes} · Nota de hardware (${profile.shortBadge}): ${profile.capabilities.pedagogicalResourceNote}`,
+    technicalNotes: `${
+      specificNote
+        ? `${specificNote} (${base.technicalNotes})`
+        : deviceId === 'nodemcu-esp8266'
+          ? `${base.technicalNotes} · Nota de hardware (${profile.shortBadge}): ${profile.capabilities.pedagogicalResourceNote}`
+          : base.technicalNotes
+    }${gpioConcepts}`,
   };
 }

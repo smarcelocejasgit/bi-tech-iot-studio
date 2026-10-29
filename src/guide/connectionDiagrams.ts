@@ -9,7 +9,8 @@ export interface ConnectionDiagram {
   image: string;
   validationStatus: ComponentValidationStatus;
   validationDetail: string;
-  connections: string[];
+  generalConnections: string[];
+  prototypeEvidence: string[];
 }
 
 export const CONNECTION_DIAGRAMS: ConnectionDiagram[] = [
@@ -21,7 +22,12 @@ export const CONNECTION_DIAGRAMS: ConnectionDiagram[] = [
     image: '/resources/diagrams/garden-dht11-gpio21.svg',
     validationStatus: 'validated',
     validationDetail: 'Validado en hardware con un módulo DHT11 de tres pines.',
-    connections: ['VCC → 3,3 V', 'GND → GND', 'DATA / S → GPIO21'],
+    generalConnections: [
+      'VCC → alimentación compatible (3,3 V en el prototipo)',
+      'GND → GND',
+      'DATA / S → GPIO digital disponible',
+    ],
+    prototypeEvidence: ['Conexión validada en Smart Garden Lab: GPIO21'],
   },
   {
     id: 'garden-analog-sensors',
@@ -31,7 +37,13 @@ export const CONNECTION_DIAGRAMS: ConnectionDiagram[] = [
     image: '/resources/diagrams/garden-analog-pending.svg',
     validationStatus: 'pending',
     validationDetail: 'No se fijan GPIO hasta validar el cableado real.',
-    connections: ['Humedad de suelo → entrada analógica pendiente', 'LDR → entrada analógica pendiente'],
+    generalConnections: [
+      'Humedad de suelo: AO → GPIO con capacidad ADC',
+      'LDR en divisor resistivo: AO → GPIO con capacidad ADC',
+    ],
+    prototypeEvidence: [
+      'No se publica un GPIO como evidencia hasta completar la validación física.',
+    ],
   },
   {
     id: 'garden-actuators',
@@ -41,7 +53,8 @@ export const CONNECTION_DIAGRAMS: ConnectionDiagram[] = [
     image: '/resources/diagrams/garden-actuators-pending.svg',
     validationStatus: 'pending',
     validationDetail: 'Polaridad, fuente y GPIO deben validarse físicamente.',
-    connections: ['ESP32 → entrada de control del relay', 'Relay → bomba / iluminación con fuente adecuada'],
+    generalConnections: ['ESP32 → entrada de control del relay', 'Relay → bomba / iluminación con fuente adecuada'],
+    prototypeEvidence: ['GPIO y polaridad pendientes de validación física.'],
   },
   {
     id: 'camera-module',
@@ -51,7 +64,8 @@ export const CONNECTION_DIAGRAMS: ConnectionDiagram[] = [
     image: '/resources/diagrams/camera-module.svg',
     validationStatus: 'validated',
     validationDetail: 'OV3660 y PSRAM validadas físicamente en la Camera Node actual.',
-    connections: ['Sensor OV3660 → conector FPC de cámara', 'ESP32-CAM → programador USB', 'Imágenes → Wi-Fi'],
+    generalConnections: ['Sensor OV3660 → conector FPC de cámara', 'ESP32-CAM → programador USB', 'Imágenes → Wi-Fi'],
+    prototypeEvidence: ['OV3660 y PSRAM validadas en la Camera Node actual.'],
   },
   {
     id: 'nodemcu-dht11',
@@ -61,7 +75,14 @@ export const CONNECTION_DIAGRAMS: ConnectionDiagram[] = [
     image: '/resources/diagrams/nodemcu-dht11.svg',
     validationStatus: 'validated',
     validationDetail: 'Perfil compatible validado en D5 / GPIO14.',
-    connections: ['VCC → 3,3 V', 'GND → GND', 'DATA → D5 / GPIO14'],
+    generalConnections: [
+      'VCC → alimentación compatible',
+      'GND → GND',
+      'DATA → pin digital disponible',
+    ],
+    prototypeEvidence: [
+      'Conexión validada en el prototipo NodeMCU: D5 / GPIO14',
+    ],
   },
 ];
 

@@ -17,6 +17,61 @@ export type SimulatorSystemKind = 'garden-system' | 'camera-system' | 'nodemcu-s
 export type AdcVoltageRangeStatus = 'unverified' | '0-1.0V' | '0-3.2V' | '0-3.3V';
 
 export type InputPinKind = 'analog' | 'digital';
+export type PinCapability =
+  | 'adc-input'
+  | 'digital-input'
+  | 'digital-output';
+export type PinRestriction = 'input-only' | 'boot-pin' | 'camera-reserved';
+export type SignalRole = 'AO' | 'DATA' | 'TRIG' | 'ECHO';
+export type SignalType = 'analog' | 'digital-simple' | 'digital-protocol';
+export type McuAccess = 'read' | 'write' | 'read-write';
+
+/** Capacidad física de un GPIO, independiente del componente conectado. */
+export interface HardwarePinDefinition {
+  id: string;
+  label: string;
+  arduinoExpression: string;
+  capabilities: PinCapability[];
+  restrictions?: PinRestriction[];
+  notes?: string[];
+}
+
+/** Requisito eléctrico/lógico de una señal de componente. */
+export interface ComponentSignalRequirement {
+  role: SignalRole;
+  signalType: SignalType;
+  mcuAccess: McuAccess;
+  requiredCapabilities: PinCapability[];
+  protocol?: 'dht-timed-single-line';
+}
+
+export interface PrototypePinEvidence {
+  componentId: 'dht11' | 'soil-moisture' | 'ldr';
+  role: SignalRole;
+  profile: DeviceProfileId;
+  pinId: string;
+  status: 'validated';
+  detail: string;
+}
+
+export interface PinSelectionFeedback {
+  severity: 'success' | 'warning' | 'error';
+  code:
+    | 'PIN_COMPATIBLE'
+    | 'PIN_SELECTION_REQUIRED'
+    | 'PIN_CAPABILITY_MISMATCH'
+    | 'PIN_RESERVED'
+    | 'PIN_INPUT_ONLY'
+    | 'INPUT_ONLY_PIN_USED_AS_OUTPUT'
+    | 'PROTOTYPE_VALIDATED';
+  message: string;
+}
+
+export interface PinSelectionEvaluation {
+  valid: boolean;
+  pin: HardwarePinDefinition | null;
+  feedback: PinSelectionFeedback[];
+}
 
 /** Opción de pin derivada de la metadata del perfil activo. */
 export interface HardwareInputPinOption {
@@ -27,6 +82,7 @@ export interface HardwareInputPinOption {
   /** Expresión válida para Arduino C/C++. */
   arduinoExpression: string;
   kind: InputPinKind;
+  capabilities?: PinCapability[];
 }
 
 export type CompatibleSensorId =
@@ -210,7 +266,13 @@ export interface HardwareValidationIssue {
     | 'ANALOG_INPUTS_EXCEEDED'
     | 'UNSUPPORTED_CAMERA_ON_DEVICE'
     | 'UNSUPPORTED_WIFI_ON_DEVICE'
-    | 'UNSUPPORTED_ACTUATOR_ON_DEVICE';
+    | 'UNSUPPORTED_ACTUATOR_ON_DEVICE'
+    | 'PIN_SELECTION_REQUIRED'
+    | 'PIN_CAPABILITY_MISMATCH'
+    | 'PIN_RESERVED'
+    | 'PIN_CONFLICT'
+    | 'INPUT_ONLY_PIN_USED_AS_OUTPUT'
+    | 'DHT_DATA_INCONSISTENT';
   severity: 'warning' | 'error';
   title: string;
   message: string;

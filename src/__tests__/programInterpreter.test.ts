@@ -35,6 +35,7 @@ describe('Intérprete didáctico narrativo del programa', () => {
             kind: 'comparison',
             blockId: 'sensor-soil',
             leftSensor: 'humedadSuelo',
+            leftPin: 'GPIO34',
             operator: '<',
             rightNumber: 30,
           },
@@ -69,14 +70,15 @@ describe('Intérprete didáctico narrativo del programa', () => {
     const readStep = result.narrativeSteps.find(
       (step) => step.kind === 'read'
     )!;
-    expect(readStep.explanation).toContain('obtiene un dato de humedad del suelo');
+    expect(readStep.explanation).toContain('produce una señal analógica');
+    expect(readStep.explanation).toContain('Elegiste GPIO34');
 
     const conditionStep = result.narrativeSteps.find(
       (step) => step.kind === 'condition'
     )!;
     expect(conditionStep.explanation).toContain('decisión condicional');
     expect(conditionStep.explanation).toContain(
-      'humedad del suelo es menor que 30'
+      'humedad del suelo conectada a GPIO34 es menor que 30'
     );
     expect(conditionStep.explanation).toContain('rama “si no”');
 

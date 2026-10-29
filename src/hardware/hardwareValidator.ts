@@ -7,6 +7,11 @@ import {
   StatementNode,
 } from '../types/studio';
 import {
+  evaluatePinSelection,
+  getSelectedPinId,
+  getSignalRequirement,
+} from './pinModel';
+import {
   getDeviceProfile,
   isAnalogSensorKey,
 } from './hardwareCapabilities';
@@ -19,6 +24,12 @@ const SENSOR_LABELS: Record<SensorKey, string> = {
   entradaAnalogicaA0: 'Entrada analógica A0',
   entradaDigital: 'Entrada digital',
 };
+
+const CAPABILITY_LABELS = {
+  'adc-input': 'lectura analógica ADC',
+  'digital-input': 'entrada digital',
+  'digital-output': 'salida digital',
+} as const;
 
 function collectSensorsFromNumericExpr(
   expr: NumericExpressionNode | undefined,
@@ -62,6 +73,130 @@ export function collectAllSensorsInStatements(
       acc.add(st.sensor);
     }
   }
+}
+
+interface PinUsage {
+  sensor: SensorKey;
+  pinId?: string;
+  blockId?: string;
+}
+
+function collectProgramPinSelections(
+  program: ParsedProgram,
+  usages: PinUsage[]
+): void {
+  for (const selection of program.pinSelections ?? []) {
+    usages.push({
+      sensor: selection.sensor,
+      pinId: getSelectedPinId(
+        selection.sensor,
+        selection.bindings,
+        selection.pin
+      ),
+      blockId: selection.blockId,
+    });
+  }
+}
+
+function collectPinUsagesFromExpression(
+  expression: NumericExpressionNode | undefined,
+  usages: PinUsage[]
+): void {
+  if (!expression) return;
+  if (expression.kind === 'sensor_read') {
+    usages.push({
+      sensor: expression.sensor,
+      pinId: getSelectedPinId(
+        expression.sensor,
+        expression.bindings,
+        expression.pin
+      ),
+      blockId: expression.blockId,
+    });
+  } else if (expression.kind === 'math_op') {
+    collectPinUsagesFromExpression(expression.left, usages);
+  }
+}
+
+function collectPinUsagesFromCondition(
+  condition: ConditionNode | null,
+  usages: PinUsage[]
+): void {
+  if (!condition) return;
+  if (condition.kind === 'comparison') {
+    if (condition.leftExpr) {
+      collectPinUsagesFromExpression(condition.leftExpr, usages);
+    } else if (condition.leftSensor) {
+      usages.push({
+        sensor: condition.leftSensor,
+        pinId: getSelectedPinId(
+          condition.leftSensor,
+          condition.leftBindings,
+          condition.leftPin
+        ),
+        blockId: condition.blockId,
+      });
+    }
+  } else if (condition.kind === 'logical') {
+    collectPinUsagesFromCondition(condition.left, usages);
+    collectPinUsagesFromCondition(condition.right, usages);
+  }
+}
+
+function collectPinUsages(
+  statements: StatementNode[],
+  usages: PinUsage[]
+): void {
+  for (const statement of statements) {
+    if (statement.kind === 'data_log' || statement.kind === 'iot_publish') {
+      usages.push({
+        sensor: statement.sensor,
+        pinId: getSelectedPinId(
+          statement.sensor,
+          statement.bindings,
+          statement.pin
+        ),
+        blockId: statement.blockId,
+      });
+    } else if (statement.kind === 'if') {
+      collectPinUsagesFromCondition(statement.condition, usages);
+      collectPinUsages(statement.thenBranch, usages);
+      collectPinUsages(statement.elseBranch ?? [], usages);
+    }
+  }
+}
+
+function sensorResource(sensor: SensorKey): string {
+  return sensor === 'temperatura' || sensor === 'humedadAmbiente'
+    ? 'dht11'
+    : sensor;
+}
+
+export function getSelectedBlockPinFeedback(
+  program: ParsedProgram,
+  blockId?: string
+): string[] {
+  if (!blockId) return [];
+  const usages: PinUsage[] = [];
+  collectProgramPinSelections(program, usages);
+  collectPinUsages(program.setupStatements, usages);
+  collectPinUsages(program.loopStatements, usages);
+  const usage = usages.find((item) => item.blockId === blockId);
+  if (!usage) return [];
+  return evaluatePinSelection(
+    program.device,
+    getSignalRequirement(usage.sensor),
+    usage.pinId,
+    usage.sensor
+  ).feedback.map((feedback) => {
+    const prefix =
+      feedback.severity === 'success'
+        ? '✓'
+        : feedback.severity === 'warning'
+          ? '⚠'
+          : '✕';
+    return `${prefix} ${feedback.message}`;
+  });
 }
 
 const CAMERA_ONLY_STATEMENT_KINDS = new Set<StatementNode['kind']>([
@@ -143,6 +278,105 @@ export function validateProgramAgainstCapabilities(
       pedagogicalExplanation:
         `${profile.shortBadge} dispone de ${capabilities.analogInputs} entrada(s) analógica(s). Estás intentando leer simultáneamente: ${affectedNames.join(' + ')}. En programación física, el algoritmo debe adaptarse a los recursos reales del hardware o seleccionar un microcontrolador con más canales ADC (como ESP32).`,
       affectedSensorsOrBlocks: affectedNames,
+    });
+  }
+
+  const pinUsages: PinUsage[] = [];
+  collectProgramPinSelections(program, pinUsages);
+  collectPinUsages(program.setupStatements, pinUsages);
+  collectPinUsages(program.loopStatements, pinUsages);
+  const uniquePinUsages = pinUsages.filter(
+    (usage, index) =>
+      pinUsages.findIndex(
+        (candidate) =>
+          candidate.blockId === usage.blockId &&
+          candidate.sensor === usage.sensor &&
+          candidate.pinId === usage.pinId
+      ) === index
+  );
+
+  for (const usage of uniquePinUsages) {
+    const evaluation = evaluatePinSelection(
+      program.device,
+      getSignalRequirement(usage.sensor),
+      usage.pinId,
+      usage.sensor
+    );
+    if (evaluation.valid) continue;
+    const feedback = evaluation.feedback[0];
+    const code =
+      feedback.code === 'PIN_RESERVED'
+        ? 'PIN_RESERVED'
+        : feedback.code === 'PIN_SELECTION_REQUIRED'
+          ? 'PIN_SELECTION_REQUIRED'
+          : feedback.code === 'INPUT_ONLY_PIN_USED_AS_OUTPUT'
+            ? 'INPUT_ONLY_PIN_USED_AS_OUTPUT'
+          : 'PIN_CAPABILITY_MISMATCH';
+    issues.push({
+      code,
+      severity: 'error',
+      title:
+        code === 'PIN_SELECTION_REQUIRED'
+          ? 'Falta elegir un GPIO'
+          : code === 'INPUT_ONLY_PIN_USED_AS_OUTPUT'
+            ? 'GPIO de sólo entrada usado como salida'
+          : 'GPIO incompatible con la señal',
+      message: feedback.message,
+      pedagogicalExplanation: `El componente ${SENSOR_LABELS[usage.sensor]} requiere ${getSignalRequirement(
+        usage.sensor
+      ).requiredCapabilities.map((capability) => CAPABILITY_LABELS[capability]).join(' y ')}. La placa no elegirá el pin por vos.`,
+      affectedSensorsOrBlocks: [usage.blockId ?? SENSOR_LABELS[usage.sensor]],
+    });
+  }
+
+  const usagesByPin = new Map<string, PinUsage[]>();
+  for (const usage of uniquePinUsages.filter((item) => item.pinId)) {
+    const list = usagesByPin.get(usage.pinId!) ?? [];
+    list.push(usage);
+    usagesByPin.set(usage.pinId!, list);
+  }
+  for (const [pinId, usages] of usagesByPin) {
+    const resources = new Set(usages.map((usage) => sensorResource(usage.sensor)));
+    if (resources.size <= 1) continue;
+    issues.push({
+      code: 'PIN_CONFLICT',
+      severity: 'warning',
+      title: 'Posible conflicto de GPIO',
+      message: `Dos componentes utilizan ${pinId}: ${usages
+        .map((usage) => SENSOR_LABELS[usage.sensor])
+        .join(' + ')}.`,
+      pedagogicalExplanation:
+        'Compartir un GPIO sólo es correcto cuando las señales pertenecen al mismo componente o el circuito/protocolo lo permite. Revisá el diagrama antes de conectar.',
+      affectedSensorsOrBlocks: usages.map(
+        (usage) => usage.blockId ?? SENSOR_LABELS[usage.sensor]
+      ),
+    });
+  }
+
+  const temperaturePins = new Set(
+    uniquePinUsages
+      .filter((usage) => usage.sensor === 'temperatura' && usage.pinId)
+      .map((usage) => usage.pinId!)
+  );
+  const humidityPins = new Set(
+    uniquePinUsages
+      .filter((usage) => usage.sensor === 'humedadAmbiente' && usage.pinId)
+      .map((usage) => usage.pinId!)
+  );
+  if (
+    temperaturePins.size > 0 &&
+    humidityPins.size > 0 &&
+    !Array.from(temperaturePins).some((pin) => humidityPins.has(pin))
+  ) {
+    issues.push({
+      code: 'DHT_DATA_INCONSISTENT',
+      severity: 'warning',
+      title: 'DATA del DHT11 no coincide',
+      message:
+        'Temperatura y humedad DHT11 parecen pertenecer al mismo sensor pero usan DATA diferentes.',
+      pedagogicalExplanation:
+        'Un mismo DHT11 entrega ambas mediciones por una sola línea DATA. Si realmente usás dos módulos DHT11, esta diferencia puede ser intencional.',
+      affectedSensorsOrBlocks: ['Temperatura DHT11', 'Humedad DHT11'],
     });
   }
 

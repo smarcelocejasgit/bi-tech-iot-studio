@@ -131,12 +131,17 @@ export const BlocklyWorkspacePanel: React.FC<BlocklyWorkspacePanelProps> = ({
 
       if (
         event.type === Blockly.Events.BLOCK_CHANGE ||
+        event.type === Blockly.Events.BLOCK_FIELD_INTERMEDIATE_CHANGE ||
         event.type === Blockly.Events.BLOCK_MOVE ||
         event.type === Blockly.Events.BLOCK_CREATE ||
         event.type === Blockly.Events.BLOCK_DELETE ||
         event.type === Blockly.Events.FINISHED_LOADING
       ) {
-        emitCurrentProgram();
+        // Blockly notifica algunos cambios de FieldDropdown antes de que el
+        // nuevo valor quede disponible para todos los lectores del bloque.
+        // Parsear en la microtarea siguiente mantiene AST, XML y feedback
+        // contextual sincronizados con el valor visible.
+        queueMicrotask(emitCurrentProgram);
       }
     };
 

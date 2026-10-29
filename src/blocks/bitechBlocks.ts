@@ -1,9 +1,13 @@
 import * as Blockly from 'blockly';
 import {
   getDeviceCapabilities,
-  getInputPinOptions,
+  getPinOptionsForSensor,
   isCategorySupportedByCapabilities,
 } from '../hardware/hardwareCapabilities';
+import {
+  bindingsFromPin,
+  UNSELECTED_PIN_ID,
+} from '../hardware/pinModel';
 import {
   CameraResolutionOption,
   CompatibleActuatorId,
@@ -84,10 +88,16 @@ function getWorkspaceDeviceProfile(workspace: Blockly.Workspace): DeviceProfileI
   return workspaceDeviceProfiles.get(workspace) ?? 'garden-node';
 }
 
-function sensorInputKind(sensor: SensorKey): 'analog' | 'digital' | null {
-  if (sensor === 'entradaAnalogicaA0') return 'analog';
-  if (sensor === 'entradaDigital') return 'digital';
-  return null;
+function sensorForDirectBlock(blockType: string): SensorKey | null {
+  const sensors: Record<string, SensorKey> = {
+    bitech_sensor_soil: 'humedadSuelo',
+    bitech_sensor_temp: 'temperatura',
+    bitech_sensor_humidity: 'humedadAmbiente',
+    bitech_sensor_light: 'nivelLuz',
+    bitech_sensor_analog_a0: 'entradaAnalogicaA0',
+    bitech_sensor_digital_in: 'entradaDigital',
+  };
+  return sensors[blockType] ?? null;
 }
 
 function sensorOptionsForBlock(block: Blockly.Block): [string, string][] {
@@ -104,25 +114,25 @@ function sensorOptionsForBlock(block: Blockly.Block): [string, string][] {
 
 function pinOptionsForBlock(
   block: Blockly.Block,
-  kind: 'analog' | 'digital'
+  sensor: SensorKey
 ): [string, string][] {
-  const options = getInputPinOptions(
+  const options = getPinOptionsForSensor(
     getWorkspaceDeviceProfile(block.workspace),
-    kind
+    sensor
   ).map((pin) => [pin.label, pin.id] as [string, string]);
-  return options.length > 0 ? options : [['Sin pines compatibles', 'NO_PIN']];
+  return [['Elegir GPIO…', UNSELECTED_PIN_ID], ...options];
 }
 
 function normalizePinField(
   block: Blockly.Block,
-  kind: 'analog' | 'digital'
+  sensor: SensorKey
 ): void {
   const field = block.getField('PIN') as Blockly.FieldDropdown | null;
   if (!field) return;
-  const options = pinOptionsForBlock(block, kind);
+  const options = pinOptionsForBlock(block, sensor);
   field.getOptions(false);
   if (!options.some(([, value]) => value === field.getValue())) {
-    field.setValue(options[0][1]);
+    field.setValue(UNSELECTED_PIN_ID);
   }
 }
 
@@ -130,12 +140,9 @@ function refreshInputPinBlock(
   block: Blockly.Block,
   nextSensor?: SensorKey
 ): void {
-  if (block.type === 'bitech_sensor_analog_a0') {
-    normalizePinField(block, 'analog');
-    return;
-  }
-  if (block.type === 'bitech_sensor_digital_in') {
-    normalizePinField(block, 'digital');
+  const directSensor = sensorForDirectBlock(block.type);
+  if (directSensor) {
+    normalizePinField(block, directSensor);
     return;
   }
 
@@ -152,9 +159,8 @@ function refreshInputPinBlock(
     sensor = sensorOptions[0][1] as SensorKey;
     sensorField.setValue(sensor);
   }
-  const kind = sensorInputKind(sensor);
-  block.getInput('PIN_ROW')?.setVisible(kind !== null);
-  if (kind) normalizePinField(block, kind);
+  block.getInput('PIN_ROW')?.setVisible(true);
+  normalizePinField(block, sensor);
   if (block instanceof Blockly.BlockSvg && block.rendered) block.render();
 }
 
@@ -177,14 +183,18 @@ function appendConditionalPinRow(block: Blockly.Block): void {
         const sensor =
           (block.getFieldValue('SENSOR') as SensorKey | null) ??
           'entradaAnalogicaA0';
-        return pinOptionsForBlock(
-          block,
-          sensorInputKind(sensor) ?? 'analog'
-        );
+        return pinOptionsForBlock(block, sensor);
       }),
       'PIN'
     );
   refreshInputPinBlock(block);
+}
+
+function createPinDropdown(
+  block: Blockly.Block,
+  sensor: SensorKey
+): Blockly.FieldDropdown {
+  return new Blockly.FieldDropdown(() => pinOptionsForBlock(block, sensor));
 }
 
 /** Vincula el workspace con el perfil que alimenta sus selectores de pines. */
@@ -273,50 +283,66 @@ export function registerBiTechBlocks(): void {
   // ==================== CATEGORÍA: SENSORES ====================
   Blockly.Blocks['bitech_sensor_soil'] = {
     init: function () {
-      this.appendDummyInput().appendField('🌱 humedad del suelo');
+      this.appendDummyInput().appendField('🌱 leer humedad del suelo');
+      this.appendDummyInput()
+        .appendField('pin ADC')
+        .appendField(createPinDropdown(this, 'humedadSuelo'), 'PIN');
       this.setOutput(true, 'Number');
       this.setColour('#0284c7');
-      this.setTooltip('Lee el valor numérico del sensor de humedad del suelo (ADC).');
+      this.setTooltip(
+        'El sensor entrega una señal analógica por AO. Elegí un GPIO con capacidad ADC.'
+      );
     },
   };
 
   Blockly.Blocks['bitech_sensor_temp'] = {
     init: function () {
-      this.appendDummyInput().appendField('🌡️ temperatura (°C)');
+      this.appendDummyInput().appendField('🌡️ leer temperatura DHT11');
+      this.appendDummyInput()
+        .appendField('DATA')
+        .appendField(createPinDropdown(this, 'temperatura'), 'PIN');
       this.setOutput(true, 'Number');
       this.setColour('#0284c7');
-      this.setTooltip('Lee la temperatura ambiente en °C desde el sensor DHT11.');
+      this.setTooltip(
+        'El DHT11 usa un protocolo digital temporizado por una línea DATA. Elegí un GPIO digital compatible.'
+      );
     },
   };
 
   Blockly.Blocks['bitech_sensor_humidity'] = {
     init: function () {
-      this.appendDummyInput().appendField('💧 humedad ambiente (%)');
+      this.appendDummyInput().appendField('💧 leer humedad DHT11');
+      this.appendDummyInput()
+        .appendField('DATA')
+        .appendField(createPinDropdown(this, 'humedadAmbiente'), 'PIN');
       this.setOutput(true, 'Number');
       this.setColour('#0284c7');
       this.setTooltip(
-        'Lee el porcentaje de humedad ambiente desde el sensor DHT11.'
+        'El DHT11 usa un protocolo digital temporizado por una línea DATA. Elegí un GPIO digital compatible.'
       );
     },
   };
 
   Blockly.Blocks['bitech_sensor_light'] = {
     init: function () {
-      this.appendDummyInput().appendField('☀️ nivel de luz');
+      this.appendDummyInput().appendField('☀️ leer nivel de luz');
+      this.appendDummyInput()
+        .appendField('pin ADC')
+        .appendField(createPinDropdown(this, 'nivelLuz'), 'PIN');
       this.setOutput(true, 'Number');
       this.setColour('#0284c7');
-      this.setTooltip('Lee el nivel de luz ambiental desde el sensor LDR (ADC).');
+      this.setTooltip(
+        'El LDR entrega una señal analógica. Elegí un GPIO con capacidad ADC.'
+      );
     },
   };
 
   Blockly.Blocks['bitech_sensor_analog_a0'] = {
     init: function () {
+      this.appendDummyInput().appendField('📈 leer entrada analógica');
       this.appendDummyInput()
-        .appendField('📈 entrada analógica')
-        .appendField(
-          new Blockly.FieldDropdown(() => pinOptionsForBlock(this, 'analog')),
-          'PIN'
-        );
+        .appendField('pin ADC')
+        .appendField(createPinDropdown(this, 'entradaAnalogicaA0'), 'PIN');
       this.setOutput(true, 'Number');
       this.setColour('#0284c7');
       this.setTooltip(
@@ -327,12 +353,10 @@ export function registerBiTechBlocks(): void {
 
   Blockly.Blocks['bitech_sensor_digital_in'] = {
     init: function () {
+      this.appendDummyInput().appendField('🔘 leer entrada digital');
       this.appendDummyInput()
-        .appendField('🔘 entrada digital')
-        .appendField(
-          new Blockly.FieldDropdown(() => pinOptionsForBlock(this, 'digital')),
-          'PIN'
-        );
+        .appendField('pin')
+        .appendField(createPinDropdown(this, 'entradaDigital'), 'PIN');
       this.setOutput(true, 'Number');
       this.setColour('#0284c7');
       this.setTooltip(
@@ -722,13 +746,13 @@ export const BLOCK_CATEGORIES_CATALOG: CategoryCatalogItem[] = [
     blocks: [
       {
         type: 'bitech_sensor_temp',
-        label: 'temperatura (°C)',
+        label: 'temperatura DHT11 [DATA]',
         badge: 'DHT11',
         requiredSensor: 'temperatura',
       },
       {
         type: 'bitech_sensor_humidity',
-        label: 'humedad ambiente (%)',
+        label: 'humedad DHT11 [DATA]',
         badge: 'DHT11',
         requiredSensor: 'humedadAmbiente',
       },
@@ -740,19 +764,19 @@ export const BLOCK_CATEGORIES_CATALOG: CategoryCatalogItem[] = [
       },
       {
         type: 'bitech_sensor_digital_in',
-        label: 'entrada digital',
+        label: 'entrada digital [pin]',
         badge: 'DIN',
         requiredSensor: 'entradaDigital',
       },
       {
         type: 'bitech_sensor_soil',
-        label: 'humedad del suelo',
+        label: 'humedad del suelo [pin ADC]',
         badge: 'ADC',
         requiredSensor: 'humedadSuelo',
       },
       {
         type: 'bitech_sensor_light',
-        label: 'nivel de luz (LDR)',
+        label: 'nivel de luz LDR [pin ADC]',
         badge: 'ADC',
         requiredSensor: 'nivelLuz',
       },
@@ -1141,9 +1165,9 @@ function parsePinForSensor(
   block: Blockly.Block | null,
   sensor: SensorKey | undefined
 ): string | undefined {
-  return block && sensorInputKind(sensor ?? 'humedadSuelo')
-    ? String(block.getFieldValue('PIN') || '') || undefined
-    : undefined;
+  if (!block || !sensor) return undefined;
+  const value = String(block.getFieldValue('PIN') || '');
+  return value && value !== UNSELECTED_PIN_ID ? value : undefined;
 }
 
 function parseNumericExpression(
@@ -1156,6 +1180,7 @@ function parseNumericExpression(
       kind: 'sensor_read',
       sensor,
       pin: parsePinForSensor(block, sensor),
+      bindings: bindingsFromPin(sensor, parsePinForSensor(block, sensor)),
       blockId: block.id,
     };
   }
@@ -1200,6 +1225,8 @@ function parseConditionBlock(block: Blockly.Block | null): ConditionNode | null 
       leftSensor: leftSensor ?? (leftExpr?.kind === 'sensor_read' ? leftExpr.sensor : 'humedadSuelo'),
       leftPin:
         leftExpr?.kind === 'sensor_read' ? leftExpr.pin : undefined,
+      leftBindings:
+        leftExpr?.kind === 'sensor_read' ? leftExpr.bindings : undefined,
       leftExpr,
       operator: op,
       rightNumber,
@@ -1277,6 +1304,10 @@ function parseStatementChain(firstBlock: Blockly.Block | null): StatementNode[] 
             blockId: current.id,
             leftSensor: sensor,
             leftPin: parsePinForSensor(current, sensor),
+            leftBindings: bindingsFromPin(
+              sensor,
+              parsePinForSensor(current, sensor)
+            ),
             operator,
             rightNumber: threshold,
           },
@@ -1350,6 +1381,10 @@ function parseStatementChain(firstBlock: Blockly.Block | null): StatementNode[] 
           label: String(current.getFieldValue('LABEL') || 'Dato'),
           sensor,
           pin: parsePinForSensor(current, sensor),
+          bindings: bindingsFromPin(
+            sensor,
+            parsePinForSensor(current, sensor)
+          ),
           blockId: current.id,
         });
         break;
@@ -1362,6 +1397,10 @@ function parseStatementChain(firstBlock: Blockly.Block | null): StatementNode[] 
           topic: String(current.getFieldValue('TOPIC') || 'huerta/datos'),
           sensor,
           pin: parsePinForSensor(current, sensor),
+          bindings: bindingsFromPin(
+            sensor,
+            parsePinForSensor(current, sensor)
+          ),
           blockId: current.id,
         });
         break;
@@ -1403,6 +1442,7 @@ export function parseWorkspaceToProgram(
   const setupStatements: StatementNode[] = [];
   const loopStatements: StatementNode[] = [];
   const usedSensorsSet = new Set<SensorKey>();
+  const pinSelections: NonNullable<ParsedProgram['pinSelections']> = [];
   let startBlockId: string | undefined;
   let loopBlockId: string | undefined;
 
@@ -1412,6 +1452,13 @@ export function parseWorkspaceToProgram(
     const directSensor = parseSensorFromBlock(blk);
     if (directSensor) {
       usedSensorsSet.add(directSensor);
+      const pin = parsePinForSensor(blk, directSensor);
+      pinSelections.push({
+        sensor: directSensor,
+        pin,
+        bindings: bindingsFromPin(directSensor, pin),
+        blockId: blk.id,
+      });
     }
     if (
       blk.type === 'bitech_if_sensor_compare' ||
@@ -1419,7 +1466,16 @@ export function parseWorkspaceToProgram(
       blk.type === 'bitech_iot_send_event'
     ) {
       const sField = blk.getFieldValue('SENSOR') as SensorKey | undefined;
-      if (sField) usedSensorsSet.add(sField);
+      if (sField) {
+        usedSensorsSet.add(sField);
+        const pin = parsePinForSensor(blk, sField);
+        pinSelections.push({
+          sensor: sField,
+          pin,
+          bindings: bindingsFromPin(sField, pin),
+          blockId: blk.id,
+        });
+      }
     }
   }
 
@@ -1465,5 +1521,6 @@ export function parseWorkspaceToProgram(
     startBlockId,
     loopBlockId,
     usedSensors: Array.from(usedSensorsSet),
+    pinSelections,
   };
 }

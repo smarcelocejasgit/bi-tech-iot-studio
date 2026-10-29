@@ -86,14 +86,16 @@ export function diagramToGuideResource(
     profileScope: diagram.profiles,
     details: [
       {
-        title: 'Conexiones y referencias',
-        content: diagram.connections,
+        title: 'Requisitos generales',
+        content: diagram.generalConnections,
         kind: 'list',
       },
       {
-        title: 'Estado de validación',
-        content: diagram.validationDetail,
+        title: 'Evidencia del prototipo',
+        content: diagram.prototypeEvidence,
+        kind: 'list',
       },
+      { title: 'Estado de validación', content: diagram.validationDetail },
     ],
   };
 }

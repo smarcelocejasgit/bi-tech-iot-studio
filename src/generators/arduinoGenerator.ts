@@ -2,8 +2,12 @@ import { CAMERA_NODE_CONFIG } from '../hardware/cameraNodeConfig';
 import { GARDEN_NODE_CONFIG } from '../hardware/gardenNodeConfig';
 import {
   getDeviceProfile,
-  resolveInputPin,
+  resolveSensorPin,
 } from '../hardware/hardwareCapabilities';
+import {
+  getSelectedPinId,
+  getSignalRequirement,
+} from '../hardware/pinModel';
 import {
   collectAllSensorsInStatements,
   validateProgramAgainstCapabilities,
@@ -68,7 +72,12 @@ function formatNumericExprC(
     return String(expr.value);
   }
   if (expr.kind === 'sensor_read') {
-    return formatSensorReadC(expr.sensor, expr.pin, useLocalVars, device);
+    return formatSensorReadC(
+      expr.sensor,
+      getSelectedPinId(expr.sensor, expr.bindings, expr.pin),
+      useLocalVars,
+      device
+    );
   }
   if (expr.kind === 'math_op') {
     return `(${formatNumericExprC(expr.left, useLocalVars, device)} ${expr.operator} ${
@@ -78,12 +87,8 @@ function formatNumericExprC(
   return '0';
 }
 
-function inputKindForSensor(
-  sensor: SensorKey
-): 'analog' | 'digital' | null {
-  if (sensor === 'entradaAnalogicaA0') return 'analog';
-  if (sensor === 'entradaDigital') return 'digital';
-  return null;
+function usesDirectPinRead(sensor: SensorKey): boolean {
+  return getSignalRequirement(sensor).signalType !== 'digital-protocol';
 }
 
 function formatSensorReadC(
@@ -92,11 +97,12 @@ function formatSensorReadC(
   useLocalVars: boolean,
   device: ParsedProgram['device']
 ): string {
-  const kind = inputKindForSensor(sensor);
-  if (kind) {
-    const resolved = resolveInputPin(device, kind, pin);
-    if (!resolved) return '0';
-    const readFunction = kind === 'analog' ? 'analogRead' : 'digitalRead';
+  const requirement = getSignalRequirement(sensor);
+  if (requirement.signalType !== 'digital-protocol') {
+    const resolved = resolveSensorPin(device, sensor, pin);
+    if (!resolved) return '0 /* GPIO pendiente */';
+    const readFunction =
+      requirement.signalType === 'analog' ? 'analogRead' : 'digitalRead';
     return `${readFunction}(${resolved.arduinoExpression})`;
   }
   return useLocalVars
@@ -117,7 +123,11 @@ function formatConditionC(
     } else if (cond.leftSensor) {
       left = formatSensorReadC(
         cond.leftSensor,
-        cond.leftPin,
+        getSelectedPinId(
+          cond.leftSensor,
+          cond.leftBindings,
+          cond.leftPin
+        ),
         useLocalVars,
         device
       );
@@ -237,10 +247,15 @@ function collectInputPinsFromExpression(
 ): void {
   if (!expression) return;
   if (expression.kind === 'sensor_read') {
-    const kind = inputKindForSensor(expression.sensor);
-    if (!kind) return;
-    const resolved = resolveInputPin(device, kind, expression.pin);
-    if (resolved) pins.set(`${kind}:${resolved.id}`, resolved.arduinoExpression);
+    const requirement = getSignalRequirement(expression.sensor);
+    if (requirement.signalType === 'digital-protocol') return;
+    const selectedPin = getSelectedPinId(
+      expression.sensor,
+      expression.bindings,
+      expression.pin
+    );
+    const resolved = resolveSensorPin(device, expression.sensor, selectedPin);
+    if (resolved) pins.set(resolved.id, resolved.arduinoExpression);
     return;
   }
   if (expression.kind === 'math_op') {
@@ -257,12 +272,19 @@ function collectInputPinsFromCondition(
   if (condition.kind === 'comparison') {
     collectInputPinsFromExpression(condition.leftExpr, device, pins);
     if (condition.leftSensor) {
-      const kind = inputKindForSensor(condition.leftSensor);
-      const resolved = kind
-        ? resolveInputPin(device, kind, condition.leftPin)
-        : null;
-      if (kind && resolved) {
-        pins.set(`${kind}:${resolved.id}`, resolved.arduinoExpression);
+      const requirement = getSignalRequirement(condition.leftSensor);
+      const selectedPin = getSelectedPinId(
+        condition.leftSensor,
+        condition.leftBindings,
+        condition.leftPin
+      );
+      const resolved = resolveSensorPin(
+        device,
+        condition.leftSensor,
+        selectedPin
+      );
+      if (requirement.signalType !== 'digital-protocol' && resolved) {
+        pins.set(resolved.id, resolved.arduinoExpression);
       }
     }
     return;
@@ -280,12 +302,15 @@ function collectSelectedInputPins(
 ): void {
   for (const statement of statements) {
     if (statement.kind === 'data_log' || statement.kind === 'iot_publish') {
-      const kind = inputKindForSensor(statement.sensor);
-      const resolved = kind
-        ? resolveInputPin(device, kind, statement.pin)
-        : null;
-      if (kind && resolved) {
-        pins.set(`${kind}:${resolved.id}`, resolved.arduinoExpression);
+      const requirement = getSignalRequirement(statement.sensor);
+      const selectedPin = getSelectedPinId(
+        statement.sensor,
+        statement.bindings,
+        statement.pin
+      );
+      const resolved = resolveSensorPin(device, statement.sensor, selectedPin);
+      if (requirement.signalType !== 'digital-protocol' && resolved) {
+        pins.set(resolved.id, resolved.arduinoExpression);
       }
     } else if (statement.kind === 'if') {
       collectInputPinsFromCondition(statement.condition, device, pins);
@@ -301,6 +326,76 @@ function inputPinModeLines(program: ParsedProgram): string[] {
   collectSelectedInputPins(program.loopStatements, program.device, pins);
   return Array.from(pins.values()).map(
     (arduinoExpression) => `  pinMode(${arduinoExpression}, INPUT);`
+  );
+}
+
+function findSensorPinInExpression(
+  expression: NumericExpressionNode | undefined,
+  sensor: SensorKey
+): string | undefined {
+  if (!expression) return undefined;
+  if (expression.kind === 'sensor_read' && expression.sensor === sensor) {
+    return getSelectedPinId(sensor, expression.bindings, expression.pin);
+  }
+  if (expression.kind === 'math_op') {
+    return findSensorPinInExpression(expression.left, sensor);
+  }
+  return undefined;
+}
+
+function findSensorPinInCondition(
+  condition: ConditionNode | null,
+  sensor: SensorKey
+): string | undefined {
+  if (!condition) return undefined;
+  if (condition.kind === 'comparison') {
+    if (condition.leftSensor === sensor) {
+      return getSelectedPinId(
+        sensor,
+        condition.leftBindings,
+        condition.leftPin
+      );
+    }
+    return findSensorPinInExpression(condition.leftExpr, sensor);
+  }
+  if (condition.kind === 'logical') {
+    return (
+      findSensorPinInCondition(condition.left, sensor) ??
+      findSensorPinInCondition(condition.right, sensor)
+    );
+  }
+  return undefined;
+}
+
+function findSensorPinInStatements(
+  statements: StatementNode[],
+  sensor: SensorKey
+): string | undefined {
+  for (const statement of statements) {
+    if (
+      (statement.kind === 'data_log' || statement.kind === 'iot_publish') &&
+      statement.sensor === sensor
+    ) {
+      return getSelectedPinId(sensor, statement.bindings, statement.pin);
+    }
+    if (statement.kind === 'if') {
+      const found =
+        findSensorPinInCondition(statement.condition, sensor) ??
+        findSensorPinInStatements(statement.thenBranch, sensor) ??
+        findSensorPinInStatements(statement.elseBranch ?? [], sensor);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+function findProgramSensorPin(
+  program: ParsedProgram,
+  sensor: SensorKey
+): string | undefined {
+  return (
+    findSensorPinInStatements(program.setupStatements, sensor) ??
+    findSensorPinInStatements(program.loopStatements, sensor)
   );
 }
 
@@ -414,7 +509,7 @@ function emitStatementsC(
       case 'data_log': {
         const valExpr = formatSensorReadC(
           st.sensor,
-          st.pin,
+          getSelectedPinId(st.sensor, st.bindings, st.pin),
           useLocalVars,
           device
         );
@@ -433,7 +528,7 @@ function emitStatementsC(
       case 'iot_publish': {
         const valExpr = formatSensorReadC(
           st.sensor,
-          st.pin,
+          getSelectedPinId(st.sensor, st.bindings, st.pin),
           useLocalVars,
           device
         );
@@ -482,7 +577,12 @@ function buildNodeMcuCompilableSketch(
     'LED_BUILTIN';
   const dinGpio =
     pins.digitalInput.verifiedGpio ?? pins.digitalInput.candidateGpio ?? 12;
-  const dhtGpio = pins.dht11.verifiedGpio ?? pins.dht11.candidateGpio ?? 14;
+  const selectedDhtPin =
+    findProgramSensorPin(program, 'temperatura') ??
+    findProgramSensorPin(program, 'humedadAmbiente');
+  const dhtGpio =
+    resolveSensorPin(program.device, 'temperatura', selectedDhtPin)
+      ?.arduinoExpression ?? 'GPIO_PENDIENTE';
 
   const includeLines: string[] = ['#include <Arduino.h>'];
   if (usesDht) {
@@ -623,7 +723,7 @@ function buildNodeMcuCompilableSketch(
     '// --- Mapeo de pines: Etiqueta serigrafiada en placa NodeMCU -> GPIO ESP8266 ---',
     `#define ANALOG_A0_PIN   A0  // ${pins.analogA0.candidateBoardLabel} -> ${pins.analogA0.candidateGpio} (${pins.analogA0.component})`,
     `#define RELAY_PIN       ${relayGpio}   // ${pins.relay.candidateBoardLabel} -> GPIO${relayGpio} (${pins.relay.component})`,
-    `#define DHT_PIN         ${dhtGpio}  // ${pins.dht11.candidateBoardLabel} -> GPIO${dhtGpio} (${pins.dht11.component})`,
+    `#define DHT_PIN         ${dhtGpio}  // Elegido por el estudiante`,
     `#define ENTRADA_DIG_PIN ${dinGpio}  // ${pins.digitalInput.candidateBoardLabel} -> GPIO${dinGpio} (${pins.digitalInput.component})`,
     `#define LUZ_PIN         ${lightGpio}   // ${pins.lighting.candidateBoardLabel} -> GPIO${lightGpio} (${pins.lighting.component})`,
     `#define SALIDA_DIG_PIN  ${doutGpio}  // ${pins.digitalOutput.candidateBoardLabel} (${pins.digitalOutput.component})`,
@@ -674,7 +774,8 @@ function buildNodeMcuCompilableSketch(
  */
 function buildGardenNodeCompilableSketch(
   program: ParsedProgram,
-  compactCode: string
+  compactCode: string,
+  usedSensors: Set<SensorKey>
 ): string {
   const allStatements = [...program.setupStatements, ...program.loopStatements];
   const usesWifi = hasStatementKind(
@@ -684,11 +785,15 @@ function buildGardenNodeCompilableSketch(
       statement.kind === 'iot_publish' ||
       statement.kind === 'iot_connect_channel'
   );
+  const usesDht =
+    usedSensors.has('temperatura') || usedSensors.has('humedadAmbiente');
   const { pins } = GARDEN_NODE_CONFIG;
-  const dhtGpio = pins.dht11.verifiedGpio ?? pins.dht11.candidateGpio ?? 4;
-  const soilGpio =
-    pins.soilMoisture.verifiedGpio ?? pins.soilMoisture.candidateGpio ?? 34;
-  const ldrGpio = pins.ldr.verifiedGpio ?? pins.ldr.candidateGpio ?? 35;
+  const selectedDhtPin =
+    findProgramSensorPin(program, 'temperatura') ??
+    findProgramSensorPin(program, 'humedadAmbiente');
+  const dhtGpio =
+    resolveSensorPin(program.device, 'temperatura', selectedDhtPin)
+      ?.arduinoExpression ?? 'GPIO_PENDIENTE';
   const pumpGpio =
     pins.relayChannel1Pump.verifiedGpio ??
     pins.relayChannel1Pump.candidateGpio ??
@@ -706,19 +811,26 @@ function buildGardenNodeCompilableSketch(
     '// ============================================================================',
     '',
     '#include <Arduino.h>',
+    ...(usesDht ? ['#include <DHT.h>'] : []),
     ...(usesWifi ? ['#include <WiFi.h>'] : []),
     '',
-    `#define DHT_PIN   ${dhtGpio}  // ${pins.dht11.candidateBoardLabel} -> GPIO${dhtGpio}`,
-    `#define SUELO_PIN ${soilGpio} // ${pins.soilMoisture.candidateBoardLabel} -> GPIO${soilGpio}`,
-    `#define LDR_PIN   ${ldrGpio} // ${pins.ldr.candidateBoardLabel} -> GPIO${ldrGpio}`,
+    ...(usesDht
+      ? [
+          `#define DHT_PIN ${dhtGpio} // Elegido por el estudiante`,
+          '#define DHT_TYPE DHT11',
+          'DHT dht(DHT_PIN, DHT_TYPE);',
+        ]
+      : []),
     `#define BOMBA_PIN ${pumpGpio} // ${pins.relayChannel1Pump.candidateBoardLabel} -> GPIO${pumpGpio}`,
     `#define LUZ_PIN   ${lightGpio} // ${pins.relayChannel2Light.candidateBoardLabel} -> GPIO${lightGpio}`,
     ...(usesWifi ? ['', ...wifiCredentialLines(program)] : []),
     '',
-    'float leerTemperatura() { return 24.0f; }',
-    'float leerHumedadAmbiente() { return 55.0f; }',
-    'int leerHumedadSuelo() { return analogRead(SUELO_PIN); }',
-    'int leerNivelLuz() { return analogRead(LDR_PIN); }',
+    ...(usesDht
+      ? [
+          'float leerTemperatura() { return dht.readTemperature(); }',
+          'float leerHumedadAmbiente() { return dht.readHumidity(); }',
+        ]
+      : []),
     'void bombaOn() { digitalWrite(BOMBA_PIN, HIGH); }',
     'void bombaOff() { digitalWrite(BOMBA_PIN, LOW); }',
     'void luzOn() { digitalWrite(LUZ_PIN, HIGH); }',
@@ -1015,6 +1127,12 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
       code: `  pinMode(${relayChannel2Light.symbolicName}, OUTPUT);`,
     });
     inputPinModeLines(program).forEach((code) => rawLines.push({ code }));
+    if (
+      allUsedSensors.has('temperatura') ||
+      allUsedSensors.has('humedadAmbiente')
+    ) {
+      rawLines.push({ code: '  dht.begin();' });
+    }
     if (program.setupStatements.length > 0) {
       emitStatementsC(
         program.setupStatements,
@@ -1032,7 +1150,7 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
     rawLines.push({ code: 'void loop() {' });
 
     for (const sensorKey of usedSensorsInLoop) {
-      if (inputKindForSensor(sensorKey)) continue;
+      if (usesDirectPinRead(sensorKey)) continue;
       const meta = SENSOR_CODE_META[sensorKey];
       rawLines.push({
         code: `  ${meta.cType} ${meta.varName} = ${meta.funcCall};`,
@@ -1093,7 +1211,7 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
     rawLines.push({ code: 'void loop() {' });
 
     for (const sensorKey of usedSensorsInLoop) {
-      if (inputKindForSensor(sensorKey)) continue;
+      if (usesDirectPinRead(sensorKey)) continue;
       const meta = SENSOR_CODE_META[sensorKey];
       rawLines.push({
         code: `  ${meta.cType} ${meta.varName} = ${meta.funcCall};`,
@@ -1177,7 +1295,11 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
       '',
       compactCode,
     ].join('\n');
-    compilableSketch = buildGardenNodeCompilableSketch(program, compactCode);
+    compilableSketch = buildGardenNodeCompilableSketch(
+      program,
+      compactCode,
+      allUsedSensors
+    );
   } else if (profile.simulatorKind === 'nodemcu-system') {
     headerAndHelpers = [
       '// ============================================================================',

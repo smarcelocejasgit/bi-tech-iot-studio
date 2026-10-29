@@ -146,6 +146,9 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
 
   const isSketchCurrentlyCompiled =
     compileStatus === 'success' && compiledSketchSnapshot === sketchCode;
+  const hasBlockingValidationIssues = validationIssues.some(
+    (issue) => issue.severity === 'error'
+  );
 
   // Resetear estado de compilación al cambiar de dispositivo o modificar el sketch
   useEffect(() => {
@@ -231,6 +234,7 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
   };
 
   const handleCompile = async () => {
+    if (hasBlockingValidationIssues) return;
     setCompileStatus('compiling');
     setCompileResult(null);
     setShowCompileDetails(false);
@@ -277,7 +281,11 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
   };
 
   const handleUpload = async () => {
-    if (!selectedPort || !isSketchCurrentlyCompiled) {
+    if (
+      hasBlockingValidationIssues ||
+      !selectedPort ||
+      !isSketchCurrentlyCompiled
+    ) {
       return;
     }
 
@@ -617,7 +625,9 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
                   type="button"
                   data-testid="board-compile-btn"
                   onClick={handleCompile}
-                  disabled={compileStatus === 'compiling'}
+                  disabled={
+                    hasBlockingValidationIssues || compileStatus === 'compiling'
+                  }
                   className="px-4 py-2 rounded-xl bg-cyan-700 hover:bg-cyan-800 disabled:bg-cyan-400 text-white text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-2xs"
                 >
                   {compileStatus === 'compiling' ? (
@@ -754,6 +764,7 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
                     data-testid="board-upload-btn"
                     onClick={handleUpload}
                     disabled={
+                      hasBlockingValidationIssues ||
                       !selectedPort ||
                       !isSketchCurrentlyCompiled ||
                       uploadStatus === 'connecting' ||
@@ -1394,6 +1405,7 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
                 data-testid="board-compile-btn"
                 onClick={handleCompile}
                 disabled={
+                  hasBlockingValidationIssues ||
                   compileStatus === 'compiling' ||
                   uploadStatus === 'connecting' ||
                   uploadStatus === 'uploading'
@@ -1532,6 +1544,7 @@ export const RealBoardPanel: React.FC<RealBoardPanelProps> = ({
                 data-testid="board-upload-btn"
                 onClick={handleUpload}
                 disabled={
+                  hasBlockingValidationIssues ||
                   !selectedPort ||
                   !isSketchCurrentlyCompiled ||
                   uploadStatus === 'connecting' ||

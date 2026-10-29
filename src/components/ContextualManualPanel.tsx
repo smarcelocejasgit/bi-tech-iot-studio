@@ -4,10 +4,12 @@ import { ContextualManualEntry } from '../types/studio';
 
 interface ContextualManualPanelProps {
   entry: ContextualManualEntry;
+  pinFeedback?: string[];
 }
 
 export const ContextualManualPanel: React.FC<ContextualManualPanelProps> = ({
   entry,
+  pinFeedback = [],
 }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -43,6 +45,15 @@ export const ContextualManualPanel: React.FC<ContextualManualPanelProps> = ({
           <p data-testid="manual-description" className="font-medium text-slate-800">
             {entry.description}
           </p>
+          {pinFeedback.length > 0 && (
+            <div data-testid="pin-selection-feedback" className="mt-1 space-y-0.5">
+              {pinFeedback.map((message) => (
+                <p key={message} className="font-semibold text-sky-800">
+                  {message}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Botón para mostrar/ocultar ficha técnica ampliada */}

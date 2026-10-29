@@ -13,6 +13,19 @@ import {
   SimulatedInputReading,
   StatementNode,
 } from '../types/studio';
+import {
+  getSelectedPinId,
+  getSignalRequirement,
+} from '../hardware/pinModel';
+
+const SENSOR_COMPONENT_LABELS: Record<SensorKey, string> = {
+  humedadSuelo: 'Sensor de suelo',
+  nivelLuz: 'LDR',
+  entradaAnalogicaA0: 'Entrada analógica',
+  entradaDigital: 'Entrada digital',
+  temperatura: 'DHT11',
+  humedadAmbiente: 'DHT11',
+};
 
 const SENSOR_HUMAN_NAMES: Record<SensorKey, string> = {
   humedadSuelo: 'El suelo',
@@ -63,23 +76,24 @@ function readSensorFromMap(
 function simulatedInputReading(
   sensor: SensorKey,
   pin: string | undefined,
+  bindings: import('../types/studio').PinBinding[] | undefined,
   values: Record<SensorKey, number>
 ): SimulatedInputReading | null {
-  if (sensor === 'entradaAnalogicaA0') {
-    return {
-      type: 'analog',
-      pin: pin ?? 'pin analógico',
-      value: readSensorFromMap(sensor, values),
-    };
-  }
-  if (sensor === 'entradaDigital') {
-    return {
-      type: 'digital',
-      pin: pin ?? 'pin digital',
-      value: readSensorFromMap(sensor, values),
-    };
-  }
-  return null;
+  const requirement = getSignalRequirement(sensor);
+  return {
+    type: requirement.signalType === 'analog' ? 'analog' : 'digital',
+    component: SENSOR_COMPONENT_LABELS[sensor],
+    signalType: requirement.signalType,
+    role: requirement.role,
+    pin: getSelectedPinId(sensor, bindings, pin) ?? 'GPIO sin elegir',
+    value: readSensorFromMap(sensor, values),
+    unit:
+      sensor === 'temperatura'
+        ? '°C'
+        : sensor === 'humedadAmbiente'
+          ? '%'
+          : undefined,
+  };
 }
 
 function collectReadingsFromExpression(
@@ -92,6 +106,7 @@ function collectReadingsFromExpression(
     const reading = simulatedInputReading(
       expression.sensor,
       expression.pin,
+      expression.bindings,
       values
     );
     if (reading) target.set(`${reading.type}:${reading.pin}`, reading);
@@ -112,6 +127,7 @@ function collectReadingsFromCondition(
       const reading = simulatedInputReading(
         condition.leftSensor,
         condition.leftPin,
+        condition.leftBindings,
         values
       );
       if (reading) target.set(`${reading.type}:${reading.pin}`, reading);
@@ -133,6 +149,7 @@ function collectProgramInputReadings(
         const reading = simulatedInputReading(
           statement.sensor,
           statement.pin,
+          statement.bindings,
           values
         );
         if (reading) target.set(`${reading.type}:${reading.pin}`, reading);

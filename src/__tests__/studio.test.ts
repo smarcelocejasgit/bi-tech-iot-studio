@@ -90,10 +90,13 @@ describe('Guía didáctica contextual por perfil', () => {
       false
     );
     expect(dhtDiagram?.validationStatus).toBe('validated');
-    expect(dhtDiagram?.connections).toEqual([
-      'VCC → 3,3 V',
+    expect(dhtDiagram?.generalConnections).toEqual([
+      'VCC → alimentación compatible (3,3 V en el prototipo)',
       'GND → GND',
-      'DATA / S → GPIO21',
+      'DATA / S → GPIO digital disponible',
+    ]);
+    expect(dhtDiagram?.prototypeEvidence).toEqual([
+      'Conexión validada en Smart Garden Lab: GPIO21',
     ]);
   });
 
@@ -220,6 +223,7 @@ describe('Bi-Tech IoT Studio V0.1.1 — Restricciones de Hardware (NodeMCU A0)',
           condition: {
             kind: 'comparison',
             leftSensor: 'humedadSuelo',
+            leftPin: 'A0',
             operator: '<',
             rightNumber: 30,
           },
@@ -229,14 +233,15 @@ describe('Bi-Tech IoT Studio V0.1.1 — Restricciones de Hardware (NodeMCU A0)',
     };
 
     const issues = validateProgramAgainstCapabilities(invalidNodeMcuProgram);
-    expect(issues).toHaveLength(1);
-    expect(issues[0].code).toBe('ANALOG_INPUTS_EXCEEDED');
+    expect(issues.map((issue) => issue.code)).toEqual(
+      expect.arrayContaining(['ANALOG_INPUTS_EXCEEDED', 'PIN_CONFLICT'])
+    );
     expect(issues[0].message).toContain(
       'Este proyecto requiere más entradas analógicas'
     );
 
     const codeOut = generateArduinoCode(invalidNodeMcuProgram);
-    expect(codeOut.validationIssues).toHaveLength(1);
+    expect(codeOut.validationIssues.length).toBeGreaterThanOrEqual(2);
     expect(codeOut.compactCode).toContain('ADVERTENCIA PEDAGÓGICA DE HARDWARE');
   });
 
@@ -250,6 +255,7 @@ describe('Bi-Tech IoT Studio V0.1.1 — Restricciones de Hardware (NodeMCU A0)',
           condition: {
             kind: 'comparison',
             leftSensor: 'humedadSuelo',
+            leftPin: 'GPIO34',
             operator: '<',
             rightNumber: 30,
           },
@@ -260,6 +266,7 @@ describe('Bi-Tech IoT Studio V0.1.1 — Restricciones de Hardware (NodeMCU A0)',
           condition: {
             kind: 'comparison',
             leftSensor: 'nivelLuz',
+            leftPin: 'GPIO35',
             operator: '<',
             rightNumber: 300,
           },
@@ -287,6 +294,7 @@ describe('Bi-Tech IoT Studio V0.1.1 — Restricciones de Hardware (NodeMCU A0)',
           kind: 'iot_publish',
           topic: 'bitech/nodo1',
           sensor: 'humedadSuelo',
+          pin: 'GPIO34',
         },
         { kind: 'wait', seconds: 5 },
       ],
@@ -307,7 +315,9 @@ describe('Bi-Tech IoT Studio V0.1.1 — Restricciones de Hardware (NodeMCU A0)',
     expect(codeOut.compilableSketch).toContain(
       'const char* WIFI_PASSWORD = "PASSWORD_PRUEBA_NO_REAL";'
     );
-    expect(codeOut.compactCode).toContain('enviarDatoIoT("bitech/nodo1", suelo);');
+    expect(codeOut.compactCode).toContain(
+      'enviarDatoIoT("bitech/nodo1", analogRead(34));'
+    );
 
     // En cambio, un bloque real de cámara OV2640 en Garden Node sí debe advertir sobre cámara
     const gardenWithCameraBlock: ParsedProgram = {
@@ -445,6 +455,7 @@ describe('Bi-Tech IoT Studio V0.1.1 — Generador Arduino C/C++ y Simuladores', 
           condition: {
             kind: 'comparison',
             leftSensor: 'humedadSuelo',
+            leftPin: 'GPIO34',
             operator: '<',
             rightNumber: 30,
           },
@@ -809,6 +820,7 @@ describe('Bi-Tech IoT Studio — Contexto estructurado para Asistente Bi-Tech', 
           condition: {
             kind: 'comparison',
             leftSensor: 'humedadSuelo',
+            leftPin: 'GPIO34',
             operator: '<',
             rightNumber: 30,
           },

@@ -33,12 +33,15 @@ export const COMPONENTS_CATALOG: DidacticComponent[] = [
     profiles: ['garden-node', 'nodemcu-esp8266'],
     name: 'DHT11',
     image: '/resources/components/dht11.svg',
-    whatIs: 'Un sensor digital de temperatura y humedad del aire.',
+    whatIs:
+      'Un sensor digital que comunica temperatura y humedad mediante un protocolo temporizado sobre una línea DATA.',
     whatDoes: 'Observa dos condiciones ambientales con un único módulo.',
     dataOrAction: 'Produce temperatura en °C y humedad relativa en %.',
-    powerInterface: '3,3 V · GND · señal digital.',
+    powerInterface:
+      'Alimentación compatible · GND · DATA en un GPIO digital disponible.',
     validationStatus: 'validated',
-    validationDetail: 'Validado físicamente en GPIO21 para Garden Node.',
+    validationDetail:
+      'Garden Node fue validado en GPIO21 y NodeMCU en D5/GPIO14. Son conexiones del prototipo, no las únicas posibles.',
   },
   {
     id: 'soil-moisture',
@@ -48,7 +51,8 @@ export const COMPONENTS_CATALOG: DidacticComponent[] = [
     whatIs: 'Una sonda que permite estimar cuánta humedad hay en el sustrato.',
     whatDoes: 'Entrega una lectura que puede compararse con un umbral.',
     dataOrAction: 'Produce un valor analógico que requiere calibración.',
-    powerInterface: 'Alimentación y salida analógica; GPIO pendiente.',
+    powerInterface:
+      'Alimentación · GND · AO hacia un GPIO con capacidad ADC.',
     validationStatus: 'pending',
     validationDetail: 'Pendiente de conexión y calibración física.',
   },
@@ -60,7 +64,8 @@ export const COMPONENTS_CATALOG: DidacticComponent[] = [
     whatIs: 'Un componente cuya resistencia cambia con la cantidad de luz.',
     whatDoes: 'Permite comparar ambientes más claros u oscuros.',
     dataOrAction: 'Produce un valor analógico de luminosidad relativa.',
-    powerInterface: 'Divisor resistivo y entrada analógica; GPIO pendiente.',
+    powerInterface:
+      'Divisor resistivo · AO hacia un GPIO con capacidad ADC.',
     validationStatus: 'pending',
     validationDetail: 'Pendiente de validación física.',
   },

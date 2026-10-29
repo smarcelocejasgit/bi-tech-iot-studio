@@ -2,6 +2,8 @@ import {
   CameraResolutionOption,
   DeviceProfileId,
   HardwareValidationIssue,
+  SignalRole,
+  SignalType,
 } from './hardware';
 
 export type BlockCategoryId =
@@ -51,8 +53,12 @@ export interface NodeMcuActuatorState {
 
 export interface SimulatedInputReading {
   type: 'analog' | 'digital';
+  component: string;
+  signalType: SignalType;
+  role: SignalRole;
   pin: string;
   value: number;
+  unit?: string;
 }
 
 export interface CameraSimulationState {
@@ -80,8 +86,27 @@ export type ComparisonOperator = '<' | '<=' | '>' | '>=' | '==' | '!=';
 export type LogicalOperator = 'AND' | 'OR';
 export type MathOperator = '+' | '-' | '*' | '/';
 
+export interface PinBinding {
+  role: SignalRole;
+  pinId: string;
+}
+
+export interface ProgramPinSelection {
+  sensor: SensorKey;
+  pin?: string;
+  bindings?: PinBinding[];
+  blockId: string;
+}
+
 export type NumericExpressionNode =
-  | { kind: 'sensor_read'; sensor: SensorKey; pin?: string; blockId?: string }
+  | {
+      kind: 'sensor_read';
+      sensor: SensorKey;
+      /** Compatibilidad temporal con proyectos de la iteración anterior. */
+      pin?: string;
+      bindings?: PinBinding[];
+      blockId?: string;
+    }
   | { kind: 'number_literal'; value: number; blockId?: string }
   | {
       kind: 'math_op';
@@ -97,6 +122,7 @@ export type ConditionNode =
       blockId?: string;
       leftSensor?: SensorKey;
       leftPin?: string;
+      leftBindings?: PinBinding[];
       leftExpr?: NumericExpressionNode;
       leftNumber?: number;
       operator: ComparisonOperator;
@@ -149,6 +175,7 @@ export type StatementNode =
       label: string;
       sensor: SensorKey;
       pin?: string;
+      bindings?: PinBinding[];
       blockId?: string;
     }
   | { kind: 'iot_connect_channel'; channel: number; blockId?: string }
@@ -157,6 +184,7 @@ export type StatementNode =
       topic: string;
       sensor: SensorKey;
       pin?: string;
+      bindings?: PinBinding[];
       blockId?: string;
     };
 
@@ -168,6 +196,7 @@ export interface ParsedProgram {
   loopBlockId?: string;
   looseAnalogsCount?: number;
   usedSensors?: SensorKey[];
+  pinSelections?: ProgramPinSelection[];
 }
 
 export interface CodeLineMapping {
