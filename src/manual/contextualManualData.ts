@@ -159,21 +159,21 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
 
   bitech_sensor_analog_a0: {
     blockType: 'bitech_sensor_analog_a0',
-    title: 'Entrada analógica A0 (NodeMCU ESP8266)',
+    title: 'Entrada analógica configurable',
     category: 'sensores',
-    previewLabel: '📈 entrada analógica A0',
+    previewLabel: '📈 entrada analógica [pin]',
     previewColor: '#0284c7',
     description:
-      'Lee el valor en escala bruta (0 a 1023) del único canal conversor analógico-digital (pin A0) disponible en la placa NodeMCU ESP8266.',
-    physicalComponent: 'Pin analógico único A0 (ADC de 10 bits en ESP8266)',
+      'Lee una tensión mediante el conversor analógico-digital del GPIO seleccionado. Un GPIO es un pin programable de entrada o salida de la placa.',
+    physicalComponent: 'GPIO con capacidad ADC declarado por el perfil activo',
     dataUsed:
-      'Lectura cruda entera de 0 a 1023 (adcInputVoltageRange: unverified hasta verificar divisor resistivo de la placa física)',
+      'Lectura cruda del ADC; su rango depende de la resolución y tensión admitida por la placa',
     dataType: 'Numérico entero (int)',
     behavior:
-      'Permite conectar un sensor analógico (por ejemplo, un LDR de luz o una sonda de humedad de suelo) y comparar su lectura cruda (0–1023).',
-    arduinoCode: 'leerEntradaAnalogicaA0()',
+      'El selector ofrece solamente entradas analógicas compatibles con la placa elegida.',
+    arduinoCode: 'analogRead(34)',
     technicalNotes:
-      'NodeMCU dispone de solo 1 entrada analógica (A0, escala 0–1023). Distintas placas ESP8266/NodeMCU incorporan divisores resistivos diferentes (0–1.0V en el chip nativo vs ~0–3.2V/3.3V en devkits), por lo que no se asume una tensión máxima universal sin verificar la placa física.',
+      'No todos los GPIO tienen conversor ADC. Garden Node ofrece sus canales ADC declarados; NodeMCU conserva su única entrada A0; Camera Node no expone entradas analógicas porque la cámara y el Wi-Fi ocupan o restringen sus pines.',
   },
 
   bitech_sensor_digital_in: {
@@ -183,15 +183,15 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     previewLabel: '🔘 entrada digital',
     previewColor: '#0284c7',
     description:
-      'Lee el estado lógico de un pin digital de entrada: devuelve 1 (HIGH) cuando está activo o 0 (LOW) cuando está inactivo.',
-    physicalComponent: 'Pin GPIO digital configurado como INPUT (ENTRADA_DIG_PIN)',
+      'Lee el estado lógico del GPIO seleccionado: devuelve 1 (HIGH) cuando está activo o 0 (LOW) cuando está inactivo. Un GPIO es un pin programable de entrada o salida.',
+    physicalComponent: 'GPIO digital compatible configurado como INPUT',
     dataUsed: 'Nivel lógico digital binario (0 o 1)',
     dataType: 'Numérico entero / Booleano (0 o 1)',
     behavior:
-      'Permite detectar pulsadores, sensores digitales de nivel de agua o llaves de modo manual/automático.',
-    arduinoCode: 'leerEntradaDigital()',
+      'Permite detectar pulsadores o sensores binarios. El selector cambia según la placa y excluye pines reservados o incompatibles.',
+    arduinoCode: 'digitalRead(27)',
     technicalNotes:
-      'A diferencia de una entrada analógica, una entrada digital solo distingue dos estados: presencia o ausencia de tensión (3.3V vs 0V).',
+      'A diferencia de una entrada analógica, una entrada digital solo distingue dos estados. NodeMCU usa la nomenclatura D1, D2, etc.; ESP32 muestra GPIO; Camera Node no ofrece indiscriminadamente los pines internos de la cámara.',
   },
 
   bitech_sensor_soil: {
@@ -587,10 +587,10 @@ export const CONTEXTUAL_MANUAL_ENTRIES: Record<string, ContextualManualEntry> = 
     dataUsed: 'Tópico o canal IoT y valor del sensor seleccionado',
     dataType: 'Mensaje de telemetría (void)',
     behavior:
-      'Muestra en el código C/C++ cómo se estructura una llamada de publicación IoT que se conectará en V0.4.',
-    arduinoCode: 'enviarDatoIoT("bitech/nodo1", leerTemperatura());',
+      'Si se elige una entrada analógica o digital, conserva explícitamente el pin seleccionado y publica su lectura.',
+    arduinoCode: 'enviarDatoIoT("bitech/nodo1", analogRead(34));',
     technicalNotes:
-      'Tanto ESP32 como NodeMCU ESP8266 cuentan con conectividad Wi-Fi integrada para proyectos de Internet de las Cosas.',
+      'El selector de GPIO proviene del perfil activo: no todos los pines tienen capacidad analógica/digital ni están disponibles en todas las placas.',
   },
 
   bitech_iot_connect_channel: {

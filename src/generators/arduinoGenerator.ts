@@ -1,6 +1,9 @@
 import { CAMERA_NODE_CONFIG } from '../hardware/cameraNodeConfig';
 import { GARDEN_NODE_CONFIG } from '../hardware/gardenNodeConfig';
-import { getDeviceProfile } from '../hardware/hardwareCapabilities';
+import {
+  getDeviceProfile,
+  resolveInputPin,
+} from '../hardware/hardwareCapabilities';
 import {
   collectAllSensorsInStatements,
   validateProgramAgainstCapabilities,
@@ -57,35 +60,67 @@ const SENSOR_CODE_META: Record<SensorKey, SensorVariableMeta> = {
 
 function formatNumericExprC(
   expr: NumericExpressionNode | undefined,
-  useLocalVars: boolean
+  useLocalVars: boolean,
+  device: ParsedProgram['device']
 ): string {
   if (!expr) return '0';
   if (expr.kind === 'number_literal') {
     return String(expr.value);
   }
   if (expr.kind === 'sensor_read') {
-    return useLocalVars
-      ? SENSOR_CODE_META[expr.sensor].varName
-      : SENSOR_CODE_META[expr.sensor].funcCall;
+    return formatSensorReadC(expr.sensor, expr.pin, useLocalVars, device);
   }
   if (expr.kind === 'math_op') {
-    return `(${formatNumericExprC(expr.left, useLocalVars)} ${expr.operator} ${
+    return `(${formatNumericExprC(expr.left, useLocalVars, device)} ${expr.operator} ${
       expr.rightNumber
     })`;
   }
   return '0';
 }
 
-function formatConditionC(cond: ConditionNode | null, useLocalVars: boolean): string {
+function inputKindForSensor(
+  sensor: SensorKey
+): 'analog' | 'digital' | null {
+  if (sensor === 'entradaAnalogicaA0') return 'analog';
+  if (sensor === 'entradaDigital') return 'digital';
+  return null;
+}
+
+function formatSensorReadC(
+  sensor: SensorKey,
+  pin: string | undefined,
+  useLocalVars: boolean,
+  device: ParsedProgram['device']
+): string {
+  const kind = inputKindForSensor(sensor);
+  if (kind) {
+    const resolved = resolveInputPin(device, kind, pin);
+    if (!resolved) return '0';
+    const readFunction = kind === 'analog' ? 'analogRead' : 'digitalRead';
+    return `${readFunction}(${resolved.arduinoExpression})`;
+  }
+  return useLocalVars
+    ? SENSOR_CODE_META[sensor].varName
+    : SENSOR_CODE_META[sensor].funcCall;
+}
+
+function formatConditionC(
+  cond: ConditionNode | null,
+  useLocalVars: boolean,
+  device: ParsedProgram['device']
+): string {
   if (!cond) return 'false';
   if (cond.kind === 'comparison') {
     let left: string;
-    if (cond.leftExpr && cond.leftExpr.kind === 'math_op') {
-      left = formatNumericExprC(cond.leftExpr, useLocalVars);
+    if (cond.leftExpr) {
+      left = formatNumericExprC(cond.leftExpr, useLocalVars, device);
     } else if (cond.leftSensor) {
-      left = useLocalVars
-        ? SENSOR_CODE_META[cond.leftSensor].varName
-        : SENSOR_CODE_META[cond.leftSensor].funcCall;
+      left = formatSensorReadC(
+        cond.leftSensor,
+        cond.leftPin,
+        useLocalVars,
+        device
+      );
     } else {
       left = String(cond.leftNumber ?? 0);
     }
@@ -93,9 +128,10 @@ function formatConditionC(cond: ConditionNode | null, useLocalVars: boolean): st
   }
   if (cond.kind === 'logical') {
     const op = cond.operator === 'AND' ? '&&' : '||';
-    return `(${formatConditionC(cond.left, useLocalVars)} ${op} ${formatConditionC(
+    return `(${formatConditionC(cond.left, useLocalVars, device)} ${op} ${formatConditionC(
       cond.right,
-      useLocalVars
+      useLocalVars,
+      device
     )})`;
   }
   return 'estadoCamara()';
@@ -194,11 +230,86 @@ function wifiCredentialLines(program: ParsedProgram): string[] {
   ];
 }
 
+function collectInputPinsFromExpression(
+  expression: NumericExpressionNode | undefined,
+  device: ParsedProgram['device'],
+  pins: Map<string, string>
+): void {
+  if (!expression) return;
+  if (expression.kind === 'sensor_read') {
+    const kind = inputKindForSensor(expression.sensor);
+    if (!kind) return;
+    const resolved = resolveInputPin(device, kind, expression.pin);
+    if (resolved) pins.set(`${kind}:${resolved.id}`, resolved.arduinoExpression);
+    return;
+  }
+  if (expression.kind === 'math_op') {
+    collectInputPinsFromExpression(expression.left, device, pins);
+  }
+}
+
+function collectInputPinsFromCondition(
+  condition: ConditionNode | null,
+  device: ParsedProgram['device'],
+  pins: Map<string, string>
+): void {
+  if (!condition) return;
+  if (condition.kind === 'comparison') {
+    collectInputPinsFromExpression(condition.leftExpr, device, pins);
+    if (condition.leftSensor) {
+      const kind = inputKindForSensor(condition.leftSensor);
+      const resolved = kind
+        ? resolveInputPin(device, kind, condition.leftPin)
+        : null;
+      if (kind && resolved) {
+        pins.set(`${kind}:${resolved.id}`, resolved.arduinoExpression);
+      }
+    }
+    return;
+  }
+  if (condition.kind === 'logical') {
+    collectInputPinsFromCondition(condition.left, device, pins);
+    collectInputPinsFromCondition(condition.right, device, pins);
+  }
+}
+
+function collectSelectedInputPins(
+  statements: StatementNode[],
+  device: ParsedProgram['device'],
+  pins: Map<string, string>
+): void {
+  for (const statement of statements) {
+    if (statement.kind === 'data_log' || statement.kind === 'iot_publish') {
+      const kind = inputKindForSensor(statement.sensor);
+      const resolved = kind
+        ? resolveInputPin(device, kind, statement.pin)
+        : null;
+      if (kind && resolved) {
+        pins.set(`${kind}:${resolved.id}`, resolved.arduinoExpression);
+      }
+    } else if (statement.kind === 'if') {
+      collectInputPinsFromCondition(statement.condition, device, pins);
+      collectSelectedInputPins(statement.thenBranch, device, pins);
+      collectSelectedInputPins(statement.elseBranch ?? [], device, pins);
+    }
+  }
+}
+
+function inputPinModeLines(program: ParsedProgram): string[] {
+  const pins = new Map<string, string>();
+  collectSelectedInputPins(program.setupStatements, program.device, pins);
+  collectSelectedInputPins(program.loopStatements, program.device, pins);
+  return Array.from(pins.values()).map(
+    (arduinoExpression) => `  pinMode(${arduinoExpression}, INPUT);`
+  );
+}
+
 function emitStatementsC(
   stmts: StatementNode[],
   indent: string,
   useLocalVars: boolean,
-  out: { code: string; blockId?: string }[]
+  out: { code: string; blockId?: string }[],
+  device: ParsedProgram['device']
 ): void {
   for (const st of stmts) {
     switch (st.kind) {
@@ -238,7 +349,7 @@ function emitStatementsC(
         break;
       }
       case 'if': {
-        const condStr = formatConditionC(st.condition, useLocalVars);
+        const condStr = formatConditionC(st.condition, useLocalVars, device);
         out.push({ code: `${indent}if (${condStr}) {`, blockId: st.blockId });
         if (st.thenBranch.length === 0) {
           out.push({
@@ -246,11 +357,23 @@ function emitStatementsC(
             blockId: st.blockId,
           });
         } else {
-          emitStatementsC(st.thenBranch, `${indent}  `, useLocalVars, out);
+          emitStatementsC(
+            st.thenBranch,
+            `${indent}  `,
+            useLocalVars,
+            out,
+            device
+          );
         }
         if (st.elseBranch && st.elseBranch.length > 0) {
           out.push({ code: `${indent}} else {`, blockId: st.blockId });
-          emitStatementsC(st.elseBranch, `${indent}  `, useLocalVars, out);
+          emitStatementsC(
+            st.elseBranch,
+            `${indent}  `,
+            useLocalVars,
+            out,
+            device
+          );
         }
         out.push({ code: `${indent}}`, blockId: st.blockId });
         break;
@@ -289,9 +412,12 @@ function emitStatementsC(
         out.push({ code: `${indent}tomarCaptura();`, blockId: st.blockId });
         break;
       case 'data_log': {
-        const valExpr = useLocalVars
-          ? SENSOR_CODE_META[st.sensor].varName
-          : SENSOR_CODE_META[st.sensor].funcCall;
+        const valExpr = formatSensorReadC(
+          st.sensor,
+          st.pin,
+          useLocalVars,
+          device
+        );
         out.push({
           code: `${indent}registrarDato("${st.label}", ${valExpr});`,
           blockId: st.blockId,
@@ -305,9 +431,12 @@ function emitStatementsC(
         });
         break;
       case 'iot_publish': {
-        const valExpr = useLocalVars
-          ? SENSOR_CODE_META[st.sensor].varName
-          : SENSOR_CODE_META[st.sensor].funcCall;
+        const valExpr = formatSensorReadC(
+          st.sensor,
+          st.pin,
+          useLocalVars,
+          device
+        );
         out.push({
           code: `${indent}enviarDatoIoT("${st.topic}", ${valExpr});`,
           blockId: st.blockId,
@@ -885,8 +1014,15 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
     rawLines.push({
       code: `  pinMode(${relayChannel2Light.symbolicName}, OUTPUT);`,
     });
+    inputPinModeLines(program).forEach((code) => rawLines.push({ code }));
     if (program.setupStatements.length > 0) {
-      emitStatementsC(program.setupStatements, '  ', false, rawLines);
+      emitStatementsC(
+        program.setupStatements,
+        '  ',
+        false,
+        rawLines,
+        program.device
+      );
     } else {
       rawLines.push({ code: '  bombaOff();' });
       rawLines.push({ code: '  luzOff();' });
@@ -896,6 +1032,7 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
     rawLines.push({ code: 'void loop() {' });
 
     for (const sensorKey of usedSensorsInLoop) {
+      if (inputKindForSensor(sensorKey)) continue;
       const meta = SENSOR_CODE_META[sensorKey];
       rawLines.push({
         code: `  ${meta.cType} ${meta.varName} = ${meta.funcCall};`,
@@ -907,12 +1044,18 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
         code: '  // Construye tu programa arrastrando bloques aquí',
       });
     } else {
-      emitStatementsC(program.loopStatements, '  ', true, rawLines);
+      emitStatementsC(
+        program.loopStatements,
+        '  ',
+        true,
+        rawLines,
+        program.device
+      );
     }
 
     rawLines.push({ code: '}' });
   } else if (profile.simulatorKind === 'nodemcu-system') {
-    const { relay, lighting, digitalOutput, digitalInput } =
+    const { relay, lighting, digitalOutput } =
       NODEMCU_ESP8266_CONFIG.pins;
 
     const usesDhtInProgram =
@@ -923,7 +1066,7 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
     rawLines.push({ code: `  pinMode(${relay.symbolicName}, OUTPUT);` });
     rawLines.push({ code: `  pinMode(${lighting.symbolicName}, OUTPUT);` });
     rawLines.push({ code: `  pinMode(${digitalOutput.symbolicName}, OUTPUT);` });
-    rawLines.push({ code: `  pinMode(${digitalInput.symbolicName}, INPUT);` });
+    inputPinModeLines(program).forEach((code) => rawLines.push({ code }));
     if (usesDhtInProgram) {
       rawLines.push({ code: '  dht.begin();' });
     }
@@ -935,7 +1078,13 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
         : '  Serial.println("NodeMCU conectada");',
     });
     if (program.setupStatements.length > 0) {
-      emitStatementsC(program.setupStatements, '  ', false, rawLines);
+      emitStatementsC(
+        program.setupStatements,
+        '  ',
+        false,
+        rawLines,
+        program.device
+      );
     } else if (!usesDhtInProgram) {
       rawLines.push({ code: '  relayOff();' });
     }
@@ -944,6 +1093,7 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
     rawLines.push({ code: 'void loop() {' });
 
     for (const sensorKey of usedSensorsInLoop) {
+      if (inputKindForSensor(sensorKey)) continue;
       const meta = SENSOR_CODE_META[sensorKey];
       rawLines.push({
         code: `  ${meta.cType} ${meta.varName} = ${meta.funcCall};`,
@@ -955,7 +1105,13 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
         code: '  // Construye tu programa arrastrando bloques aquí',
       });
     } else {
-      emitStatementsC(program.loopStatements, '  ', true, rawLines);
+      emitStatementsC(
+        program.loopStatements,
+        '  ',
+        true,
+        rawLines,
+        program.device
+      );
     }
 
     rawLines.push({ code: '}' });
@@ -964,7 +1120,13 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
     rawLines.push({ code: 'void setup() {' });
     rawLines.push({ code: '  Serial.begin(115200);' });
     if (program.setupStatements.length > 0) {
-      emitStatementsC(program.setupStatements, '  ', false, rawLines);
+      emitStatementsC(
+        program.setupStatements,
+        '  ',
+        false,
+        rawLines,
+        program.device
+      );
     } else if (program.loopStatements.length > 0) {
       rawLines.push({ code: '  configurarCamara();' });
       rawLines.push({
@@ -983,7 +1145,13 @@ export function generateArduinoCode(program: ParsedProgram): GeneratedArduinoOut
         code: '  // Construye tu programa arrastrando bloques aquí',
       });
     } else {
-      emitStatementsC(program.loopStatements, '  ', false, rawLines);
+      emitStatementsC(
+        program.loopStatements,
+        '  ',
+        false,
+        rawLines,
+        program.device
+      );
     }
     rawLines.push({ code: '}' });
   }

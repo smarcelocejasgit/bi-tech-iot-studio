@@ -1,7 +1,9 @@
 import {
   BaseDeviceHardwareProfile,
   DeviceProfileId,
+  HardwareInputPinOption,
   HardwareCapabilities,
+  InputPinKind,
 } from '../types/hardware';
 import { BlockCategoryId, SensorKey } from '../types/studio';
 import { CAMERA_NODE_CONFIG } from './cameraNodeConfig';
@@ -39,6 +41,81 @@ export function getDeviceCapabilities(
   deviceId: DeviceProfileId
 ): HardwareCapabilities {
   return getDeviceProfile(deviceId).capabilities;
+}
+
+function gardenInputPins(kind: InputPinKind): HardwareInputPinOption[] {
+  return Object.values(GARDEN_NODE_CONFIG.pins)
+    .filter((pin) =>
+      kind === 'analog' ? pin.mode === 'ADC' : pin.mode !== 'ADC'
+    )
+    .filter((pin) => pin.candidateGpio !== undefined)
+    .map((pin) => ({
+      id: String(pin.candidateBoardLabel ?? `GPIO${pin.candidateGpio}`),
+      label: String(pin.candidateBoardLabel ?? `GPIO${pin.candidateGpio}`),
+      arduinoExpression: String(pin.candidateGpio),
+      kind,
+    }));
+}
+
+function nodeMcuInputPins(kind: InputPinKind): HardwareInputPinOption[] {
+  if (kind === 'analog') {
+    const pin = NODEMCU_ESP8266_CONFIG.pins.analogA0;
+    return [
+      {
+        id: pin.candidateBoardLabel ?? 'A0',
+        label: pin.candidateBoardLabel ?? 'A0',
+        arduinoExpression: String(pin.candidateGpio ?? 'A0'),
+        kind,
+      },
+    ];
+  }
+
+  return NODEMCU_ESP8266_CONFIG.pinReferenceTable
+    .filter(
+      (pin) =>
+        pin.safeForGeneralEducationalUse && pin.boardLabel.startsWith('D')
+    )
+    .map((pin) => ({
+      id: pin.boardLabel,
+      label: `${pin.boardLabel} (${pin.espGpioName})`,
+      arduinoExpression: pin.boardLabel,
+      kind,
+    }));
+}
+
+/**
+ * Devuelve exclusivamente pines de entrada permitidos por el perfil.
+ * Las opciones se derivan de la metadata central de cada placa.
+ */
+export function getInputPinOptions(
+  deviceId: DeviceProfileId,
+  kind: InputPinKind
+): HardwareInputPinOption[] {
+  const resolvers: Record<
+    DeviceProfileId,
+    (inputKind: InputPinKind) => HardwareInputPinOption[]
+  > = {
+    'garden-node': gardenInputPins,
+    'nodemcu-esp8266': nodeMcuInputPins,
+    'camera-node': () => [],
+  };
+  return resolvers[deviceId](kind);
+}
+
+export function getDefaultInputPin(
+  deviceId: DeviceProfileId,
+  kind: InputPinKind
+): HardwareInputPinOption | null {
+  return getInputPinOptions(deviceId, kind)[0] ?? null;
+}
+
+export function resolveInputPin(
+  deviceId: DeviceProfileId,
+  kind: InputPinKind,
+  pinId?: string
+): HardwareInputPinOption | null {
+  const options = getInputPinOptions(deviceId, kind);
+  return options.find((pin) => pin.id === pinId) ?? options[0] ?? null;
 }
 
 /**

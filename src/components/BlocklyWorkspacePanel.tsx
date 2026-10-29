@@ -13,6 +13,7 @@ import {
   getCatalogForDevice,
   parseWorkspaceToProgram,
   registerBiTechBlocks,
+  setWorkspaceDeviceProfile,
 } from '../blocks/bitechBlocks';
 import {
   isPaletteBlockDrag,
@@ -107,6 +108,7 @@ export const BlocklyWorkspacePanel: React.FC<BlocklyWorkspacePanelProps> = ({
     });
 
     workspaceRef.current = ws;
+    setWorkspaceDeviceProfile(ws, activeDeviceRef.current);
 
     const emitCurrentProgram = () => {
       if (isLoadingXmlRef.current) return;
@@ -169,6 +171,7 @@ export const BlocklyWorkspacePanel: React.FC<BlocklyWorkspacePanelProps> = ({
   useEffect(() => {
     const ws = workspaceRef.current;
     if (!ws) return;
+    setWorkspaceDeviceProfile(ws, activeDevice);
 
     const currentDom = Blockly.Xml.workspaceToDom(ws);
     const currentText = Blockly.Xml.domToText(currentDom);

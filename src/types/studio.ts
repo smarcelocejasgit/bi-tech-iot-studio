@@ -27,6 +27,7 @@ export interface GardenActuatorState {
   lastDelaySeconds: number | null;
   explanation: string;
   triggeredConditions: string[];
+  inputReadings: SimulatedInputReading[];
 }
 
 export interface NodeMcuSensorState {
@@ -45,6 +46,13 @@ export interface NodeMcuActuatorState {
   lastDelaySeconds: number | null;
   explanation: string;
   triggeredConditions: string[];
+  inputReadings: SimulatedInputReading[];
+}
+
+export interface SimulatedInputReading {
+  type: 'analog' | 'digital';
+  pin: string;
+  value: number;
 }
 
 export interface CameraSimulationState {
@@ -73,7 +81,7 @@ export type LogicalOperator = 'AND' | 'OR';
 export type MathOperator = '+' | '-' | '*' | '/';
 
 export type NumericExpressionNode =
-  | { kind: 'sensor_read'; sensor: SensorKey; blockId?: string }
+  | { kind: 'sensor_read'; sensor: SensorKey; pin?: string; blockId?: string }
   | { kind: 'number_literal'; value: number; blockId?: string }
   | {
       kind: 'math_op';
@@ -88,6 +96,7 @@ export type ConditionNode =
       kind: 'comparison';
       blockId?: string;
       leftSensor?: SensorKey;
+      leftPin?: string;
       leftExpr?: NumericExpressionNode;
       leftNumber?: number;
       operator: ComparisonOperator;
@@ -135,9 +144,21 @@ export type StatementNode =
   | { kind: 'cam_stream_start'; blockId?: string }
   | { kind: 'cam_stream_stop'; blockId?: string }
   | { kind: 'cam_capture'; blockId?: string }
-  | { kind: 'data_log'; label: string; sensor: SensorKey; blockId?: string }
+  | {
+      kind: 'data_log';
+      label: string;
+      sensor: SensorKey;
+      pin?: string;
+      blockId?: string;
+    }
   | { kind: 'iot_connect_channel'; channel: number; blockId?: string }
-  | { kind: 'iot_publish'; topic: string; sensor: SensorKey; blockId?: string };
+  | {
+      kind: 'iot_publish';
+      topic: string;
+      sensor: SensorKey;
+      pin?: string;
+      blockId?: string;
+    };
 
 export interface ParsedProgram {
   device: DeviceProfileId;

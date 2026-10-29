@@ -19,7 +19,31 @@ import {
   GardenSensorState,
   NodeMcuActuatorState,
   NodeMcuSensorState,
+  SimulatedInputReading,
 } from '../types/studio';
+
+const InputReadingsSummary: React.FC<{
+  readings: SimulatedInputReading[];
+}> = ({ readings }) => {
+  if (readings.length === 0) return null;
+  return (
+    <div
+      data-testid="gpio-input-readings"
+      className="mb-3 flex flex-wrap gap-2"
+    >
+      {readings.map((reading) => (
+        <span
+          key={`${reading.type}:${reading.pin}`}
+          className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-950"
+        >
+          <code>{reading.pin}</code> · entrada{' '}
+          {reading.type === 'analog' ? 'analógica' : 'digital'} · valor:{' '}
+          <strong>{reading.value}</strong>
+        </span>
+      ))}
+    </div>
+  );
+};
 
 interface VirtualSystemPanelProps {
   activeDevice: DeviceProfileId;
@@ -241,6 +265,8 @@ export const VirtualSystemPanel: React.FC<VirtualSystemPanelProps> = ({
           </span>
         </div>
 
+        <InputReadingsSummary readings={nodeMcuActuators.inputReadings} />
+
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-stretch">
           {/* Representación visual de la placa NodeMCU ESP8266 y sus buses */}
           <div className="md:col-span-6 rounded-xl border border-indigo-200 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-3 text-white flex flex-col justify-between min-h-[164px]">
@@ -420,6 +446,8 @@ export const VirtualSystemPanel: React.FC<VirtualSystemPanelProps> = ({
           </button>
         </div>
       </div>
+
+      <InputReadingsSummary readings={actuators.inputReadings} />
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-center">
         {/* Escena ilustrada del jardín */}

@@ -26,6 +26,8 @@ export const GARDEN_NODE_CONFIG: GardenNodeHardwareConfig = {
       'humedadAmbiente',
       'humedadSuelo',
       'nivelLuz',
+      'entradaAnalogicaA0',
+      'entradaDigital',
     ],
     compatibleActuators: ['water_pump', 'led_lighting'],
     pedagogicalResourceNote:

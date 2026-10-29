@@ -10,6 +10,7 @@ import {
   NumericExpressionNode,
   ParsedProgram,
   SensorKey,
+  SimulatedInputReading,
   StatementNode,
 } from '../types/studio';
 
@@ -57,6 +58,94 @@ function readSensorFromMap(
   values: Record<SensorKey, number>
 ): number {
   return values[sensorKey] ?? 0;
+}
+
+function simulatedInputReading(
+  sensor: SensorKey,
+  pin: string | undefined,
+  values: Record<SensorKey, number>
+): SimulatedInputReading | null {
+  if (sensor === 'entradaAnalogicaA0') {
+    return {
+      type: 'analog',
+      pin: pin ?? 'pin analógico',
+      value: readSensorFromMap(sensor, values),
+    };
+  }
+  if (sensor === 'entradaDigital') {
+    return {
+      type: 'digital',
+      pin: pin ?? 'pin digital',
+      value: readSensorFromMap(sensor, values),
+    };
+  }
+  return null;
+}
+
+function collectReadingsFromExpression(
+  expression: NumericExpressionNode | undefined,
+  values: Record<SensorKey, number>,
+  target: Map<string, SimulatedInputReading>
+): void {
+  if (!expression) return;
+  if (expression.kind === 'sensor_read') {
+    const reading = simulatedInputReading(
+      expression.sensor,
+      expression.pin,
+      values
+    );
+    if (reading) target.set(`${reading.type}:${reading.pin}`, reading);
+  } else if (expression.kind === 'math_op') {
+    collectReadingsFromExpression(expression.left, values, target);
+  }
+}
+
+function collectReadingsFromCondition(
+  condition: ConditionNode | null,
+  values: Record<SensorKey, number>,
+  target: Map<string, SimulatedInputReading>
+): void {
+  if (!condition) return;
+  if (condition.kind === 'comparison') {
+    collectReadingsFromExpression(condition.leftExpr, values, target);
+    if (condition.leftSensor) {
+      const reading = simulatedInputReading(
+        condition.leftSensor,
+        condition.leftPin,
+        values
+      );
+      if (reading) target.set(`${reading.type}:${reading.pin}`, reading);
+    }
+  } else if (condition.kind === 'logical') {
+    collectReadingsFromCondition(condition.left, values, target);
+    collectReadingsFromCondition(condition.right, values, target);
+  }
+}
+
+function collectProgramInputReadings(
+  program: ParsedProgram,
+  values: Record<SensorKey, number>
+): SimulatedInputReading[] {
+  const target = new Map<string, SimulatedInputReading>();
+  const visit = (statements: StatementNode[]) => {
+    for (const statement of statements) {
+      if (statement.kind === 'data_log' || statement.kind === 'iot_publish') {
+        const reading = simulatedInputReading(
+          statement.sensor,
+          statement.pin,
+          values
+        );
+        if (reading) target.set(`${reading.type}:${reading.pin}`, reading);
+      } else if (statement.kind === 'if') {
+        collectReadingsFromCondition(statement.condition, values, target);
+        visit(statement.thenBranch);
+        visit(statement.elseBranch ?? []);
+      }
+    }
+  };
+  visit(program.setupStatements);
+  visit(program.loopStatements);
+  return Array.from(target.values());
 }
 
 function evalNumericExpr(
@@ -378,6 +467,7 @@ export function evaluateGardenProgram(
     lastDelaySeconds: ctx.lastDelaySeconds,
     explanation: primaryExplanation,
     triggeredConditions: ctx.triggeredConditions,
+    inputReadings: collectProgramInputReadings(program, sensorMap),
   };
 }
 
@@ -432,6 +522,7 @@ export function evaluateNodeMcuProgram(
     lastDelaySeconds: ctx.lastDelaySeconds,
     explanation: primaryExplanation,
     triggeredConditions: ctx.triggeredConditions,
+    inputReadings: collectProgramInputReadings(program, sensorMap),
   };
 }
 

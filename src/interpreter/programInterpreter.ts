@@ -76,7 +76,7 @@ export function formatSensorDisplayName(sensor: SensorKey): string {
     case 'nivelLuz':
       return 'nivel de luz ambiental';
     case 'entradaAnalogicaA0':
-      return 'entrada analógica A0';
+      return 'entrada analógica';
     case 'entradaDigital':
       return 'entrada digital';
   }
@@ -99,12 +99,28 @@ export function formatSensorUnit(sensor: SensorKey): string {
 export function formatNumericExpression(expr: NumericExpressionNode): string {
   switch (expr.kind) {
     case 'sensor_read':
-      return formatSensorDisplayName(expr.sensor);
+      return `${formatSensorDisplayName(expr.sensor)}${
+        expr.pin ? ` conectada a ${expr.pin}` : ''
+      }`;
     case 'number_literal':
       return String(expr.value);
     case 'math_op':
       return `${formatNumericExpression(expr.left)} ${expr.operator} ${expr.rightNumber}`;
   }
+}
+
+function describePhysicalInput(sensor: SensorKey, pin?: string): string | null {
+  if (sensor === 'entradaAnalogicaA0') {
+    return pin
+      ? `Lee una señal analógica conectada al ${pin}`
+      : 'Lee una señal analógica conectada a un pin compatible';
+  }
+  if (sensor === 'entradaDigital') {
+    return pin
+      ? `Lee el estado digital del ${pin}`
+      : 'Lee el estado digital de un pin compatible';
+  }
+  return null;
 }
 
 function formatOperator(operator: string): string {
@@ -171,12 +187,16 @@ export function describeCondition(cond: ConditionNode | null): ConditionSummary 
       : cond.leftNumber !== undefined
         ? String(cond.leftNumber)
         : 'el valor disponible';
+  const leftWithPin =
+    sensor && cond.leftPin
+      ? `${formatSensorDisplayName(sensor)} conectada a ${cond.leftPin}`
+      : left;
   const unit = sensor ? formatSensorUnit(sensor) : '';
   const right = unit ? `${cond.rightNumber} ${unit}` : String(cond.rightNumber);
-  const comparisonText = `${left} ${formatOperator(cond.operator)} ${right}`;
+  const comparisonText = `${leftWithPin} ${formatOperator(cond.operator)} ${right}`;
 
   return {
-    subject: left,
+    subject: leftWithPin,
     comparisonText,
     pedagogicalMeaning: `realiza la comparación “${comparisonText}” y obtiene un resultado verdadero o falso`,
   };
@@ -514,18 +534,32 @@ function describeSimpleStatement(statement: Exclude<StatementNode, { kind: 'if' 
         explanation:
           'produce un dato visual: solicita una nueva imagen al sensor de cámara.',
       };
-    case 'data_log':
+    case 'data_log': {
+      const inputDescription = describePhysicalInput(
+        statement.sensor,
+        statement.pin
+      );
       return {
         kind: 'communication',
         blockLabel: 'registrar dato',
-        explanation: `obtiene la lectura de ${formatSensorDisplayName(statement.sensor)} y la envía por el puerto serie con la etiqueta “${statement.label}”.`,
+        explanation: inputDescription
+          ? `${inputDescription} y registra ese valor por el puerto serie con la etiqueta “${statement.label}”.`
+          : `obtiene la lectura de ${formatSensorDisplayName(statement.sensor)} y la envía por el puerto serie con la etiqueta “${statement.label}”.`,
       };
-    case 'iot_publish':
+    }
+    case 'iot_publish': {
+      const inputDescription = describePhysicalInput(
+        statement.sensor,
+        statement.pin
+      );
       return {
         kind: 'communication',
         blockLabel: 'enviar a IoT',
-        explanation: `obtiene la lectura de ${formatSensorDisplayName(statement.sensor)} y la publica en el canal “${statement.topic}”.`,
+        explanation: inputDescription
+          ? `${inputDescription} y envía ese valor al Smart Garden Lab.`
+          : `obtiene la lectura de ${formatSensorDisplayName(statement.sensor)} y la publica en el canal “${statement.topic}”.`,
       };
+    }
     case 'iot_connect_channel':
       return {
         kind: 'communication',

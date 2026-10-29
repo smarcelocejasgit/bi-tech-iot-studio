@@ -209,6 +209,7 @@ describe('Bi-Tech IoT Studio V0.1.1 — Restricciones de Hardware (NodeMCU A0)',
           condition: {
             kind: 'comparison',
             leftSensor: 'entradaAnalogicaA0',
+            leftPin: 'A0',
             operator: '<',
             rightNumber: 400,
           },
@@ -376,6 +377,7 @@ describe('Bi-Tech IoT Studio V0.1.1 — Generador Arduino C/C++ y Simuladores', 
           condition: {
             kind: 'comparison',
             leftSensor: 'entradaAnalogicaA0',
+            leftPin: 'A0',
             operator: '<',
             rightNumber: 400,
           },
@@ -391,6 +393,7 @@ describe('Bi-Tech IoT Studio V0.1.1 — Generador Arduino C/C++ y Simuladores', 
           condition: {
             kind: 'comparison',
             leftSensor: 'entradaDigital',
+            leftPin: 'D6',
             operator: '==',
             rightNumber: 1,
           },
@@ -402,9 +405,10 @@ describe('Bi-Tech IoT Studio V0.1.1 — Generador Arduino C/C++ y Simuladores', 
     const out = generateArduinoCode(nodemcuProgram);
     expect(out.validationIssues).toHaveLength(0);
     expect(out.compactCode).toContain('pinMode(RELAY_PIN, OUTPUT);');
-    expect(out.compactCode).toContain('pinMode(ENTRADA_DIG_PIN, INPUT);');
-    expect(out.compactCode).toContain('int valorA0 = leerEntradaAnalogicaA0();');
-    expect(out.compactCode).toContain('int estadoDigital = leerEntradaDigital();');
+    expect(out.compactCode).toContain('pinMode(A0, INPUT);');
+    expect(out.compactCode).toContain('pinMode(D6, INPUT);');
+    expect(out.compactCode).toContain('analogRead(A0) < 400');
+    expect(out.compactCode).toContain('digitalRead(D6) == 1');
     expect(out.compactCode).toContain('relayOn();');
     expect(out.compactCode).toContain('activarSalidaDigital();');
 
@@ -518,7 +522,12 @@ describe('Bi-Tech IoT Studio V0.1.2 — Hardware Readiness y Sketch Compilable (
           condition: {
             kind: 'comparison',
             leftSensor: 'entradaAnalogicaA0',
-            leftExpr: { kind: 'sensor_read', sensor: 'entradaAnalogicaA0' },
+            leftPin: 'A0',
+            leftExpr: {
+              kind: 'sensor_read',
+              sensor: 'entradaAnalogicaA0',
+              pin: 'A0',
+            },
             operator: '<',
             rightNumber: 400,
           },
@@ -534,7 +543,7 @@ describe('Bi-Tech IoT Studio V0.1.2 — Hardware Readiness y Sketch Compilable (
     // 1. Vista educativa limpia y enfocada en setup() + loop()
     expect(output.compactCode).toContain('void setup()');
     expect(output.compactCode).toContain('relayOff();');
-    expect(output.compactCode).toContain('if (valorA0 < 400) {');
+    expect(output.compactCode).toContain('if (analogRead(A0) < 400) {');
     expect(output.compactCode).toContain('relayOn();');
     expect(output.compactCode).toContain('} else {');
     expect(output.compactCode).not.toContain('#include <Arduino.h>');

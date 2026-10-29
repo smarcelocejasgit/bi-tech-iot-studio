@@ -16,6 +16,19 @@ export type SimulatorSystemKind = 'garden-system' | 'camera-system' | 'nodemcu-s
 
 export type AdcVoltageRangeStatus = 'unverified' | '0-1.0V' | '0-3.2V' | '0-3.3V';
 
+export type InputPinKind = 'analog' | 'digital';
+
+/** Opción de pin derivada de la metadata del perfil activo. */
+export interface HardwareInputPinOption {
+  /** Valor persistido en Blockly/AST, por ejemplo GPIO34, A0 o D6. */
+  id: string;
+  /** Etiqueta didáctica visible. */
+  label: string;
+  /** Expresión válida para Arduino C/C++. */
+  arduinoExpression: string;
+  kind: InputPinKind;
+}
+
 export type CompatibleSensorId =
   | 'temperatura'
   | 'humedadAmbiente'

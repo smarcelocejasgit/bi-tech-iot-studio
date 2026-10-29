@@ -162,6 +162,76 @@ test('el bloque Wi-Fi edita SSID y protege la contraseña en toda la interfaz', 
   );
 });
 
+test('los selectores de entrada cambian sus pines con el perfil de hardware', async ({
+  page,
+}) => {
+  await page.getByTestId('category-sensores').click();
+  await page.getByTestId('insert-block-bitech_sensor_analog_a0').click();
+  const analogBlock = page
+    .locator('.blocklyBlockCanvas .blocklyDraggable')
+    .filter({ hasText: 'entrada analógica' });
+  await analogBlock.click();
+  await expect(page.getByTestId('manual-description')).toContainText('GPIO');
+  await page.getByTestId('toggle-manual-details-btn').click();
+  await expect(page.getByTestId('contextual-manual-panel')).toContainText(
+    'No todos los GPIO'
+  );
+
+  await page.getByTestId('insert-block-bitech_sensor_digital_in').click();
+  const digitalBlock = page
+    .locator('.blocklyBlockCanvas .blocklyDraggable')
+    .filter({ hasText: 'entrada digital' });
+  await expect(analogBlock).toContainText('GPIO34');
+  await expect(digitalBlock).toContainText('GPIO4');
+
+  await page.getByTestId('select-nodemcu-esp8266').click();
+  await expect(analogBlock).toContainText('A0');
+  await expect(digitalBlock).toContainText('D1');
+
+  await page.getByTestId('select-camera-node').click();
+  await expect(
+    page.getByTestId('insert-block-bitech_sensor_analog_a0')
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId('insert-block-bitech_sensor_digital_in')
+  ).toHaveCount(0);
+});
+
+test('una entrada IoT conserva el GPIO en intérprete, Arduino y simulador', async ({
+  page,
+}) => {
+  await page.getByTestId('category-iot').click();
+  await page.getByTestId('insert-block-bitech_iot_send_event').click();
+  const iotBlock = page
+    .locator('.blocklyBlockCanvas .blocklyDraggable')
+    .filter({ hasText: 'enviar a IoT' });
+
+  await iotBlock.locator('.blocklyEditableText').nth(1).click();
+  await page
+    .locator('.blocklyDropDownDiv .blocklyMenuItemContent')
+    .filter({ hasText: 'entrada analógica' })
+    .click();
+
+  await expect(iotBlock).toContainText('pin');
+  await expect(iotBlock).toContainText('GPIO34');
+  await expect(page.getByTestId('interpreter-narrative')).toContainText(
+    'señal analógica conectada al GPIO34'
+  );
+
+  await page.getByTestId('tab-view-arduino-code').click();
+  await expect(page.getByTestId('arduino-code-display')).toContainText(
+    'pinMode(34, INPUT);'
+  );
+  await expect(page.getByTestId('arduino-code-display')).toContainText(
+    'analogRead(34)'
+  );
+
+  await page.getByTestId('mode-simulate').click();
+  await expect(page.getByTestId('gpio-input-readings')).toContainText(
+    'GPIO34 · entrada analógica · valor:'
+  );
+});
+
 test('el clic de la paleta continúa insertando y seleccionando el bloque', async ({
   page,
 }) => {
