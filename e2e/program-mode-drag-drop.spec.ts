@@ -395,6 +395,27 @@ test('Programar prioriza Blockly y mantiene el asistente cerrado como botón flo
 test('el drawer del asistente se superpone sin cambiar la grilla ni bloquear Blockly', async ({
   page,
 }) => {
+  await page.route('**/v1beta/projects/**:generateContent*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        candidates: [
+          {
+            content: {
+              role: 'model',
+              parts: [
+                {
+                  text: 'Tu programa espera un tiempo. Revisá el bloque seleccionado para comprender su duración.',
+                },
+              ],
+            },
+            finishReason: 'STOP',
+          },
+        ],
+      }),
+    });
+  });
   const program = page.getByTestId('program-mode-view');
   const widthsBefore = await program
     .locator(':scope > div')
@@ -404,7 +425,7 @@ test('el drawer del asistente se superpone sin cambiar la grilla ni bloquear Blo
   await expect(page.getByTestId('assistant-drawer')).toBeVisible();
   await expect(page.getByTestId('bitech-assistant-panel')).toBeVisible();
   await expect(page.getByTestId('assistant-status-badge')).toContainText(
-    'Asistente en preparación'
+    'IA contextual'
   );
 
   const widthsOpen = await program
@@ -425,8 +446,8 @@ test('el drawer del asistente se superpone sin cambiar la grilla ni bloquear Blo
   await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(1);
 
   await page.getByTestId('assistant-suggestion-0').click();
-  await expect(page.getByTestId('assistant-status-response')).toContainText(
-    'Asistente en preparación'
+  await expect(page.getByTestId('assistant-response')).toContainText(
+    'Tu programa espera un tiempo'
   );
 
   await page.getByTestId('assistant-close-btn').click();
@@ -437,6 +458,73 @@ test('el drawer del asistente se superpone sin cambiar la grilla ni bloquear Blo
     .locator(':scope > div')
     .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
   expect(widthsClosed).toEqual(widthsBefore);
+});
+
+test('el asistente falla de forma aislada si el backend no está disponible', async ({
+  page,
+}) => {
+  await page.route('**/v1beta/projects/**:generateContent*', async (route) => {
+    await route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: { message: 'AI unavailable' } }),
+    });
+  });
+
+  await page.getByTestId('assistant-launcher').click();
+  await page.getByTestId('assistant-input').fill('¿Qué me falta configurar?');
+  await page.getByTestId('assistant-send-btn').click();
+  await expect(page.getByTestId('assistant-error')).toHaveText(
+    'El Asistente Bi-Tech no está disponible en este momento.'
+  );
+  await expect(page.getByTestId('program-mode-view')).toBeVisible();
+
+  await page.getByTestId('assistant-new-conversation-btn').click();
+  await expect(page.getByTestId('assistant-error')).toHaveCount(0);
+  await expect(page.getByTestId('assistant-messages-list')).toContainText(
+    'No modificaré tus bloques.'
+  );
+});
+
+test('el asistente conserva conversación para explicar bloque y programa', async ({
+  page,
+}) => {
+  await page.route('**/v1beta/projects/**:generateContent*', async (route) => {
+    const requestBody = route.request().postData() ?? '';
+    const text = requestBody.includes(
+      'PREGUNTA ACTUAL DEL ESTUDIANTE: Explicame mi programa.'
+    )
+      ? 'Tu programa organiza las acciones de configuración y repetición.'
+      : 'Este bloque representa una lectura del componente seleccionado.';
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        candidates: [
+          {
+            content: { role: 'model', parts: [{ text }] },
+            finishReason: 'STOP',
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.getByTestId('assistant-launcher').click();
+  await page.getByTestId('assistant-input').fill('¿Qué hace este bloque?');
+  await page.getByTestId('assistant-send-btn').click();
+  await expect(page.getByTestId('assistant-response').last()).toContainText(
+    'lectura del componente'
+  );
+
+  await page.getByTestId('assistant-input').fill('Explicame mi programa.');
+  await page.getByTestId('assistant-send-btn').click();
+  await expect(page.getByTestId('assistant-response').last()).toContainText(
+    'configuración y repetición'
+  );
+  await expect(page.getByTestId('assistant-messages-list')).toContainText(
+    '¿Qué hace este bloque?'
+  );
 });
 
 test('el modo Placa real conserva su vista independiente', async ({ page }) => {

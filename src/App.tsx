@@ -330,6 +330,7 @@ export const App: React.FC<AppProps> = ({
     () =>
       buildBiTechAssistantContext({
         activeDevice,
+        mode: workMode,
         projectName,
         selectedBlockType,
         selectedBlockId,
@@ -338,6 +339,7 @@ export const App: React.FC<AppProps> = ({
       }),
     [
       activeDevice,
+      workMode,
       projectName,
       selectedBlockType,
       selectedBlockId,

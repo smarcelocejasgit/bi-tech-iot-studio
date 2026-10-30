@@ -1,19 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
+import { Bot, LoaderCircle, RotateCcw, Send, Sparkles, X } from 'lucide-react';
 import {
-  Bot,
-  ChevronDown,
-  ChevronUp,
-  Clock,
-  Send,
-  Sparkles,
-  X,
-} from 'lucide-react';
-import { BITECH_ASSISTANT_SUGGESTIONS } from '../assistant/bitechAssistantContext';
-import { getDeviceProfile } from '../hardware/hardwareCapabilities';
-import {
-  BiTechAssistantContext,
-  BiTechAssistantMessage,
-} from '../types/studio';
+  BITECH_ASSISTANT_SUGGESTIONS,
+  buildAssistantRequestContext,
+} from '../assistant/bitechAssistantContext';
+import { requestAssistantReply } from '../assistant/firebaseAssistant';
+import { BiTechAssistantContext, BiTechAssistantMessage } from '../types/studio';
 
 interface BiTechAssistantPanelProps {
   context: BiTechAssistantContext;
@@ -21,205 +13,253 @@ interface BiTechAssistantPanelProps {
   onClose?: () => void;
 }
 
+const UNAVAILABLE_MESSAGE =
+  'El Asistente Bi-Tech no está disponible en este momento.';
+const MAX_MESSAGE_LENGTH = 1000;
+
 export const BiTechAssistantPanel: React.FC<BiTechAssistantPanelProps> = ({
   context,
   variant = 'inline',
   onClose,
 }) => {
   const [messages, setMessages] = useState<BiTechAssistantMessage[]>([]);
-  const [inputText, setInputText] = useState<string>('');
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
-
-  const profile = getDeviceProfile(context.activeDevice);
-  const statementCount =
-    context.parsedProgram.setupStatements.length +
-    context.parsedProgram.loopStatements.length;
+  const [inputText, setInputText] = useState('');
+  const [isThinking, setIsThinking] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const messageCounter = useRef(0);
   const isDrawer = variant === 'drawer';
+  const requestContext = useMemo(
+    () => buildAssistantRequestContext(context),
+    [context]
+  );
 
-  const submitQuestion = (questionText: string) => {
-    const trimmed = questionText.trim();
-    if (!trimmed) return;
+  const nextMessageId = (prefix: string) => {
+    messageCounter.current += 1;
+    return `${prefix}-${messageCounter.current}`;
+  };
 
-    const userMsg: BiTechAssistantMessage = {
-      id: `user-${Date.now()}`,
+  const submitQuestion = async (questionText: string) => {
+    const trimmed = questionText.trim().slice(0, MAX_MESSAGE_LENGTH);
+    if (!trimmed || isThinking) return;
+
+    const userMessage: BiTechAssistantMessage = {
+      id: nextMessageId('user'),
       role: 'user',
       text: trimmed,
     };
+    const history = messages.map(({ role, text }) => ({ role, text }));
 
-    const statusReply: BiTechAssistantMessage = {
-      id: `status-${Date.now() + 1}`,
-      role: 'assistant-status',
-      statusLabel: 'Asistente en preparación',
-      text: `Asistente en preparación — Tu consulta fue registrada junto con el contexto real de tu proyecto (${profile.shortBadge}, ${statementCount} bloque(s) activos). La conexión con el modelo pedagógico aún no está habilitada en esta versión.`,
-      contextSnapshot: {
-        activeDevice: context.activeDevice,
-        selectedBlockType: context.selectedBlockType,
-        statementCount,
-      },
-    };
-
-    setMessages((prev) => [...prev, userMsg, statusReply]);
+    setMessages((previous) => [...previous, userMessage]);
     setInputText('');
-    setIsExpanded(true);
+    setErrorMessage(null);
+    setIsThinking(true);
+
+    try {
+      const reply = await requestAssistantReply({
+        message: trimmed,
+        context: requestContext,
+        history,
+      });
+      setMessages((previous) => [
+        ...previous,
+        { id: nextMessageId('assistant'), role: 'assistant', text: reply },
+      ]);
+    } catch {
+      setErrorMessage(UNAVAILABLE_MESSAGE);
+    } finally {
+      setIsThinking(false);
+    }
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    submitQuestion(inputText);
+  const handleFormSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    void submitQuestion(inputText);
+  };
+
+  const startNewConversation = () => {
+    setMessages([]);
+    setInputText('');
+    setErrorMessage(null);
   };
 
   return (
     <section
       data-testid="bitech-assistant-panel"
-      className={`bg-white px-3.5 py-3 ${
+      className={`bg-white ${
         isDrawer
-          ? 'h-full flex flex-col gap-3 overflow-y-auto'
-          : 'rounded-2xl border border-slate-200/90 shadow-xs space-y-2'
+          ? 'flex h-full flex-col overflow-hidden'
+          : 'rounded-2xl border border-slate-200 shadow-xs'
       }`}
     >
-      {/* Fila principal compacta: Encabezado + Texto breve + Entrada + Enviar */}
-      <div
-        className={`flex justify-between gap-2.5 ${
-          isDrawer ? 'flex-col' : 'flex-col lg:flex-row lg:items-center'
-        }`}
-      >
-        <div className="flex items-center gap-2 flex-wrap shrink-0">
-          <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
-            <span aria-hidden="true">💬</span>
-            <span>Asistente Bi-Tech</span>
-          </h2>
-
-          <span className="text-xs text-slate-600">
-            Preguntá sobre tu programa…
-          </span>
-
+      <header className="border-b border-slate-200 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800">
+            <Bot className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-extrabold text-slate-900">
+              Asistente Bi-Tech
+            </h2>
+            <p className="text-[11px] text-slate-600">
+              Tutor contextual de tu programa
+            </p>
+          </div>
           <span
             data-testid="assistant-status-badge"
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-bold"
+            className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800"
           >
-            <Clock className="w-3 h-3 text-amber-700" />
-            Asistente en preparación
+            IA contextual
           </span>
-
-          {isDrawer && onClose && (
+          {onClose && (
             <button
               type="button"
               data-testid="assistant-close-btn"
               onClick={onClose}
-              className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-400"
               aria-label="Cerrar Asistente Bi-Tech"
-              title="Cerrar asistente"
             >
               <X className="h-4 w-4" />
             </button>
           )}
         </div>
-
-        <form
-          onSubmit={handleFormSubmit}
-          className={`flex items-center gap-1.5 ${
-            isDrawer ? 'w-full' : 'flex-1 max-w-2xl'
-          }`}
-        >
-          <input
-            type="text"
-            data-testid="assistant-input"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            placeholder="Preguntale al Asistente Bi-Tech…"
-            aria-label="Preguntale al Asistente Bi-Tech"
-            className="flex-1 px-3 py-1.5 rounded-xl bg-slate-50 focus:bg-white border border-slate-300 focus:border-emerald-500 text-xs text-slate-800 focus:outline-none transition"
-          />
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="text-[11px] leading-relaxed text-slate-600">
+            Te ayuda a comprender y revisar. Las decisiones del programa siguen
+            siendo tuyas.
+          </p>
           <button
-            type="submit"
-            data-testid="assistant-send-btn"
-            className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs shrink-0"
+            type="button"
+            data-testid="assistant-new-conversation-btn"
+            onClick={startNewConversation}
+            disabled={messages.length === 0 && !errorMessage}
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-emerald-800 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Send className="w-3.5 h-3.5" />
-            <span>Enviar</span>
+            <RotateCcw className="h-3 w-3" />
+            Nueva conversación
           </button>
+        </div>
+      </header>
 
-          {messages.length > 0 && (
-            <button
-              type="button"
-              data-testid="assistant-toggle-conversation-btn"
-              onClick={() => setIsExpanded((prev) => !prev)}
-              className="px-2 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-600 flex items-center gap-1 transition cursor-pointer shrink-0"
-              title={
-                isExpanded ? 'Contraer conversación' : 'Mostrar conversación'
-              }
-            >
-              {isExpanded ? (
-                <ChevronUp className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronDown className="w-3.5 h-3.5" />
-              )}
-            </button>
-          )}
-        </form>
-      </div>
-
-      {/* Sugerencias rápidas en una sola línea compacta */}
       <div
         data-testid="assistant-conversation-area"
-        className={`flex gap-1.5 pb-0.5 ${
-          isDrawer
-            ? 'flex-wrap items-start overflow-y-auto'
-            : 'items-center overflow-x-auto'
-        }`}
+        className="flex min-h-0 flex-1 flex-col"
       >
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 shrink-0">
-          <Sparkles className="w-3 h-3 text-emerald-600" />
-          Sugerencias:
-        </span>
-        {BITECH_ASSISTANT_SUGGESTIONS.map((suggestion, index) => (
-          <button
-            key={suggestion}
-            type="button"
-            data-testid={`assistant-suggestion-${index}`}
-            onClick={() => submitQuestion(suggestion)}
-            className="px-2.5 py-0.5 rounded-full bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-900 border border-slate-200 hover:border-emerald-300 text-[11px] font-medium transition cursor-pointer whitespace-nowrap shrink-0"
-          >
-            {suggestion}
-          </button>
-        ))}
-      </div>
+        <div className="border-b border-slate-100 px-4 py-3">
+          <span className="mb-2 flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide text-slate-500">
+            <Sparkles className="h-3 w-3 text-emerald-600" />
+            Acciones rápidas
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {BITECH_ASSISTANT_SUGGESTIONS.map((suggestion, index) => (
+              <button
+                key={suggestion}
+                type="button"
+                data-testid={`assistant-suggestion-${index}`}
+                onClick={() => void submitQuestion(suggestion)}
+                disabled={isThinking}
+                className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-left text-[11px] font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-900 disabled:opacity-50"
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        </div>
 
-      {/* Área de conversación expandida únicamente cuando existen mensajes */}
-      {messages.length > 0 && isExpanded && (
         <div
           data-testid="assistant-messages-list"
-          className={`pt-2 border-t border-slate-100 space-y-2 overflow-y-auto ${
-            isDrawer ? 'max-h-none flex-1' : 'max-h-40'
-          }`}
+          aria-live="polite"
+          className="min-h-[120px] flex-1 space-y-3 overflow-y-auto px-4 py-4"
         >
-          {messages.map((msg) =>
-            msg.role === 'user' ? (
-              <div key={msg.id} className="flex justify-end">
-                <div className="px-3 py-1 rounded-xl bg-emerald-700 text-white text-xs font-medium max-w-xl">
-                  {msg.text}
+          {messages.length === 0 && !isThinking && !errorMessage && (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
+              Preguntame qué hace tu programa, qué falta configurar o cómo
+              interpretar un error. No modificaré tus bloques.
+            </div>
+          )}
+
+          {messages.map((message) =>
+            message.role === 'user' ? (
+              <div key={message.id} className="flex justify-end">
+                <div className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-emerald-700 px-3 py-2 text-xs leading-relaxed text-white">
+                  {message.text}
                 </div>
               </div>
             ) : (
               <div
-                key={msg.id}
-                data-testid="assistant-status-response"
+                key={message.id}
+                data-testid="assistant-response"
                 className="flex items-start gap-2"
               >
-                <div className="w-6 h-6 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center shrink-0 mt-0.5">
-                  <Bot className="w-3.5 h-3.5" />
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">
+                  <Bot className="h-4 w-4" />
                 </div>
-                <div className="px-3 py-1.5 rounded-xl bg-amber-50/90 border border-amber-200 text-xs text-amber-950 max-w-2xl">
-                  <span className="font-extrabold uppercase tracking-wider text-[10px] text-amber-800 block">
-                    {msg.statusLabel}
-                  </span>
-                  <p>{msg.text}</p>
+                <div className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-tl-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-800">
+                  {message.text}
                 </div>
               </div>
             )
           )}
+
+          {isThinking && (
+            <div
+              data-testid="assistant-thinking"
+              className="flex items-center gap-2 text-xs font-semibold text-slate-600"
+            >
+              <LoaderCircle className="h-4 w-4 animate-spin text-emerald-700" />
+              Pensando…
+            </div>
+          )}
+
+          {errorMessage && (
+            <div
+              data-testid="assistant-error"
+              role="status"
+              className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-950"
+            >
+              {errorMessage}
+            </div>
+          )}
         </div>
-      )}
+      </div>
+
+      <form
+        onSubmit={handleFormSubmit}
+        className="border-t border-slate-200 bg-white p-3"
+      >
+        <label htmlFor="bitech-assistant-input" className="sr-only">
+          Preguntale al Asistente Bi-Tech
+        </label>
+        <textarea
+          id="bitech-assistant-input"
+          data-testid="assistant-input"
+          value={inputText}
+          onChange={(event) => setInputText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              void submitQuestion(inputText);
+            }
+          }}
+          maxLength={MAX_MESSAGE_LENGTH}
+          rows={3}
+          placeholder="Escribí una pregunta sobre tu programa…"
+          className="w-full resize-none rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-800 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+        />
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <span className="text-[10px] text-slate-400">
+            {inputText.length}/{MAX_MESSAGE_LENGTH}
+          </span>
+          <button
+            type="submit"
+            data-testid="assistant-send-btn"
+            disabled={!inputText.trim() || isThinking}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Send className="h-3.5 w-3.5" />
+            Enviar
+          </button>
+        </div>
+      </form>
     </section>
   );
 };

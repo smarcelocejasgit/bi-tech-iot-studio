@@ -876,11 +876,10 @@ describe('Bi-Tech IoT Studio — Contexto estructurado para Asistente Bi-Tech', 
     expect(context.generatedSketch).toContain('#include <Arduino.h>');
     expect(context.validationIssues).toEqual([]);
     expect(BITECH_ASSISTANT_SUGGESTIONS).toEqual([
-      '¿Qué hace este bloque?',
-      '¿Por qué mi programa no funciona?',
-      '¿Cómo uso el sensor de humedad?',
-      '¿Qué significa esta condición?',
-      'Explicame el código Arduino generado.',
+      'Explicame este programa',
+      '¿Qué me falta configurar?',
+      'Explicame este bloque',
+      'Ayudame a encontrar el error',
     ]);
   });
 });

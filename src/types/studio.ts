@@ -243,6 +243,7 @@ export interface StudioProject {
 
 export interface BiTechAssistantContext {
   activeDevice: DeviceProfileId;
+  mode: 'program' | 'simulate' | 'board';
   projectName: string;
   selectedBlockType?: string;
   selectedBlockId?: string;
@@ -254,12 +255,6 @@ export interface BiTechAssistantContext {
 
 export interface BiTechAssistantMessage {
   id: string;
-  role: 'user' | 'assistant-status';
+  role: 'user' | 'assistant';
   text: string;
-  statusLabel?: string;
-  contextSnapshot?: {
-    activeDevice: DeviceProfileId;
-    selectedBlockType?: string;
-    statementCount: number;
-  };
 }
