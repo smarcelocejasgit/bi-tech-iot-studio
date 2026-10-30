@@ -19,6 +19,17 @@ test('la Guía del proyecto acompaña Garden Node y vuelve a Blockly sin perder 
   await expect(page.getByTestId('guide-project-step')).toContainText(
     'Garden Node Bi-Tech — ESP32'
   );
+  await page
+    .getByRole('button', {
+      name: 'Abrir vista general de Garden Node Bi-Tech — ESP32',
+    })
+    .click();
+  await expect(
+    page.getByTestId('guide-resource-viewer').getByRole('img', {
+      name: 'Vista pedagógica de Garden Node Bi-Tech — ESP32',
+    })
+  ).toBeVisible();
+  await page.keyboard.press('Escape');
 
   await page.getByTestId('guide-step-2').click();
   await expect(page.getByTestId('guide-component-dht11')).toBeVisible();
@@ -27,7 +38,7 @@ test('la Guía del proyecto acompaña Garden Node y vuelve a Blockly sin perder 
 
   const dhtOpenButton = page
     .getByTestId('guide-component-dht11')
-    .getByRole('button', { name: 'Abrir lámina' });
+    .getByRole('button', { name: 'Ver ficha' });
   await dhtOpenButton.click();
   await expect(page.getByTestId('guide-resource-viewer')).toBeVisible();
   await expect(
@@ -44,16 +55,19 @@ test('la Guía del proyecto acompaña Garden Node y vuelve a Blockly sin perder 
   const dhtConnection = page.getByTestId(
     'guide-connection-garden-dht11-gpio21'
   );
-  await expect(dhtConnection).toContainText('Validado en hardware');
+  await expect(
+    page.getByTestId('guide-connection-garden-energy-system')
+  ).toBeVisible();
+  await expect(dhtConnection).toContainText('Pendiente de validación física');
   await dhtConnection.getByRole('button', { name: 'Abrir lámina' }).click();
   await expect(
     page.getByRole('img', {
-      name: 'Diagrama de conexiones: DHT11 → Garden Node',
+      name: 'Diagrama de conexiones: Garden Node — conexiones completas',
     })
   ).toBeVisible();
   await expect(page.getByText('DATA / S → GPIO digital disponible')).toBeVisible();
   await expect(
-    page.getByText('Conexión validada en Smart Garden Lab: GPIO21')
+    page.getByText('DHT11: conexión validada en Smart Garden Lab con DATA en GPIO21.')
   ).toBeVisible();
   await page.getByRole('button', { name: 'Cerrar lámina' }).click();
 
@@ -100,6 +114,18 @@ test('la Guía del proyecto filtra componentes para Camera Node', async ({
   await expect(page.getByTestId('guide-component-ov3660')).toBeVisible();
   await expect(page.getByTestId('guide-component-wifi')).toBeVisible();
   await expect(page.getByTestId('guide-component-pump')).toHaveCount(0);
+
+  await page.getByTestId('guide-step-3').click();
+  const cameraConnection = page.getByTestId('guide-connection-camera-module');
+  await expect(cameraConnection).toContainText(
+    'Camera Node — conexiones completas'
+  );
+  await cameraConnection.getByRole('button', { name: 'Abrir lámina' }).click();
+  await expect(
+    page.getByTestId('guide-resource-viewer').getByRole('img', {
+      name: 'Diagrama de conexiones: Camera Node — conexiones completas',
+    })
+  ).toBeVisible();
 });
 
 test('el bloque Wi-Fi edita SSID y protege la contraseña en toda la interfaz', async ({

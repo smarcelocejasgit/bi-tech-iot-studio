@@ -2,8 +2,9 @@ import { DidacticAlgorithm } from './algorithmsCatalog';
 import { DidacticComponent } from './componentsCatalog';
 import { ConnectionDiagram } from './connectionDiagrams';
 import { DeviceProfileId } from '../types/hardware';
+import type { ProjectGuideProfile } from './projectGuideData';
 
-export type GuideResourceKind = 'component' | 'diagram' | 'algorithm';
+export type GuideResourceKind = 'project' | 'component' | 'diagram' | 'algorithm';
 export type GuideResourceDetailKind = 'text' | 'list' | 'flow' | 'code';
 
 export interface GuideResourceDetail {
@@ -37,6 +38,27 @@ const validationBadge = (status: 'validated' | 'pending'): string =>
   status === 'validated'
     ? 'Validado en hardware'
     : 'Pendiente de validación física';
+
+export function projectToGuideResource(
+  profileId: DeviceProfileId,
+  profile: ProjectGuideProfile
+): GuideResource {
+  return {
+    id: `${profileId}-overview`,
+    kind: 'project',
+    title: profile.name,
+    imageSrc: profile.heroImage,
+    imageAlt: `Vista pedagógica de ${profile.name}`,
+    summary: profile.purpose,
+    badges: ['Vista general', PROFILE_BADGES[profileId]],
+    profileScope: [profileId],
+    details: [
+      { title: 'Problema para investigar', content: profile.question },
+      { title: 'Qué vas a construir', content: profile.build },
+      { title: 'Qué podrás observar', content: profile.observe },
+    ],
+  };
+}
 
 export function componentToGuideResource(
   component: DidacticComponent

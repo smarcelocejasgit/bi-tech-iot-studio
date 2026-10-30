@@ -16,6 +16,7 @@ import {
   algorithmToGuideResource,
   componentToGuideResource,
   diagramToGuideResource,
+  projectToGuideResource,
 } from '../guide/guideResources';
 import {
   createStudioProject,
@@ -89,19 +90,25 @@ describe('Guía didáctica contextual por perfil', () => {
     expect(cameraComponents.some((component) => component.id === 'pump')).toBe(
       false
     );
-    expect(dhtDiagram?.validationStatus).toBe('validated');
-    expect(dhtDiagram?.generalConnections).toEqual([
-      'VCC → alimentación compatible (3,3 V en el prototipo)',
-      'GND → GND',
-      'DATA / S → GPIO digital disponible',
-    ]);
-    expect(dhtDiagram?.prototypeEvidence).toEqual([
-      'Conexión validada en Smart Garden Lab: GPIO21',
-    ]);
+    expect(dhtDiagram?.validationStatus).toBe('pending');
+    expect(dhtDiagram?.generalConnections).toEqual(
+      expect.arrayContaining([
+        'DATA / S → GPIO digital disponible',
+        'Humedad de suelo y módulo LDR: AO → GPIO con capacidad ADC',
+      ])
+    );
+    expect(dhtDiagram?.prototypeEvidence).toEqual(
+      expect.arrayContaining([
+        'DHT11: conexión validada en Smart Garden Lab con DATA en GPIO21.',
+      ])
+    );
   });
 
   it('explica algoritmos antes que código y el Canal Bi-Tech como agrupador del proyecto', () => {
     const algorithms = getAlgorithmsForProfile('garden-node');
+    const overview = algorithms.find(
+      (algorithm) => algorithm.id === 'smart-garden-overview'
+    );
     const irrigation = algorithms.find(
       (algorithm) => algorithm.id === 'automatic-irrigation'
     );
@@ -120,6 +127,9 @@ describe('Guía didáctica contextual por perfil', () => {
     ]);
     expect(channel?.purpose).toContain('dispositivos');
     expect(channel?.purpose).toContain('mismo proyecto');
+    expect(overview?.image).toBe(
+      '/resources/guide/algorithms/smart-garden-algorithms.png'
+    );
     expect(PROJECT_GUIDE_PROFILES['garden-node'].purpose).toContain(
       'observar condiciones ambientales'
     );
@@ -139,17 +149,36 @@ describe('Guía didáctica contextual por perfil', () => {
     expect(dht && componentToGuideResource(dht)).toMatchObject({
       kind: 'component',
       title: 'DHT11',
-      imageSrc: '/resources/components/dht11.svg',
+      imageSrc: '/resources/guide/components/dht11.png',
       badges: expect.arrayContaining(['Validado en hardware', 'Garden Node']),
       profileScope: expect.arrayContaining(['garden-node']),
     });
     expect(dhtDiagram && diagramToGuideResource(dhtDiagram)).toMatchObject({
       kind: 'diagram',
-      imageSrc: '/resources/diagrams/garden-dht11-gpio21.svg',
+      imageSrc: '/resources/guide/connections/garden-node-connections.png',
     });
+    expect(
+      getConnectionDiagramsForProfile('garden-node').find(
+        (diagram) => diagram.id === 'garden-energy-system'
+      )?.image
+    ).toBe('/resources/guide/connections/energy-system.png');
+    expect(
+      getConnectionDiagramsForProfile('camera-node').find(
+        (diagram) => diagram.id === 'camera-module'
+      )?.image
+    ).toBe('/resources/guide/connections/camera-node-connections.png');
     expect(monitoring && algorithmToGuideResource(monitoring)).toMatchObject({
       kind: 'algorithm',
       imageSrc: '/resources/algorithms/environment-monitoring.svg',
+    });
+    expect(
+      projectToGuideResource(
+        'garden-node',
+        PROJECT_GUIDE_PROFILES['garden-node']
+      )
+    ).toMatchObject({
+      kind: 'project',
+      imageSrc: '/resources/guide/project/garden-node-overview.png',
     });
   });
 });

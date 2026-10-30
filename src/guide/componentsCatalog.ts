@@ -1,4 +1,5 @@
 import { DeviceProfileId } from '../types/hardware';
+import { GUIDE_ASSETS } from './guideAssets';
 
 export type ComponentValidationStatus = 'validated' | 'pending';
 
@@ -19,8 +20,8 @@ export const COMPONENTS_CATALOG: DidacticComponent[] = [
   {
     id: 'esp32',
     profiles: ['garden-node'],
-    name: 'ESP32',
-    image: '/resources/components/esp32.svg',
+    name: 'ESP32 DevKit',
+    image: GUIDE_ASSETS.components.esp32Devkit,
     whatIs: 'La placa que ejecuta el programa del Garden Node.',
     whatDoes: 'Lee sensores, toma decisiones y controla salidas.',
     dataOrAction: 'Procesa datos y coordina las acciones del prototipo.',
@@ -32,7 +33,7 @@ export const COMPONENTS_CATALOG: DidacticComponent[] = [
     id: 'dht11',
     profiles: ['garden-node', 'nodemcu-esp8266'],
     name: 'DHT11',
-    image: '/resources/components/dht11.svg',
+    image: GUIDE_ASSETS.components.dht11,
     whatIs:
       'Un sensor digital que comunica temperatura y humedad mediante un protocolo temporizado sobre una línea DATA.',
     whatDoes: 'Observa dos condiciones ambientales con un único módulo.',
@@ -47,7 +48,7 @@ export const COMPONENTS_CATALOG: DidacticComponent[] = [
     id: 'soil-moisture',
     profiles: ['garden-node'],
     name: 'Humedad de suelo',
-    image: '/resources/components/soil-moisture.svg',
+    image: GUIDE_ASSETS.components.soilMoisture,
     whatIs: 'Una sonda que permite estimar cuánta humedad hay en el sustrato.',
     whatDoes: 'Entrega una lectura que puede compararse con un umbral.',
     dataOrAction: 'Produce un valor analógico que requiere calibración.',
@@ -59,9 +60,9 @@ export const COMPONENTS_CATALOG: DidacticComponent[] = [
   {
     id: 'ldr',
     profiles: ['garden-node'],
-    name: 'LDR',
-    image: '/resources/components/ldr.svg',
-    whatIs: 'Un componente cuya resistencia cambia con la cantidad de luz.',
+    name: 'Módulo LDR',
+    image: GUIDE_ASSETS.components.ldrModule,
+    whatIs: 'Un módulo cuya respuesta cambia con la cantidad de luz.',
     whatDoes: 'Permite comparar ambientes más claros u oscuros.',
     dataOrAction: 'Produce un valor analógico de luminosidad relativa.',
     powerInterface:
@@ -72,8 +73,8 @@ export const COMPONENTS_CATALOG: DidacticComponent[] = [
   {
     id: 'relay',
     profiles: ['garden-node', 'nodemcu-esp8266'],
-    name: 'Relay',
-    image: '/resources/components/relay.svg',
+    name: 'Relay de 1 canal',
+    image: GUIDE_ASSETS.components.relayOneChannel,
     whatIs: 'Un interruptor controlado por la placa.',
     whatDoes: 'Separa la señal de control de la carga que se enciende o apaga.',
     dataOrAction: 'Controla una acción: activar o desactivar una salida.',
@@ -84,8 +85,8 @@ export const COMPONENTS_CATALOG: DidacticComponent[] = [
   {
     id: 'pump',
     profiles: ['garden-node'],
-    name: 'Bomba',
-    image: '/resources/components/pump.svg',
+    name: 'Bomba de agua 5 V',
+    image: GUIDE_ASSETS.components.waterPump5v,
     whatIs: 'El actuador que mueve agua en el sistema de riego.',
     whatDoes: 'Convierte una decisión del programa en una acción física.',
     dataOrAction: 'Acción controlada: riego encendido o apagado.',
@@ -96,8 +97,8 @@ export const COMPONENTS_CATALOG: DidacticComponent[] = [
   {
     id: 'led',
     profiles: ['garden-node'],
-    name: 'LED',
-    image: '/resources/components/led.svg',
+    name: 'LED de observación',
+    image: GUIDE_ASSETS.components.observationLed,
     whatIs: 'Una fuente de luz para señalización u observación.',
     whatDoes: 'Hace visible una acción decidida por el programa.',
     dataOrAction: 'Acción controlada: luz encendida o apagada.',
@@ -109,7 +110,7 @@ export const COMPONENTS_CATALOG: DidacticComponent[] = [
     id: 'esp32-cam',
     profiles: ['camera-node'],
     name: 'ESP32-CAM',
-    image: '/resources/components/esp32-cam.svg',
+    image: GUIDE_ASSETS.components.esp32CamOv3660,
     whatIs: 'Una placa ESP32 preparada para trabajar con una cámara.',
     whatDoes: 'Captura imágenes y las transmite por Wi-Fi.',
     dataOrAction: 'Produce fotografías JPEG y video MJPEG.',
@@ -133,7 +134,7 @@ export const COMPONENTS_CATALOG: DidacticComponent[] = [
     id: 'ov3660',
     profiles: ['camera-node'],
     name: 'OV3660',
-    image: '/resources/components/ov3660.svg',
+    image: GUIDE_ASSETS.components.esp32CamOv3660,
     whatIs: 'El sensor de imagen instalado en la Camera Node validada.',
     whatDoes: 'Captura imágenes con ajustes propios de orientación y color.',
     dataOrAction: 'Produce JPEG y streaming MJPEG.',

@@ -1,4 +1,5 @@
 import { DeviceProfileId } from '../types/hardware';
+import { GUIDE_ASSETS } from './guideAssets';
 
 export interface DidacticAlgorithm {
   id: string;
@@ -12,6 +13,22 @@ export interface DidacticAlgorithm {
 }
 
 export const ALGORITHMS_CATALOG: DidacticAlgorithm[] = [
+  {
+    id: 'smart-garden-overview',
+    profiles: ['garden-node'],
+    title: 'Algoritmos del Smart Garden Lab',
+    purpose: 'Relacionar en una sola lámina las decisiones de monitoreo, riego, luz y comunicación por canal.',
+    flow: ['medir', 'interpretar', 'decidir', 'actuar', 'comunicar', 'volver a observar'],
+    pseudocode: [
+      'repetir siempre',
+      '  leer sensores seleccionados',
+      '  comparar los datos con criterios',
+      '  actuar cuando corresponda',
+      '  enviar evidencias al canal del proyecto',
+    ],
+    blockTypes: ['lecturas ambientales', 'comparaciones', 'si... entonces', 'actuadores', 'Canal Bi-Tech'],
+    image: GUIDE_ASSETS.algorithms.smartGarden,
+  },
   {
     id: 'environment-monitoring',
     profiles: ['garden-node', 'nodemcu-esp8266'],

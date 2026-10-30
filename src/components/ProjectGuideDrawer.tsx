@@ -27,6 +27,7 @@ import {
   algorithmToGuideResource,
   componentToGuideResource,
   diagramToGuideResource,
+  projectToGuideResource,
   GuideResource,
   GuideResourceDetail,
 } from '../guide/guideResources';
@@ -186,11 +187,23 @@ export const ProjectGuideDrawer: React.FC<ProjectGuideDrawerProps> = ({
                     {profile.purpose}
                   </p>
                 </div>
-                <img
-                  src={profile.heroImage}
-                  alt={`Vista pedagógica de ${profile.name}`}
-                  className="h-64 w-full rounded-2xl border border-slate-200 bg-slate-50 object-contain"
-                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedResource(projectToGuideResource(activeDevice, profile))
+                  }
+                  className="group relative cursor-zoom-in overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                  aria-label={`Abrir vista general de ${profile.name}`}
+                >
+                  <img
+                    src={profile.heroImage}
+                    alt={`Vista pedagógica de ${profile.name}`}
+                    className="h-64 w-full object-contain transition duration-200 group-hover:scale-[1.015]"
+                  />
+                  <span className="absolute bottom-3 right-3 inline-flex items-center gap-2 rounded-full bg-slate-950/80 px-3 py-2 text-xs font-extrabold text-white shadow-lg">
+                    <Maximize2 className="h-4 w-4" /> Abrir lámina
+                  </span>
+                </button>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
                 {[
@@ -239,7 +252,7 @@ export const ProjectGuideDrawer: React.FC<ProjectGuideDrawerProps> = ({
                         }
                         className="inline-flex items-center gap-1 text-sm font-extrabold text-emerald-700 hover:text-emerald-900 cursor-pointer"
                       >
-                        Abrir lámina <ChevronRight className="h-4 w-4" />
+                        Ver ficha <ChevronRight className="h-4 w-4" />
                       </button>
                     </div>
                   </article>
@@ -484,6 +497,7 @@ const TestCard: React.FC<{
 );
 
 const RESOURCE_KIND_LABELS: Record<GuideResource['kind'], string> = {
+  project: 'Vista general',
   component: 'Componente',
   diagram: 'Diagrama de conexión',
   algorithm: 'Algoritmo',

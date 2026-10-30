@@ -1,5 +1,6 @@
 import { DeviceProfileId } from '../types/hardware';
 import { ComponentValidationStatus } from './componentsCatalog';
+import { GUIDE_ASSETS } from './guideAssets';
 
 export interface ConnectionDiagram {
   id: string;
@@ -17,51 +18,45 @@ export const CONNECTION_DIAGRAMS: ConnectionDiagram[] = [
   {
     id: 'garden-dht11-gpio21',
     profiles: ['garden-node'],
-    title: 'DHT11 → Garden Node',
-    summary: 'La primera conexión ambiental validada del banco actual.',
-    image: '/resources/diagrams/garden-dht11-gpio21.svg',
-    validationStatus: 'validated',
-    validationDetail: 'Validado en hardware con un módulo DHT11 de tres pines.',
+    title: 'Garden Node — conexiones completas',
+    summary: 'Requisitos generales, conexión validada del DHT11 y propuestas pendientes del prototipo.',
+    image: GUIDE_ASSETS.connections.gardenNode,
+    validationStatus: 'pending',
+    validationDetail: 'La ficha combina una conexión validada con propuestas que todavía requieren validación física.',
     generalConnections: [
       'VCC → alimentación compatible (3,3 V en el prototipo)',
       'GND → GND',
       'DATA / S → GPIO digital disponible',
-    ],
-    prototypeEvidence: ['Conexión validada en Smart Garden Lab: GPIO21'],
-  },
-  {
-    id: 'garden-analog-sensors',
-    profiles: ['garden-node'],
-    title: 'Sensores de suelo y luz',
-    summary: 'Conexión conceptual para las próximas mediciones analógicas.',
-    image: '/resources/diagrams/garden-analog-pending.svg',
-    validationStatus: 'pending',
-    validationDetail: 'No se fijan GPIO hasta validar el cableado real.',
-    generalConnections: [
-      'Humedad de suelo: AO → GPIO con capacidad ADC',
-      'LDR en divisor resistivo: AO → GPIO con capacidad ADC',
+      'Humedad de suelo y módulo LDR: AO → GPIO con capacidad ADC',
+      'Relay y LED: señal de control → GPIO digital de salida',
+      'Bomba: alimentación externa adecuada y control mediante relay',
     ],
     prototypeEvidence: [
-      'No se publica un GPIO como evidencia hasta completar la validación física.',
+      'DHT11: conexión validada en Smart Garden Lab con DATA en GPIO21.',
+      'Suelo, LDR, relay y LED: GPIO propuesto por el estudiante y pendiente de validación física.',
     ],
   },
   {
-    id: 'garden-actuators',
+    id: 'garden-energy-system',
     profiles: ['garden-node'],
-    title: 'Relay, bomba y LED',
-    summary: 'La placa decide; el relay controla la energía de los actuadores.',
-    image: '/resources/diagrams/garden-actuators-pending.svg',
+    title: 'Energía experimental del prototipo',
+    summary: 'Vista conceptual de alimentación solar, almacenamiento, regulación y cargas.',
+    image: GUIDE_ASSETS.connections.energySystem,
     validationStatus: 'pending',
-    validationDetail: 'Polaridad, fuente y GPIO deben validarse físicamente.',
-    generalConnections: ['ESP32 → entrada de control del relay', 'Relay → bomba / iluminación con fuente adecuada'],
-    prototypeEvidence: ['GPIO y polaridad pendientes de validación física.'],
+    validationDetail: 'Es una propuesta experimental: tensión, corriente, polaridad y autonomía deben medirse antes de conectar.',
+    generalConnections: [
+      'Panel solar → controlador de carga compatible',
+      'Controlador → batería o powerbank adecuado',
+      'Regulador → ESP32 y cargas con la tensión requerida',
+    ],
+    prototypeEvidence: ['Sistema energético pendiente de validación física completa.'],
   },
   {
     id: 'camera-module',
     profiles: ['camera-node'],
-    title: 'Sensor de imagen → ESP32-CAM',
+    title: 'Camera Node — conexiones completas',
     summary: 'El sensor se integra mediante su conector flexible; no se cablea como un sensor GPIO simple.',
-    image: '/resources/diagrams/camera-module.svg',
+    image: GUIDE_ASSETS.connections.cameraNode,
     validationStatus: 'validated',
     validationDetail: 'OV3660 y PSRAM validadas físicamente en la Camera Node actual.',
     generalConnections: ['Sensor OV3660 → conector FPC de cámara', 'ESP32-CAM → programador USB', 'Imágenes → Wi-Fi'],

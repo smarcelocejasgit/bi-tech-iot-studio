@@ -1,4 +1,5 @@
 import { DeviceProfileId } from '../types/hardware';
+import { GUIDE_ASSETS } from './guideAssets';
 
 export interface ProjectGuideProfile {
   name: string;
@@ -19,7 +20,7 @@ export const PROJECT_GUIDE_PROFILES: Record<
     question: '¿Cómo puede un sistema tomar decisiones de cuidado a partir de datos reales del ambiente?',
     build: 'Un nodo ambiental programable que combina sensores, decisiones y acciones de riego u observación.',
     observe: 'Temperatura, humedad ambiente y, cuando se validen, suelo, luminosidad y acciones del prototipo.',
-    heroImage: '/resources/components/garden-project.svg',
+    heroImage: GUIDE_ASSETS.project.gardenNode,
   },
   'camera-node': {
     name: 'Camera Node Bi-Tech — ESP32-CAM',
