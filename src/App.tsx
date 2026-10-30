@@ -58,7 +58,13 @@ import {
   StudioProject,
 } from './types/studio';
 
-export const App: React.FC = () => {
+interface AppProps {
+  onOpenLab?: () => void;
+}
+
+export const App: React.FC<AppProps> = ({
+  onOpenLab = () => window.location.assign('/lab'),
+}) => {
   const [projects, setProjects] = useState<StudioProject[]>(() =>
     loadStudioProjects()
   );
@@ -593,6 +599,11 @@ export const App: React.FC = () => {
       <HardwareConfigModal
         isOpen={isHardwareModalOpen}
         onClose={() => setIsHardwareModalOpen(false)}
+        onOpenProjectGuide={() => {
+          setIsAssistantOpen(false);
+          setIsProjectGuideOpen(true);
+        }}
+        onOpenLab={onOpenLab}
       />
     </div>
   );

@@ -102,8 +102,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             data-testid="open-hardware-modal-btn"
             onClick={onOpenHardwareModal}
             className="p-2 rounded-full bg-white/70 hover:bg-white text-slate-700 border border-emerald-300/60 transition cursor-pointer"
-            title="Capacidades físicas vs. perfil educativo y mapeo de pines"
-            aria-label="Configuración de hardware"
+            title="Acerca de Bi-Tech IoT Studio"
+            aria-label="Acerca de Bi-Tech IoT Studio"
           >
             <Settings className="w-4 h-4" />
           </button>

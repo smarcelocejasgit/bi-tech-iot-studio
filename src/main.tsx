@@ -21,7 +21,11 @@ const Root: React.FC = () => {
   return (
     <>
       <GlobalNav route={route} onNavigate={navigate} />
-      {route === 'lab' ? <SmartGardenLab /> : <App />}
+      {route === 'lab' ? (
+        <SmartGardenLab />
+      ) : (
+        <App onOpenLab={() => navigate('lab')} />
+      )}
     </>
   );
 };

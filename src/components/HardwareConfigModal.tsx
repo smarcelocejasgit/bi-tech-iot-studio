@@ -1,5 +1,19 @@
-import React from 'react';
-import { Cpu, ShieldAlert, X } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import {
+  ArrowRight,
+  Blocks,
+  BookOpen,
+  Cable,
+  ChevronDown,
+  Cpu,
+  Eye,
+  FlaskConical,
+  Lightbulb,
+  Play,
+  ShieldAlert,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import { CAMERA_NODE_CONFIG } from '../hardware/cameraNodeConfig';
 import { GARDEN_NODE_CONFIG } from '../hardware/gardenNodeConfig';
 import { NODEMCU_ESP8266_CONFIG } from '../hardware/nodeMcuConfig';
@@ -7,12 +21,67 @@ import { NODEMCU_ESP8266_CONFIG } from '../hardware/nodeMcuConfig';
 interface HardwareConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenProjectGuide: () => void;
+  onOpenLab: () => void;
 }
+
+const STUDIO_FLOW = [
+  {
+    title: 'Conocer',
+    description: 'identificar componentes y tipo de señal',
+    icon: BookOpen,
+  },
+  {
+    title: 'Conectar',
+    description: 'elegir GPIO compatible',
+    icon: Cable,
+  },
+  {
+    title: 'Programar',
+    description: 'construir el algoritmo con bloques',
+    icon: Blocks,
+  },
+  {
+    title: 'Comprender',
+    description: 'interpretar qué hace el programa',
+    icon: Lightbulb,
+  },
+  {
+    title: 'Probar',
+    description: 'simular o transferir a la placa',
+    icon: Play,
+  },
+  {
+    title: 'Observar',
+    description: 'analizar datos y comportamiento en Smart Garden Lab',
+    icon: Eye,
+  },
+] as const;
 
 export const HardwareConfigModal: React.FC<HardwareConfigModalProps> = ({
   isOpen,
   onClose,
+  onOpenProjectGuide,
+  onOpenLab,
 }) => {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const gardenPins = Object.values(GARDEN_NODE_CONFIG.pins);
@@ -20,25 +89,145 @@ export const HardwareConfigModal: React.FC<HardwareConfigModalProps> = ({
   const { capabilities: nmCaps } = NODEMCU_ESP8266_CONFIG;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-4xl w-full overflow-hidden">
-        <div className="px-5 py-3.5 bg-emerald-900 text-white flex items-center justify-between">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-2 backdrop-blur-sm sm:p-5"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        data-testid="studio-orientation-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="studio-orientation-title"
+        className="flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-[1.75rem] border border-emerald-200 bg-[#f8fbf8] shadow-2xl"
+      >
+        <header className="flex items-center justify-between border-b border-emerald-200 bg-gradient-to-r from-[#dff1e3] to-[#f3f8e8] px-5 py-4 sm:px-7">
           <div className="flex items-center gap-2">
-            <Cpu className="w-5 h-5 text-emerald-300" />
-            <h3 className="font-bold text-base">
-              Capacidades Físicas vs. Perfil Educativo y Mapeo de Pines (V0.1.2)
-            </h3>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-700 text-white shadow-sm">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-emerald-700">
+                Acerca del proyecto
+              </p>
+              <h2
+                id="studio-orientation-title"
+                className="text-lg font-extrabold text-slate-900 sm:text-xl"
+              >
+                Bi-Tech IoT Studio
+              </h2>
+            </div>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
+            className="cursor-pointer rounded-full border border-slate-300 bg-white p-2 text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            aria-label="Cerrar información de Bi-Tech IoT Studio"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
-        </div>
+        </header>
 
-        <div className="p-5 space-y-5 max-h-[82vh] overflow-y-auto text-xs text-slate-700">
+        <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5 text-sm text-slate-700 sm:px-7 sm:py-6">
+          <section className="rounded-3xl border border-emerald-200 bg-white p-5 shadow-sm sm:p-6">
+            <p className="max-w-4xl text-base leading-relaxed text-slate-700 sm:text-lg">
+              Bi-Tech IoT Studio es un entorno educativo para diseñar,
+              programar y comprender sistemas físicos conectados. Articula
+              sensores, actuadores, programación por bloques, GPIO, ESP32 e
+              IoT con experiencias como Smart Garden Lab.
+            </p>
+          </section>
+
+          <section aria-labelledby="studio-flow-title">
+            <div className="mb-3">
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">
+                Cómo funciona
+              </p>
+              <h3 id="studio-flow-title" className="text-xl font-extrabold text-slate-900">
+                Del componente a la observación
+              </h3>
+            </div>
+            <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {STUDIO_FLOW.map((item, index) => {
+                const Icon = item.icon;
+                return (
+                  <li
+                    key={item.title}
+                    className="relative flex min-h-28 items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="pr-5">
+                      <span className="text-[10px] font-extrabold text-emerald-700">
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <h4 className="font-extrabold text-slate-900">{item.title}</h4>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                        {item.description}
+                      </p>
+                    </div>
+                    {index < STUDIO_FLOW.length - 1 && (
+                      <ArrowRight className="absolute right-3 top-4 h-4 w-4 text-emerald-300" />
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+
+          <section aria-labelledby="studio-access-title">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">
+              Accesos
+            </p>
+            <h3 id="studio-access-title" className="text-xl font-extrabold text-slate-900">
+              Continuar explorando
+            </h3>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                data-testid="orientation-open-project-guide"
+                onClick={() => {
+                  onClose();
+                  onOpenProjectGuide();
+                }}
+                className="flex cursor-pointer items-center justify-between rounded-2xl bg-emerald-700 px-4 py-3 text-left font-extrabold text-white transition hover:bg-emerald-800"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <BookOpen className="h-5 w-5" /> Guía del proyecto
+                </span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                data-testid="orientation-open-lab"
+                onClick={() => {
+                  onClose();
+                  onOpenLab();
+                }}
+                className="flex cursor-pointer items-center justify-between rounded-2xl border border-emerald-300 bg-white px-4 py-3 text-left font-extrabold text-emerald-800 transition hover:bg-emerald-50"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <FlaskConical className="h-5 w-5" /> Abrir Smart Garden Lab
+                </span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          </section>
+
+          <details
+            data-testid="orientation-technical-info"
+            className="group overflow-hidden rounded-2xl border border-slate-200 bg-white"
+          >
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-extrabold text-slate-800 sm:px-5">
+              <span className="inline-flex items-center gap-2">
+                <Cpu className="h-5 w-5 text-emerald-700" /> Información técnica
+              </span>
+              <ChevronDown className="h-5 w-5 text-slate-500 transition group-open:rotate-180" />
+            </summary>
+            <div className="space-y-5 border-t border-slate-200 p-4 text-xs sm:p-5">
           <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2.5 text-amber-950">
             <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="space-y-1">
@@ -222,8 +411,10 @@ export const HardwareConfigModal: React.FC<HardwareConfigModalProps> = ({
               </p>
             </div>
           </div>
+            </div>
+          </details>
         </div>
-      </div>
+      </section>
     </div>
   );
 };
